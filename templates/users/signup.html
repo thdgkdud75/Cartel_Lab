@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}회원가입{% endblock %}
+
+{% block content %}
+<h1>회원가입</h1>
+<p>현재는 화면만 연결된 상태입니다. 폼 처리 로직은 추후 구현하세요.</p>
+<form method="post" style="display:grid; gap:10px; max-width:360px;">
+    {% csrf_token %}
+    <label for="student_id">학번</label>
+    <input id="student_id" name="student_id" type="text" required>
+
+    <label for="name">이름</label>
+    <input id="name" name="name" type="text" required>
+
+    <button type="submit">회원가입</button>
+</form>
+{% endblock %}

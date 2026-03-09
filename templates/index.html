@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Team Lab | 랜딩{% endblock %}
+
+{% block content %}
+<h1 style="margin-top:0;">Team Lab 랜딩 페이지</h1>
+<p style="color:#4b5563;">원하는 기능을 선택해서 바로 테스트할 수 있습니다.</p>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;">
+    <a href="/users/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>회원</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">회원 목록/기본 페이지</div>
+    </a>
+    <a href="/attendance/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>출결</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">출결 기능 테스트</div>
+    </a>
+    <a href="/planner/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>계획표</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">주간 계획 관리</div>
+    </a>
+    <a href="/seats/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>자리</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">좌석 상태 확인</div>
+    </a>
+    <a href="/users/signup/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>회원가입</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">신규 계정 등록</div>
+    </a>
+    <a href="/users/login/" style="display:block; padding:14px; border:1px solid #e5e7eb; border-radius:10px; text-decoration:none; color:#111827; background:#fff;">
+        <strong>로그인</strong>
+        <div style="margin-top:6px; color:#6b7280; font-size:14px;">기존 계정 로그인</div>
+    </a>
+</div>
+{% endblock %}
