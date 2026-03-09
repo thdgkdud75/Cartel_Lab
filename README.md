@@ -92,3 +92,6 @@ deactivate
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
+
+## DB Guide
+- Team MySQL setup: `DB_MYSQL_SETUP.md`
