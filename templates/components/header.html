@@ -15,9 +15,14 @@
             <a href="/users/" class="nav-link{% if path == '/users/' %} primary{% endif %}">인원관리</a>
             <a href="/attendance/" class="nav-link{% if path|slice:':12' == '/attendance/' %} primary{% endif %}">출결관리</a>
             <a href="/planner/" class="nav-link{% if path|slice:':9' == '/planner/' %} primary{% endif %}">목표/계획</a>
+            <a href="/jobs/" class="nav-link{% if path|slice:':6' == '/jobs/' %} primary{% endif %}">최근일자리</a>
             <a href="/seats/" class="nav-link{% if path|slice:':7' == '/seats/' %} primary{% endif %}">좌석현황</a>
-            <a href="/users/signup/" class="nav-link{% if path|slice:':14' == '/users/signup/' %} primary{% endif %}">신규등록</a>
+            {% if request.user.is_authenticated %}
+            <a href="/users/" class="nav-link{% if path == '/users/' %} primary{% endif %}">{{ request.user.name }}</a>
+            <a href="/users/logout/" class="nav-link">로그아웃</a>
+            {% else %}
             <a href="/users/login/" class="nav-link{% if path|slice:':13' == '/users/login/' %} primary{% endif %}">로그인</a>
+            {% endif %}
             {% endwith %}
         </nav>
     </div>

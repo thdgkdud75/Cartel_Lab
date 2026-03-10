@@ -3,16 +3,208 @@
 {% block title %}회원가입{% endblock %}
 
 {% block content %}
-<h1>회원가입</h1>
-<p>현재는 화면만 연결된 상태입니다. 폼 처리 로직은 추후 구현하세요.</p>
-<form method="post" style="display:grid; gap:10px; max-width:360px;">
-    {% csrf_token %}
-    <label for="student_id">학번</label>
-    <input id="student_id" name="student_id" type="text" required>
+<style>
+    .auth-shell {
+        display: grid;
+        grid-template-columns: minmax(320px, 1.05fr) minmax(280px, 0.95fr);
+        gap: 18px;
+        align-items: stretch;
+    }
+    .auth-panel,
+    .auth-side {
+        border: 1px solid #ebecef;
+        border-radius: 18px;
+        background: #fff;
+        padding: 24px;
+    }
+    .auth-side {
+        background: linear-gradient(180deg, #fff8f3 0%, #fff 100%);
+    }
+    .auth-kicker {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .auth-title {
+        margin: 0 0 10px;
+        font-size: clamp(32px, 4vw, 48px);
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+    }
+    .auth-desc {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    .auth-notice {
+        margin-top: 16px;
+        border: 1px dashed #ffcfaf;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #fff8f3;
+        color: #5f5f64;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .auth-form {
+        display: grid;
+        gap: 14px;
+    }
+    .auth-form-head {
+        margin-bottom: 8px;
+    }
+    .auth-form-title {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.03em;
+    }
+    .auth-form-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .auth-field {
+        display: grid;
+        gap: 8px;
+    }
+    .auth-field label {
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .auth-field input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #e2e5e9;
+        border-radius: 12px;
+        padding: 14px 15px;
+        background: #fcfcfd;
+        font-size: 15px;
+        transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+    }
+    .auth-field input:focus {
+        outline: none;
+        border-color: #ffb78b;
+        box-shadow: 0 0 0 4px rgba(255, 111, 15, 0.12);
+        background: #fff;
+    }
+    .auth-error {
+        color: #c2410c;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    .auth-submit {
+        border: none;
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: var(--brand);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .auth-submit:hover {
+        background: #e96307;
+    }
+    .auth-links {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .auth-links a {
+        color: var(--brand);
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .auth-points {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .auth-point {
+        border: 1px solid #f0dfd1;
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+    .auth-point strong {
+        display: block;
+        margin-bottom: 6px;
+    }
+    .auth-point p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+    }
+    @media (max-width: 900px) {
+        .auth-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 760px) {
+        .auth-panel,
+        .auth-side {
+            border-radius: 16px;
+            padding: 20px 18px;
+        }
+        .auth-title {
+            font-size: 36px;
+        }
+    }
+</style>
 
-    <label for="name">이름</label>
-    <input id="name" name="name" type="text" required>
+<div class="auth-shell">
+    <section class="auth-side">
+        <span class="auth-kicker">JOIN TEAM LAB</span>
+        <h1 class="auth-title">랩실 구성원 등록</h1>
+        <p class="auth-desc">학번, 이름, 비밀번호만 입력하면 바로 계정을 만들 수 있습니다. 생성된 계정으로 출결, 계획, 좌석 관리 화면에 접근합니다.</p>
+        <div class="auth-notice">
+            내부 운영용 계정입니다. 회원가입 후에는 학번과 비밀번호로 로그인합니다.
+        </div>
+        <div class="auth-points">
+            <div class="auth-point">
+                <strong>간단한 등록</strong>
+                <p>학번, 이름, 비밀번호만 받아 최소 입력 흐름으로 구성했습니다.</p>
+            </div>
+            <div class="auth-point">
+                <strong>바로 사용 가능</strong>
+                <p>가입이 끝나면 자동 로그인되어 인원 관리 페이지로 이동합니다.</p>
+            </div>
+        </div>
+    </section>
 
-    <button type="submit">회원가입</button>
-</form>
+    <section class="auth-panel">
+        <div class="auth-form-head">
+            <h2 class="auth-form-title">회원가입</h2>
+            <p class="auth-form-copy">랩실에서 사용할 개인 계정을 생성합니다.</p>
+        </div>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="auth-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="auth-error">{{ field.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+                <div class="auth-error">{{ form.non_field_errors|join:", " }}</div>
+            {% endif %}
+            <button type="submit" class="auth-submit">계정 만들기</button>
+        </form>
+
+        <div class="auth-links">
+            이미 계정이 있으면 <a href="/users/login/">로그인</a>
+        </div>
+    </section>
+</div>
 {% endblock %}

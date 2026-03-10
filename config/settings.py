@@ -24,7 +24,7 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ol*ixs%vs!53nu@k6qd_kcz8r*rn_0#4b$7n(oida8_&+7qu+#'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-only-change-this-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -46,6 +46,11 @@ INSTALLED_APPS = [
     'planner',
     'seats',
 ]
+
+AUTH_USER_MODEL = 'users.User'
+LOGIN_URL = '/users/login/'
+LOGIN_REDIRECT_URL = '/users/'
+LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -128,6 +133,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
+
+# Jobs collection policy
+JOB_ACTIVE_LIMIT_PER_SOURCE = int(os.getenv("JOB_ACTIVE_LIMIT_PER_SOURCE", "300"))
+JOB_ACTIVE_SOURCES = os.getenv("JOB_ACTIVE_SOURCES", "saramin,wanted").split(",")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

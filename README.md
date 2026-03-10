@@ -23,6 +23,12 @@ Django 기반 팀 프로젝트입니다.
 
 ## 일자리 정보 패치 정책
 - 최근 일자리 정보는 `주 1회` 패치 방식으로 운영
+- 소스별 활성 공고는 최신 기준 `300건` 유지 (`saramin`, `wanted`)
+- 설정 파일: `.env`의 `JOB_ACTIVE_LIMIT_PER_SOURCE`, `JOB_ACTIVE_SOURCES`
+- 활성 건수 정리 명령:
+```bash
+python manage.py enforce_job_active_limit
+```
 
 ## 패키지 설치 후 requirements 반영
 팀원이 로컬에서 새 패키지를 설치했다면 아래 순서로 `requirements.txt`에 반영합니다.
@@ -84,6 +90,8 @@ pip freeze > requirements.txt
 
 
 ## 5. Django 점검 및 DB 반영
+모델을 추가하거나 수정했으면 아래 `makemigrations`, `migrate`를 다시 실행해야 합니다.
+
 macOS / Linux:
 ```bash
 python manage.py check
@@ -97,6 +105,9 @@ python manage.py check
 python manage.py makemigrations
 python manage.py migrate
 ```
+
+예시:
+- 회원가입/로그인처럼 사용자 모델이 바뀐 경우에도 반드시 `python manage.py makemigrations` 후 `python manage.py migrate`를 실행합니다.
 
 ## 6. 서버 실행
 macOS / Linux:

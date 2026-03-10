@@ -3,10 +3,15 @@
 {% block title %}회원 관리{% endblock %}
 
 {% block content %}
-<h1>회원 관리(users)</h1>
-<p>회원 기능 페이지 연결만 완료된 상태입니다.</p>
+<h1>회원 관리</h1>
+{% if request.user.is_authenticated %}
+<p><strong>{{ request.user.name }}</strong>님으로 로그인 중입니다. 학번은 {{ request.user.student_id }}입니다.</p>
+<p><a href="/users/logout/">로그아웃</a></p>
+{% else %}
+<p>현재 로그인되어 있지 않습니다.</p>
 <p>
-    <a href="/users/signup/">회원가입 페이지</a> |
-    <a href="/users/login/">로그인 페이지</a>
+    <a href="/users/signup/">회원가입</a> |
+    <a href="/users/login/">로그인</a>
 </p>
+{% endif %}
 {% endblock %}

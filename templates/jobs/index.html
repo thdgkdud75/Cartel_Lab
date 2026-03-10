@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}최근일자리 | 비전대학교 Lab{% endblock %}
+
+{% block content %}
+<h1 style="margin-top:0; margin-bottom:10px;">최근일자리</h1>
+<p style="margin-top:0; color:var(--muted);">
+    사람인/당근 등 외부 채용 소스에서 최근 일자리 목록을 수집해 보여주는 페이지입니다.
+</p>
+
+<div style="margin-top:14px; padding:14px; border:1px dashed #ffcfaf; border-radius:12px; background:#fff8f3;">
+    현재는 준비 단계입니다. 이후 기능에서 주 1회 패치된 최근 일자리 100건과 AI 이력서 매칭 결과를 표시합니다.
+</div>
+
+<div class="landing-grid" style="margin-top:16px;">
+    <article class="landing-card">
+        <strong>사람인 수집</strong>
+        <p>키워드/지역 기반 최근 채용 공고 수집</p>
+    </article>
+    <article class="landing-card">
+        <strong>당근 수집</strong>
+        <p>로컬 일자리 공고 수집 및 중복 제거</p>
+    </article>
+    <article class="landing-card">
+        <strong>AI 매칭</strong>
+        <p>이력서 기반 우선 추천 점수 계산</p>
+    </article>
+</div>
+{% endblock %}
