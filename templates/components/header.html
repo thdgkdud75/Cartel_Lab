@@ -11,12 +11,14 @@
             <span class="bar"></span>
         </button>
         <nav class="nav-links" id="site-nav">
-            <a href="/users/" class="nav-link">인원관리</a>
-            <a href="/attendance/" class="nav-link">출결관리</a>
-            <a href="/planner/" class="nav-link primary">목표/계획</a>
-            <a href="/seats/" class="nav-link">좌석현황</a>
-            <a href="/users/signup/" class="nav-link">신규등록</a>
-            <a href="/users/login/" class="nav-link">로그인</a>
+            {% with path=request.path %}
+            <a href="/users/" class="nav-link{% if path == '/users/' %} primary{% endif %}">인원관리</a>
+            <a href="/attendance/" class="nav-link{% if path|slice:':12' == '/attendance/' %} primary{% endif %}">출결관리</a>
+            <a href="/planner/" class="nav-link{% if path|slice:':9' == '/planner/' %} primary{% endif %}">목표/계획</a>
+            <a href="/seats/" class="nav-link{% if path|slice:':7' == '/seats/' %} primary{% endif %}">좌석현황</a>
+            <a href="/users/signup/" class="nav-link{% if path|slice:':14' == '/users/signup/' %} primary{% endif %}">신규등록</a>
+            <a href="/users/login/" class="nav-link{% if path|slice:':13' == '/users/login/' %} primary{% endif %}">로그인</a>
+            {% endwith %}
         </nav>
     </div>
 </header>
