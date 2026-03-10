@@ -24,6 +24,9 @@ Django 기반 팀 프로젝트입니다.
 ## 일자리 정보 패치 정책
 - 최근 일자리 정보는 `주 1회` 패치 방식으로 운영
 
+## 패키지 설치 후 requirements 반영
+팀원이 로컬에서 새 패키지를 설치했다면 아래 순서로 `requirements.txt`에 반영합니다.
+
 ## 1. 프로젝트 이동
 ```bash
 cd team_lab
@@ -67,6 +70,18 @@ Windows (PowerShell/CMD):
 ```powershell
 pip install -r requirements.txt
 ```
+
+# 라이브러리 설치 시 해야할 행동
+1. 패키지 설치
+```bash
+pip install <패키지명>
+```
+
+2. 동결 파일 갱신
+```bash
+pip freeze > requirements.txt
+```
+
 
 ## 5. Django 점검 및 DB 반영
 macOS / Linux:
