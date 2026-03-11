@@ -1,9 +1,7 @@
 from django.db import models
 
-
 class JobPosting(models.Model):
     """Collected job posting normalized for filtering and analysis."""
-
     SOURCE_CHOICES = [
         ("saramin", "Saramin"),
         ("wanted", "Wanted"),
@@ -25,7 +23,6 @@ class JobPosting(models.Model):
     experience_max = models.PositiveSmallIntegerField(default=0)
     education_level = models.CharField(max_length=50, blank=True, default="")
 
-    # 2-year college / junior friendly indicator for filtering
     is_junior_friendly = models.BooleanField(default=False)
 
     required_skills = models.TextField(blank=True, default="")
@@ -62,7 +59,6 @@ class JobPosting(models.Model):
 
 class JobSyncLog(models.Model):
     """Daily sync execution log."""
-
     source = models.CharField(max_length=20)
     run_at = models.DateTimeField(auto_now_add=True)
     fetched_count = models.PositiveIntegerField(default=0)
@@ -81,7 +77,6 @@ class JobSyncLog(models.Model):
 
 class JuniorRequirementStat(models.Model):
     """Daily aggregated requirement stats to analyze junior hiring trends."""
-
     stat_date = models.DateField()
     role = models.CharField(max_length=120)
     skill = models.CharField(max_length=120)
