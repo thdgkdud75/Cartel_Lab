@@ -176,6 +176,15 @@ class WeeklyPlannerTests(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+        self.client.logout()
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(
+            reverse("planner-daily-todo-toggle", args=[todo.id]),
+        )
+        self.assertEqual(response.status_code, 302)
+        todo.refresh_from_db()
+        self.assertTrue(todo.is_completed)
+
 from planner.models import JobPosting
 from planner.services.job_detail import (
     parse_saramin_detail_payload,
@@ -466,11 +475,3 @@ class JobMarketAnalysisTests(TestCase):
         self.assertTrue(result["role_breakdown"])
         self.assertEqual(result["role_breakdown"][0]["role"], "Web Backend")
         self.assertIn("Python", result["role_breakdown"][0]["major_skills"])
-        self.client.logout()
-        self.client.login(student_id="20260001", password="pass-1234-abcd")
-        response = self.client.post(
-            reverse("planner-daily-todo-toggle", args=[todo.id]),
-        )
-        self.assertEqual(response.status_code, 302)
-        todo.refresh_from_db()
-        self.assertTrue(todo.is_completed)
