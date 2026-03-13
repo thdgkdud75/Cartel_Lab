@@ -1,8 +1,576 @@
 {% extends "base.html" %}
 
-{% block title %}출결 관리{% endblock %}
+{% block title %}출결 현황 - Team Lab{% endblock %}
 
 {% block content %}
-<h1>출결 관리(attendance)</h1>
-<p>실시간 출결과 자리비움 상태 로직을 구현할 영역입니다.</p>
+<div id="statusMessage" class="status-message"></div>
+
+<div class="attendance-dashboard">
+    <!-- 왼쪽 카드 (본인 출결 정보 및 주간 기록) -->
+    <div class="dashboard-left">
+        <div class="my-attendance-card">
+            <h2 class="my-name">{{ user.name }}님의 오늘의 출결 현황</h2>
+            
+            <div class="my-status-display">
+                {% if not today_record %}
+                    <div class="status-large status-absent">출석 전</div>
+                {% else %}
+                    <div class="status-large status-{{ today_record.status }}">{{ today_record.get_status_display }}</div>
+                {% endif %}
+            </div>
+
+            <div class="my-time-info">
+                <div class="time-block">
+                    <span class="time-label">체크인</span>
+                    <span class="time-value">{% if today_record %}{{ today_record.check_in_at|date:"A g:i" }}{% else %}-{% endif %}</span>
+                </div>
+                <div class="time-block">
+                    <span class="time-label">체크아웃</span>
+                    <span class="time-value">{% if today_record and today_record.check_out_at %}{{ today_record.check_out_at|date:"A g:i" }}{% else %}-{% endif %}</span>
+                </div>
+            </div>
+
+            <div class="actions center-actions">
+                {% if user.is_staff %}
+                <button id="setLocationBtn" class="btn-secondary">현재 위치를 출결지로 설정</button>
+                <button id="setTimeBtn" class="btn-secondary">출결 시간 설정</button>
+                {% endif %}
+                {% if not today_record %}
+                <button id="checkInBtn" class="btn-primary">출석체크 하기</button>
+                {% elif not today_record.check_out_at %}
+                <button id="checkOutBtn" class="btn-danger">퇴실하기</button>
+                {% else %}
+                <button class="btn-secondary" disabled>퇴실 완료</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="recent-attendance-card">
+            <h3>최근 1년 출결 현황</h3>
+            <div id="attendanceHeatmap" class="heatmap-container"></div>
+            <div class="heatmap-legend">
+                <span>결석/미출석</span>
+                <div class="heatmap-cell status-absent-color"></div>
+                <div class="heatmap-cell status-late-color"></div>
+                <div class="heatmap-cell status-leave-color"></div>
+                <div class="heatmap-cell status-present-color"></div>
+                <span>출석/기타</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 오른쪽 카드 (다른 인원들 출결 현황) -->
+    <div class="dashboard-right">
+        <div class="others-attendance-card">
+            <h2>다른 인원 출결 현황</h2>
+            <!-- HTMX: 5초마다 /attendance/list/를 호출하여 내용을 갱신함 -->
+            <div hx-get="{% url 'attendance:list' %}" 
+                 hx-trigger="load, every 5s" 
+                 hx-target="#attendanceList">
+                <div id="attendanceList">
+                    <p class="loading">데이터를 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .attendance-dashboard {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+    .dashboard-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .dashboard-right {
+        flex: 1;
+    }
+    
+    .my-attendance-card, .recent-attendance-card, .others-attendance-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .my-name {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    .my-status-display {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 24px;
+    }
+
+    .status-large {
+        font-size: 32px;
+        font-weight: 800;
+        padding: 10px 30px;
+        border-radius: 12px;
+    }
+    .status-absent { background: #f1f3f5; color: #868e96; }
+    .status-present { background: #e6fcf5; color: #0ca678; }
+    .status-late { background: #fff9db; color: #f08c00; }
+    .status-leave { background: #e7f5ff; color: #1c7ed6; }
+
+    .my-time-info {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin-bottom: 30px;
+    }
+    .time-block {
+        text-align: center;
+    }
+    .time-label {
+        display: block;
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 8px;
+    }
+    .time-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    .center-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .recent-attendance-card h3 {
+        margin-bottom: 12px;
+    }
+
+    .heatmap-container {
+        display: flex;
+        flex-wrap: wrap; /* 좌우로 길어지지 않고 아래로 줄바꿈되도록 설정 */
+        gap: 8px; /* 줄바꿈된 블록 사이의 간격 */
+        padding-bottom: 8px;
+        max-width: 100%; 
+    }
+    
+    .heatmap-week {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .heatmap-cell {
+        width: 12px;  /* 원래 너비 복구 */
+        height: 12px; /* 원래 높이 복구 */
+        border-radius: 2px;
+        background-color: #ebedf0;
+        flex-shrink: 0;
+    }
+
+    .heatmap-legend {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    /* 단일 색상 (기존) */
+    .status-present-color { background-color: #40c463; }
+    .status-late-color { background-color: #fab005; }
+    .status-leave-color { background-color: #339af0; }
+    .status-absent-color { background-color: #ebedf0; }
+
+    /* 복합 색상 (지각+조퇴) - 좌: 지각(노랑), 우: 조퇴(파랑) */
+    .status-late-leave-color {
+        background: linear-gradient(to right, #fab005 50%, #339af0 50%);
+    }
+
+    /* 복합 색상 (정상+조퇴) - 좌: 정상(초록), 우: 조퇴(파랑) */
+    .status-present-leave-color {
+        background: linear-gradient(to right, #40c463 50%, #339af0 50%);
+    }
+
+    /* 복합 색상 (지각+정상) - 좌: 지각(노랑), 우: 정상(초록) */
+    .status-late-present-color {
+        background: linear-gradient(to right, #fab005 50%, #40c463 50%);
+    }
+
+    /* 기존 버튼 스타일 유지 */
+    .btn-primary {
+        background: var(--brand);
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .2s;
+    }
+    .btn-primary:hover {
+        background: #e15900;
+    }
+    .btn-secondary {
+        background: #f1f2f4;
+        color: var(--text);
+        border: 1px solid var(--line);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .2s;
+        margin-right: 10px;
+    }
+    .btn-secondary:hover {
+        background: #e1e2e4;
+    }
+    .btn-danger {
+        background: #fa5252;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .2s;
+    }
+    .btn-danger:hover {
+        background: #e03131;
+    }
+    .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled {
+        background: var(--muted);
+        cursor: not-allowed;
+    }
+    .status-message {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 8px;
+        display: none;
+    }
+    .status-success { background: #e6fcf5; color: #0ca678; display: block; }
+    .status-error { background: #fff5f5; color: #fa5252; display: block; }
+    .status-info { background: #e7f5ff; color: #228be6; display: block; }
+    .loading { color: var(--muted); text-align: center; padding: 20px; }
+</style>
+
+<script>
+    const statusDiv = document.getElementById('statusMessage');
+
+    function showMessage(status, message) {
+        statusDiv.className = `status-message status-${status}`;
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
+    }
+
+    // Heatmap 생성 로직
+    document.addEventListener("DOMContentLoaded", function() {
+        const heatmapData = {{ heatmap_data|safe|default:"{}" }};
+        const container = document.getElementById('attendanceHeatmap');
+        
+        if (container) {
+            const today = new Date();
+            const days = 365;
+            
+            // 1년 전 날짜 찾기
+            let startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - days);
+            
+            // 시작 주의 일요일로 맞추기 (달력 모양 정렬)
+            const startDayOfWeek = startDate.getDay();
+            startDate.setDate(startDate.getDate() - startDayOfWeek);
+            
+            let currentDate = new Date(startDate);
+            
+            // 53주 (1년 + 알파)
+            for (let col = 0; col < 53; col++) {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'heatmap-week';
+                
+                // 일요일부터 토요일까지 7일
+                for (let row = 0; row < 7; row++) {
+                    if (currentDate > today) {
+                        break;
+                    }
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    
+                    const year = currentDate.getFullYear();
+                    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentDate.getDate()).padStart(2, '0');
+                    const dateString = `${year}-${month}-${day}`;
+                    
+                    if (heatmapData[dateString]) {
+                        const inStatus = heatmapData[dateString].in;
+                        const outStatus = heatmapData[dateString].out;
+                        
+                        if (inStatus === 'late' && outStatus === 'leave') {
+                            cell.classList.add('status-late-leave-color');
+                            cell.title = `${dateString} - 지각 & 조퇴`;
+                        } else if (inStatus === 'present' && outStatus === 'leave') {
+                            cell.classList.add('status-present-leave-color');
+                            cell.title = `${dateString} - 출석 & 조퇴`;
+                        } else if (inStatus === 'late' && outStatus === 'present') {
+                            cell.classList.add('status-late-present-color');
+                            cell.title = `${dateString} - 지각 & 정상퇴근`;
+                        } else if (inStatus === 'present' && outStatus === 'present') {
+                            cell.classList.add('status-present-color');
+                            cell.title = `${dateString} - 정상 출결`;
+                        } else if (inStatus === 'late') {
+                            cell.classList.add('status-late-color');
+                            cell.title = `${dateString} - 지각 (퇴근 전)`;
+                        } else if (inStatus === 'present') {
+                            cell.classList.add('status-present-color');
+                            cell.title = `${dateString} - 출석 (퇴근 전)`;
+                        } else {
+                            // 호환성을 위해 남겨둠 (이전 데이터의 경우)
+                            const legacyStatus = heatmapData[dateString].status || heatmapData[dateString];
+                            if (legacyStatus === 'present') {
+                                cell.classList.add('status-present-color');
+                                cell.title = `${dateString} - 출석`;
+                            } else if (legacyStatus === 'late') {
+                                cell.classList.add('status-late-color');
+                                cell.title = `${dateString} - 지각`;
+                            } else if (legacyStatus === 'leave') {
+                                cell.classList.add('status-leave-color');
+                                cell.title = `${dateString} - 조퇴`;
+                            } else {
+                                cell.title = `${dateString} - ${legacyStatus}`;
+                            }
+                        }
+                    } else {
+                        cell.title = `${dateString} - 기록 없음`;
+                    }
+                    
+                    colDiv.appendChild(cell);
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                container.appendChild(colDiv);
+            }
+            
+            // 스크롤을 가장 오른쪽(최근 날짜)으로 이동
+            container.scrollLeft = container.scrollWidth;
+        }
+    });
+
+    // 출석체크 버튼 로직
+    const checkInBtn = document.getElementById('checkInBtn');
+    if (checkInBtn) {
+        checkInBtn.addEventListener('click', function() {
+            const btn = this;
+        
+        btn.disabled = true;
+        btn.textContent = '위치 확인 중...';
+        statusDiv.style.display = 'none';
+
+        if (!navigator.geolocation) {
+            showMessage('error', '이 브라우저는 위치 서비스를 지원하지 않습니다.');
+            resetBtn(btn);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                fetch("{% url 'attendance:check-in' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lon
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showMessage(data.status, data.message);
+                    if (data.status === 'success') {
+                        htmx.trigger('#attendanceList', 'load');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                    resetBtn(btn);
+                })
+                .catch(error => {
+                    showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+                    resetBtn(btn);
+                });
+            },
+            (error) => {
+                let msg = '위치 정보를 가져올 수 없습니다.';
+                if (error.code === 1) msg = '위치 정보 접근 권한이 거부되었습니다.';
+                showMessage('error', msg);
+                resetBtn(btn);
+            }
+        );
+
+        function resetBtn(b) {
+            b.disabled = false;
+            b.textContent = '출석체크 하기';
+        }
+        });
+    }
+
+    // 퇴실하기 버튼 로직
+    const checkOutBtn = document.getElementById('checkOutBtn');
+    if (checkOutBtn) {
+        checkOutBtn.addEventListener('click', function() {
+            const btn = this;
+        
+        if (!confirm('퇴실 처리를 하시겠습니까?')) return;
+
+        btn.disabled = true;
+        btn.textContent = '위치 확인 중...';
+        statusDiv.style.display = 'none';
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                fetch("{% url 'attendance:check-out' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lon
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showMessage(data.status, data.message);
+                    if (data.status === 'success') {
+                        htmx.trigger('#attendanceList', 'load');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                    btn.disabled = false;
+                    btn.textContent = '퇴실하기';
+                })
+                .catch(error => {
+                    showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+                    btn.disabled = false;
+                    btn.textContent = '퇴실하기';
+                });
+            },
+            (error) => {
+                showMessage('error', '위치 정보를 가져올 수 없습니다.');
+                btn.disabled = false;
+                btn.textContent = '퇴실하기';
+            }
+        );
+        });
+    }
+
+    // 관리자용 위치 설정 버튼 로직
+    const setLocBtn = document.getElementById('setLocationBtn');
+    if (setLocBtn) {
+        setLocBtn.addEventListener('click', function() {
+            const btn = this;
+            
+            if (!confirm('현재 위치를 새로운 출결 허용 위치로 설정하시겠습니까?')) return;
+
+            btn.disabled = true;
+            btn.textContent = '위치 설정 중...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const locationName = prompt('위치 이름을 입력하세요 (예: 연구실)', '연구실') || '연구실';
+
+                    fetch("{% url 'attendance:set-location' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            latitude: lat,
+                            longitude: lon,
+                            name: locationName
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        showMessage(data.status, data.message);
+                        btn.disabled = false;
+                        btn.textContent = '현재 위치를 출결지로 설정';
+                    })
+                    .catch(error => {
+                        showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+                        btn.disabled = false;
+                        btn.textContent = '현재 위치를 출결지로 설정';
+                    });
+                },
+                (error) => {
+                    showMessage('error', '위치 정보를 가져올 수 없습니다.');
+                    btn.disabled = false;
+                    btn.textContent = '현재 위치를 출결지로 설정';
+                }
+            );
+        });
+    }
+    // 관리자용 출결 시간 설정 버튼 로직
+    const setTimeBtn = document.getElementById('setTimeBtn');
+    if (setTimeBtn) {
+        setTimeBtn.addEventListener('click', function() {
+            const btn = this;
+            
+            const checkInTime = prompt('지각 기준 시간을 입력하세요 (예: 10:00)', '10:00');
+            if (!checkInTime) return;
+            
+            const checkOutTime = prompt('조퇴 기준 시간을 입력하세요 (예: 18:00)', '18:00');
+            if (!checkOutTime) return;
+            
+            // 정규식으로 HH:MM 형식 확인
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+            if (!timeRegex.test(checkInTime) || !timeRegex.test(checkOutTime)) {
+                alert('시간 형식이 잘못되었습니다. HH:MM 형식으로 입력해주세요.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '설정 중...';
+
+            fetch("{% url 'attendance:set-time' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    check_in: checkInTime,
+                    check_out: checkOutTime
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showMessage(data.status, data.message);
+                btn.disabled = false;
+                btn.textContent = '출결 시간 설정';
+            })
+            .catch(error => {
+                showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+                btn.disabled = false;
+                btn.textContent = '출결 시간 설정';
+            });
+        });
+    }
+</script>
 {% endblock %}

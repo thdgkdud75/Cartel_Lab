@@ -5,13 +5,39 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from .models import Seat
+from attendance.models import AttendanceRecord
 
 def index(request):
-    seats = Seat.objects.all()
+    # 10자리 고정 보장 (DB에 없으면 생성)
+    current_seat_numbers = set(Seat.objects.values_list('number', flat=True))
+    if len(current_seat_numbers) != 10 or not all(i in current_seat_numbers for i in range(1, 11)):
+        for i in range(1, 11):
+            if i not in current_seat_numbers:
+                Seat.objects.create(number=i)
+        Seat.objects.filter(number__gt=10).delete()
+
+    seats = Seat.objects.select_related('user').all()
     user_seat = None
     if request.user.is_authenticated:
         user_seat = Seat.objects.filter(user=request.user).first()
         
+    today = timezone.localdate()
+    attendance_records = {
+        record.user_id: record 
+        for record in AttendanceRecord.objects.filter(attendance_date=today)
+    }
+
+    # 좌석에 출결 입퇴실 시간 연동
+    for seat in seats:
+        if seat.user:
+            record = attendance_records.get(seat.user.id)
+            if record:
+                seat.attendance_entry_time = record.check_in_at
+                seat.attendance_exit_time = record.check_out_at
+            else:
+                seat.attendance_entry_time = None
+                seat.attendance_exit_time = None
+
     return render(request, "seats/index.html", {
         "seats": seats,
         "user_seat": user_seat
@@ -20,23 +46,42 @@ def index(request):
 def seat_status_api(request):
     # 전체 좌석 데이터를 반환 (해시가 변경되었을 때만 호출됨)
     seats = Seat.objects.select_related('user').all()
+    today = timezone.localdate()
+    
+    attendance_records = {
+        record.user_id: record 
+        for record in AttendanceRecord.objects.filter(attendance_date=today)
+    }
+
     data = []
     for seat in seats:
+        entry_time = None
+        exit_time = None
+        
+        if seat.user:
+            record = attendance_records.get(seat.user.id)
+            if record:
+                entry_time = timezone.localtime(record.check_in_at).strftime("%p %I:%M") if record.check_in_at else None
+                exit_time = timezone.localtime(record.check_out_at).strftime("%p %I:%M") if record.check_out_at else None
+
         seat_data = {
             "number": seat.number,
             "is_occupied": seat.is_occupied,
             "user_name": getattr(seat.user, 'name', seat.user.student_id) if seat.user else None,
             "is_mine": seat.user == request.user if request.user.is_authenticated else False,
-            "entry_time": seat.entry_time.strftime("%H:%M") if seat.entry_time else None,
-            "exit_time": seat.exit_time.strftime("%H:%M") if seat.exit_time else None,
+            "entry_time": entry_time,
+            "exit_time": exit_time,
         }
         data.append(seat_data)
     return JsonResponse({"seats": data})
 
 def seat_version_api(request):
-    # 좌석 상태의 해시값을 반환 (매우 가벼운 요청)
-    seats_data = list(Seat.objects.all().values_list('user_id', 'entry_time', 'exit_time'))
-    version_hash = hashlib.md5(str(seats_data).encode()).hexdigest()
+    # 좌석 상태의 해시값을 반환 (좌석 배정 현황 + 오늘 출결 현황을 합쳐서 해시 생성)
+    today = timezone.localdate()
+    seats_data = list(Seat.objects.all().values_list('user_id', flat=True))
+    attendance_data = list(AttendanceRecord.objects.filter(attendance_date=today).values_list('user_id', 'check_in_at', 'check_out_at'))
+    
+    version_hash = hashlib.md5(str(seats_data + attendance_data).encode()).hexdigest()
     return JsonResponse({"version": version_hash})
 
 @login_required
