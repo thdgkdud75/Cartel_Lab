@@ -47,8 +47,8 @@
                                 {% if seat.user %}
                                     <div class="display-name">{{ seat.user.name|default:seat.user.student_id }}</div>
                                     <div class="display-times" style="display: none;">
-                                        <div class="d-block">입: {{ seat.entry_time|date:"H:i"|default:"--" }}</div>
-                                        <div class="d-block">퇴: {{ seat.exit_time|date:"H:i"|default:"--" }}</div>
+                                        <div class="d-block">입: {{ seat.attendance_entry_time|date:"A g:i"|default:"--" }}</div>
+                                        <div class="d-block">퇴: {{ seat.attendance_exit_time|date:"A g:i"|default:"--" }}</div>
                                     </div>
                                 {% endif %}
                             </div>

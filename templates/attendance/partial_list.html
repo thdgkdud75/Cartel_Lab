@@ -1,0 +1,60 @@
+<div class="attendance-table-wrapper">
+    <table class="attendance-table">
+        <thead>
+            <tr>
+                <th>이름</th>
+                <th>상태</th>
+                <th>체크인</th>
+                <th>체크아웃</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.user.name }}</td>
+                <td>
+                    <span class="status-badge status-{{ record.status }}">
+                        {{ record.get_status_display }}
+                    </span>
+                </td>
+                <td>{{ record.check_in_at|date:"A g:i" }}</td>
+                <td>{{ record.check_out_at|date:"A g:i"|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="empty-message">오늘 출석한 인원이 없습니다.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .attendance-table-wrapper {
+        overflow-x: auto;
+    }
+    .attendance-table {
+        border-collapse: collapse;
+        margin-top: 20px;
+        width: auto;
+        min-width: 400px;
+    }
+    .attendance-table th, .attendance-table td {
+        padding: 12px 32px 12px 0; /* 오른쪽 여백을 주어 간격 조절, 왼쪽으로 몰리게 */
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+    }
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-present { background: #e6fcf5; color: #0ca678; }
+    .status-late { background: #fff9db; color: #f08c00; }
+    .empty-message {
+        text-align: left;
+        color: var(--muted);
+        padding: 40px 0;
+    }
+</style>

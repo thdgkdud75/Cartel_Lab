@@ -16,19 +16,32 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Attendance',
+            name='LocationSetting',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date', models.DateField(default=django.utils.timezone.now, verbose_name='날짜')),
-                ('entry_time', models.DateTimeField(blank=True, null=True, verbose_name='입실 시간')),
-                ('exit_time', models.DateTimeField(blank=True, null=True, verbose_name='퇴실 시간')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='attendances', to=settings.AUTH_USER_MODEL, verbose_name='사용자')),
+                ('name', models.CharField(default='연구실', max_length=100, verbose_name='위치 이름')),
+                ('latitude', models.FloatField(verbose_name='위도')),
+                ('longitude', models.FloatField(verbose_name='경도')),
+                ('radius', models.FloatField(default=50.0, verbose_name='허용 반경 (미터)')),
+                ('is_active', models.BooleanField(default=True, verbose_name='활성 여부')),
+            ],
+        ),
+        migrations.CreateModel(
+            name='AttendanceRecord',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('attendance_date', models.DateField(auto_now_add=True)),
+                ('status', models.CharField(choices=[('present', '출석'), ('late', '지각'), ('absent', '결석'), ('leave', '조퇴')], default='present', max_length=20)),
+                ('check_in_at', models.DateTimeField(auto_now_add=True)),
+                ('check_out_at', models.DateTimeField(blank=True, null=True)),
+                ('note', models.CharField(blank=True, max_length=255, null=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='attendance_records', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'verbose_name': '출결 기록',
-                'verbose_name_plural': '출결 기록 목록',
-                'ordering': ['-date', '-entry_time'],
-                'unique_together': {('user', 'date')},
+                'indexes': [models.Index(fields=['user', 'attendance_date'], name='attendance__user_id_b34aac_idx')],
+                'unique_together': {('user', 'attendance_date')},
             },
         ),
     ]
