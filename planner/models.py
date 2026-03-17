@@ -76,6 +76,7 @@ class JobMarketSnapshot(models.Model):
     analysis_summary = models.TextField(blank=True, default="")
     role_breakdown = models.JSONField(default=list)
     model_name = models.CharField(max_length=100, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
     analyzed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
