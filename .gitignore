@@ -10,6 +10,7 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv310/
 env/
 
 # Local database / runtime files
