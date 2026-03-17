@@ -67,6 +67,24 @@ class JobPosting(models.Model):
         return f"[{self.source}] {self.title} - {self.company_name}"
 
 
+class JobMarketSnapshot(models.Model):
+    """Cached market analysis result (role breakdown + skills)."""
+
+    analysis_key = models.CharField(max_length=100, unique=True)
+    total_jobs = models.PositiveIntegerField(default=0)
+    sampled_job_count = models.PositiveIntegerField(default=0)
+    analysis_summary = models.TextField(blank=True, default="")
+    role_breakdown = models.JSONField(default=list)
+    model_name = models.CharField(max_length=100, blank=True, default="")
+    analyzed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-analyzed_at"]
+
+    def __str__(self):
+        return f"MarketSnapshot({self.analysis_key}) @ {self.analyzed_at:%Y-%m-%d %H:%M}"
+
+
 class JobSyncLog(models.Model):
     """Daily sync execution log."""
 

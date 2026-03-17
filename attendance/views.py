@@ -37,11 +37,11 @@ def index(request):
         user=request.user, attendance_date=today
     ).first()
     
-    # 최근 1년 출결 현황 (오늘 포함)
-    one_year_ago = today - timedelta(days=365)
+    # 올해 1월 1일부터 오늘까지의 출결 현황
+    first_day_of_year = today.replace(month=1, day=1)
     yearly_records = AttendanceRecord.objects.filter(
         user=request.user,
-        attendance_date__gte=one_year_ago
+        attendance_date__gte=first_day_of_year
     )
     
     heatmap_data = {}
