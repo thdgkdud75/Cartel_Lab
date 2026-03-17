@@ -86,11 +86,13 @@ def attendance_list(request):
     HTMX 폴링을 위한 실시간 출결 목록 (부분 템플릿)
     """
     today = timezone.localdate()
-    records = AttendanceRecord.objects.filter(attendance_date=today)\
-        .exclude(user=request.user)\
+    qs = AttendanceRecord.objects.filter(attendance_date=today)\
         .exclude(user__is_staff=True)\
         .exclude(user__is_superuser=True)\
         .order_by("-check_in_at")
+    if request.user.is_authenticated:
+        qs = qs.exclude(user=request.user)
+    records = qs
     return render(request, "attendance/partial_list.html", {"records": records})
 
 
