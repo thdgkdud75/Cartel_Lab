@@ -32,6 +32,24 @@
         background: var(--planner-orange);
         color: #fff;
     }
+    .planner-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .planner-google-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .planner-google-text {
+        margin: 0;
+        font-size: 12px;
+        color: #7b4b24;
+        white-space: nowrap;
+    }
     .planner-layout {
         display: grid;
         grid-template-columns: minmax(0, 1.35fr) minmax(310px, 1fr);
@@ -161,6 +179,24 @@
         color: #737984;
         font-size: 13px;
     }
+    .google-sync-link,
+    .google-sync-btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .google-sync-link {
+        background: var(--planner-orange);
+        color: #fff;
+    }
+    .google-sync-btn {
+        background: #ffe8d6;
+        color: var(--planner-orange-deep);
+    }
     .daily-todo-open-btn {
         border: 0;
         border-radius: 8px;
@@ -247,6 +283,46 @@
         gap: 7px;
         min-width: 0;
     }
+    .todo-check-form {
+        margin: 0;
+        flex: 0 0 auto;
+    }
+    .todo-check-btn {
+        width: 20px;
+        height: 20px;
+        border: 1.5px solid #d9dde5;
+        border-radius: 6px;
+        background: #fff;
+        color: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+    .todo-check-icon {
+        opacity: 0;
+        transform: translateY(-0.5px);
+    }
+    .todo-check-btn.is-checked {
+        border-color: var(--planner-orange-deep);
+        background: var(--planner-orange-deep);
+        color: #fff;
+    }
+    .todo-check-btn.is-checked .todo-check-icon {
+        opacity: 1;
+    }
+    .daily-todo-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .daily-todo-actions form {
+        margin: 0;
+    }
     .daily-todo-time {
         font-size: 12px;
         color: #a05a26;
@@ -272,11 +348,21 @@
         background: var(--planner-orange-deep);
         color: #fff;
     }
+    .daily-todo-btn.danger {
+        background: #fff;
+        color: #9f3f10;
+        border: 1px solid #ffd2b3;
+    }
     .panel {
         border: 1px solid var(--planner-line);
         border-radius: 14px;
         background: #fff;
         overflow: hidden;
+    }
+    .detail-panel {
+        overflow: visible;
+        position: relative;
+        z-index: 35;
     }
     .calendar-panel {
         position: relative;
@@ -316,9 +402,16 @@
         background: #fff;
         padding: 10px 12px;
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         align-items: center;
         gap: 10px;
+        position: relative;
+        z-index: 40;
+    }
+    .calendar-action-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
     }
     .add-menu-title {
         margin: 0;
@@ -336,12 +429,30 @@
         font-weight: 700;
         cursor: pointer;
     }
+    .open-add-modal-btn.shift-left {
+        margin-right: 4px;
+    }
+    .open-top-edit-btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #ffe8d6;
+        color: var(--planner-orange-deep);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .open-top-edit-btn:disabled {
+        background: #f2f3f6;
+        color: #a8adb6;
+        cursor: not-allowed;
+    }
     .add-modal {
         position: absolute;
         left: 12px;
         right: 12px;
         top: 116px;
-        z-index: 30;
+        z-index: 60;
         border: 1px solid #ffd2b3;
         border-radius: 12px;
         background: #fff;
@@ -374,10 +485,62 @@
     }
     .add-form {
         display: grid;
-        grid-template-columns: 140px 120px 1fr auto;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
+        align-items: start;
+    }
+    .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .field-label {
+        font-size: 11px;
+        line-height: 1;
+        color: #8b9098;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .color-choice-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+    .color-choice-group input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .color-choice {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid #dfe3ea;
+        border-radius: 999px;
+        padding: 6px 9px;
+        font-size: 12px;
+        color: #5f6570;
+        cursor: pointer;
+        background: #fff;
+        white-space: nowrap;
+    }
+    .color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .dot-red { background: #ef5b5b; }
+    .dot-blue { background: #4f86e9; }
+    .dot-yellow { background: #e8b422; }
+    .color-choice-group input[type="radio"]:checked + .color-choice {
+        border-color: #ffb882;
+        background: #fff4ea;
+        color: #8a4f1f;
+        font-weight: 700;
     }
     .add-form input,
+    .add-form select,
     .detail-item input[type="text"] {
         border: 1px solid #dfe3ea;
         border-radius: 8px;
@@ -398,6 +561,11 @@
         padding: 8px 12px;
         background: var(--planner-orange);
         color: #fff;
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
+    .add-form-content {
+        grid-column: 1 / -1;
     }
     .calendar-head {
         display: grid;
@@ -460,15 +628,50 @@
         gap: 3px;
     }
     .mini-item {
+        --mini-bg: #fff1e7;
+        --mini-text: #9a4c12;
+        position: relative;
         font-size: 11px;
         line-height: 1.25;
         padding: 2px 5px;
         border-radius: 6px;
-        background: #fff1e7;
-        color: #9a4c12;
+        background: var(--mini-bg);
+        color: var(--mini-text);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        z-index: 1;
+    }
+    .mini-item.color-red {
+        --mini-bg: #ffe7e7;
+        --mini-text: #9c2e2e;
+    }
+    .mini-item.color-blue {
+        --mini-bg: #e8f1ff;
+        --mini-text: #1f4f93;
+    }
+    .mini-item.color-yellow {
+        --mini-bg: #fff7d9;
+        --mini-text: #8a6400;
+    }
+    .mini-item.continued-prev {
+        margin-left: -7px;
+        padding-left: 12px;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+    .mini-item.continued-next {
+        margin-right: -7px;
+        padding-right: 12px;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    .mini-item.continued-prev.continued-next {
+        margin-left: -7px;
+        margin-right: -7px;
+        padding-left: 12px;
+        padding-right: 12px;
+        border-radius: 0;
     }
     .mini-time {
         font-weight: 700;
@@ -511,6 +714,12 @@
         display: grid;
         gap: 7px;
         background: #fff;
+        cursor: pointer;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .detail-item.is-picked {
+        border-color: #ffbe8f;
+        box-shadow: 0 0 0 1px #ffd7bc inset;
     }
     .detail-row {
         display: flex;
@@ -573,7 +782,7 @@
         left: 12px;
         right: 12px;
         top: 12px;
-        z-index: 25;
+        z-index: 70;
         border: 1px solid #ffd2b3;
         border-radius: 12px;
         background: #fff;
@@ -598,10 +807,12 @@
     }
     .edit-form {
         display: grid;
-        grid-template-columns: 120px 1fr auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
+        align-items: start;
     }
-    .edit-form input {
+    .edit-form input,
+    .edit-form select {
         border: 1px solid #dfe3ea;
         border-radius: 8px;
         padding: 8px 10px;
@@ -617,10 +828,25 @@
         font-size: 13px;
         font-weight: 700;
         cursor: pointer;
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
+    #edit-modal-content {
+        min-width: 0;
+    }
+    .edit-form-content {
+        grid-column: 1 / -1;
     }
     @media (max-width: 1080px) {
         .planner-layout {
             grid-template-columns: 1fr;
+        }
+        .add-modal {
+            right: 12px;
+        }
+        .edit-modal {
+            left: 12px;
+            right: 12px;
         }
     }
     @media (max-width: 680px) {
@@ -653,9 +879,30 @@
     }
 </style>
 
-<div class="planner-switch">
-    <a href="{% url 'planner-index' %}?view=plan&month={{ current_month|date:'Y-m' }}&date={{ selected_date|date:'Y-m-d' }}" class="planner-switch-link {% if planner_view == 'plan' %}active{% endif %}">계획</a>
-    <a href="{% url 'planner-index' %}?view=goal" class="planner-switch-link {% if planner_view == 'goal' %}active{% endif %}">목표</a>
+<div class="planner-topbar">
+    <div class="planner-switch">
+        <a href="{% url 'planner-index' %}?view=plan&month={{ current_month|date:'Y-m' }}&date={{ selected_date|date:'Y-m-d' }}" class="planner-switch-link {% if planner_view == 'plan' %}active{% endif %}">계획</a>
+        <a href="{% url 'planner-index' %}?view=goal" class="planner-switch-link {% if planner_view == 'goal' %}active{% endif %}">목표</a>
+    </div>
+    {% if request.user.is_authenticated and google_calendar_enabled %}
+    <div class="planner-google-inline">
+        <p class="planner-google-text">
+            {% if google_calendar_connected %}
+                Google Calendar 연결됨{% if google_calendar_email %} ({{ google_calendar_email }}){% endif %}
+            {% else %}
+                Google Calendar 미연결
+            {% endif %}
+        </p>
+        {% if google_calendar_connected %}
+        <form method="post" action="{% url 'planner-google-calendar-disconnect' %}">
+            {% csrf_token %}
+            <button type="submit" class="google-sync-btn">연결 해제</button>
+        </form>
+        {% else %}
+        <a href="{% url 'planner-google-calendar-connect' %}" class="google-sync-link">구글 연결</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 {% if planner_view == "goal" %}
@@ -698,39 +945,28 @@
 <section class="daily-todo-panel">
     <div class="daily-todo-head">
         <h2 class="daily-todo-title">오늘의 투두 리스트</h2>
-        {% if request.user.is_authenticated %}
-        <button type="button" class="daily-todo-open-btn" id="open-daily-todo-modal">추가</button>
-        {% endif %}
     </div>
     <p class="daily-todo-meta">{{ selected_date|date:"Y-m-d (D)" }} 할 일</p>
     {% if request.user.is_authenticated %}
-    <div class="daily-todo-modal" id="daily-todo-modal">
-        <div class="add-modal-header">
-            <p class="add-modal-title">하루 할 일 추가</p>
-            <button type="button" class="close-add-modal-btn" id="close-daily-todo-modal" aria-label="투두 팝업 닫기">×</button>
-        </div>
-        <form method="post" action="{% url 'planner-daily-todo-add' %}" class="daily-todo-form">
-            {% csrf_token %}
-            <input type="date" name="target_date" class="todo-date" value="{{ selected_date|date:'Y-m-d' }}" required>
-            <input type="time" name="planned_time" class="todo-time">
-            <input type="hidden" name="month" value="{{ current_month|date:'Y-m' }}">
-            <button type="submit" class="todo-submit">추가하기</button>
-            <input type="text" name="content" class="todo-content" maxlength="255" placeholder="하루 시작 전 할 일 입력" required>
-        </form>
-    </div>
     <ul class="daily-todo-list">
         {% for todo in daily_todos %}
         <li class="daily-todo-item">
             <span class="daily-todo-main">
+                <form method="post" action="{% url 'planner-daily-todo-toggle' todo.id %}" class="todo-check-form">
+                    {% csrf_token %}
+                    <button type="submit" class="todo-check-btn {% if todo.is_completed %}is-checked{% endif %}" aria-label="투두 완료 토글">
+                        <span class="todo-check-icon">✓</span>
+                    </button>
+                </form>
                 {% if todo.planned_time %}<span class="daily-todo-time">{{ todo.planned_time|time:"H:i" }}</span>{% endif %}
                 <span class="daily-todo-text {% if todo.is_completed %}done{% endif %}">{{ todo.content }}</span>
             </span>
-            <form method="post" action="{% url 'planner-daily-todo-toggle' todo.id %}">
-                {% csrf_token %}
-                <button type="submit" class="daily-todo-btn {% if todo.is_completed %}done{% endif %}">
-                    {% if todo.is_completed %}완료{% else %}체크{% endif %}
-                </button>
-            </form>
+            <span class="daily-todo-actions">
+                <form method="post" action="{% url 'planner-daily-todo-delete' todo.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="daily-todo-btn danger">삭제</button>
+                </form>
+            </span>
         </li>
         {% empty %}
         <li class="empty-box">해당 날짜의 투두가 없습니다. 위에서 추가하세요.</li>
@@ -752,8 +988,17 @@
         </div>
 
         <div class="add-menu">
-            <p class="add-menu-title">추가 메뉴</p>
-            <button type="button" class="open-add-modal-btn" id="open-add-modal">추가</button>
+            <div class="calendar-action-group">
+                <button type="button" class="open-add-modal-btn shift-left" id="open-add-modal">추가</button>
+                <button
+                    type="button"
+                    class="open-top-edit-btn"
+                    id="open-top-edit-modal"
+                    disabled
+                >
+                    수정
+                </button>
+            </div>
         </div>
 
         <div class="add-modal" id="add-modal">
@@ -763,9 +1008,30 @@
             </div>
             <form method="post" action="{% url 'planner-goal-add' %}" class="add-form">
                 {% csrf_token %}
-                <input type="date" name="target_date" value="{{ selected_date|date:'Y-m-d' }}" required>
-                <input type="time" name="planned_time">
-                <input type="text" name="content" maxlength="255" placeholder="목표 입력" required>
+                <div class="field-stack">
+                    <span class="field-label">날짜</span>
+                    <input type="date" name="start_date" value="{{ selected_date|date:'Y-m-d' }}" required>
+                </div>
+                <div class="field-stack">
+                    <span class="field-label">기간</span>
+                    <input type="number" name="duration_days" min="1" max="60" value="1" required>
+                </div>
+                <div class="field-stack">
+                    <span class="field-label">시간</span>
+                    <input type="time" name="planned_time">
+                </div>
+                <div class="field-stack">
+                    <span class="field-label">색상</span>
+                    <div class="color-choice-group">
+                        <input type="radio" id="add-color-red" name="color" value="red" checked>
+                        <label for="add-color-red" class="color-choice"><span class="color-dot dot-red"></span>빨강</label>
+                        <input type="radio" id="add-color-blue" name="color" value="blue">
+                        <label for="add-color-blue" class="color-choice"><span class="color-dot dot-blue"></span>파랑</label>
+                        <input type="radio" id="add-color-yellow" name="color" value="yellow">
+                        <label for="add-color-yellow" class="color-choice"><span class="color-dot dot-yellow"></span>노랑</label>
+                    </div>
+                </div>
+                <input type="text" name="content" class="add-form-content" maxlength="255" placeholder="목표 입력" required>
                 <button type="submit">추가하기</button>
             </form>
         </div>
@@ -780,10 +1046,10 @@
                    href="{% url 'planner-index' %}?view=plan&month={{ current_month|date:'Y-m' }}&date={{ day.date|date:'Y-m-d' }}">
                     <span class="day-num{% if day.is_today %} today{% endif %}">{{ day.date|date:"j" }}</span>
                     <div class="mini-list">
-                        {% for goal in day.preview_goals %}
-                        <div class="mini-item">
-                            {% if goal.planned_time %}<span class="mini-time">{{ goal.planned_time|time:"H:i" }}</span>{% endif %}
-                            {{ goal.content }}
+                        {% for item in day.preview_goals %}
+                        <div class="mini-item color-{{ item.goal.color }}{% if item.continued_prev %} continued-prev{% endif %}{% if item.continued_next %} continued-next{% endif %}">
+                            {% if item.goal.planned_time %}<span class="mini-time">{{ item.goal.planned_time|time:"H:i" }}</span>{% endif %}
+                            {{ item.goal.content }}
                         </div>
                         {% endfor %}
                         {% if day.more_count > 0 %}
@@ -796,9 +1062,9 @@
         </div>
     </section>
 
-    <aside class="panel">
+    <aside class="panel detail-panel">
         <div class="detail-header">
-            <h2 class="detail-title">선택한 날짜 계획</h2>
+            <h2 class="detail-title">완료된 계획</h2>
             <p class="detail-date">{{ selected_date|date:"Y-m-d (D)" }}</p>
         </div>
         <div class="detail-body">
@@ -809,14 +1075,43 @@
                 </div>
                 <form method="post" id="edit-modal-form" class="edit-form">
                     {% csrf_token %}
-                    <input type="time" name="planned_time" id="edit-modal-time">
-                    <input type="text" name="content" id="edit-modal-content" maxlength="255" required>
+                    <div class="field-stack">
+                        <span class="field-label">날짜</span>
+                        <input type="date" name="start_date" id="edit-modal-date" required>
+                    </div>
+                    <div class="field-stack">
+                        <span class="field-label">기간</span>
+                        <input type="number" name="duration_days" id="edit-modal-duration" min="1" max="60" value="1" required>
+                    </div>
+                    <div class="field-stack">
+                        <span class="field-label">시간</span>
+                        <input type="time" name="planned_time" id="edit-modal-time">
+                    </div>
+                    <div class="field-stack">
+                        <span class="field-label">색상</span>
+                        <div class="color-choice-group">
+                            <input type="radio" id="edit-color-red" name="color" value="red" checked>
+                            <label for="edit-color-red" class="color-choice"><span class="color-dot dot-red"></span>빨강</label>
+                            <input type="radio" id="edit-color-blue" name="color" value="blue">
+                            <label for="edit-color-blue" class="color-choice"><span class="color-dot dot-blue"></span>파랑</label>
+                            <input type="radio" id="edit-color-yellow" name="color" value="yellow">
+                            <label for="edit-color-yellow" class="color-choice"><span class="color-dot dot-yellow"></span>노랑</label>
+                        </div>
+                    </div>
+                    <input type="text" name="content" id="edit-modal-content" class="edit-form-content" maxlength="255" required>
                     <button type="submit">저장</button>
                 </form>
             </div>
             <ul class="detail-list">
                 {% for goal in selected_goals %}
-                <li class="detail-item">
+                <li
+                    class="detail-item"
+                    data-edit-url="{% url 'planner-goal-update' goal.id %}"
+                    data-goal-content="{{ goal.content|escape }}"
+                    data-goal-time="{% if goal.planned_time %}{{ goal.planned_time|time:'H:i' }}{% endif %}"
+                    data-goal-date="{{ selected_date|date:'Y-m-d' }}"
+                    data-goal-color="{{ goal.color }}"
+                >
                     <div class="detail-row space-between">
                         <span>
                             {% if goal.planned_time %}<span class="goal-time">{{ goal.planned_time|time:"H:i" }}</span>{% endif %}
@@ -825,17 +1120,8 @@
                         <div class="detail-actions">
                         <form method="post" action="{% url 'planner-goal-toggle' goal.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="goal-toggle-btn {% if goal.is_completed %}is-completed{% endif %}">완료</button>
+                            <button type="submit" class="goal-toggle-btn">완료 취소</button>
                         </form>
-                            <button
-                                type="button"
-                                class="goal-edit-open-btn"
-                                data-edit-url="{% url 'planner-goal-update' goal.id %}"
-                                data-goal-content="{{ goal.content|escape }}"
-                                data-goal-time="{% if goal.planned_time %}{{ goal.planned_time|time:'H:i' }}{% endif %}"
-                            >
-                                수정
-                            </button>
                         </div>
                     </div>
                 </li>
@@ -858,7 +1144,11 @@
         var editForm = document.getElementById("edit-modal-form");
         var editInput = document.getElementById("edit-modal-content");
         var editTimeInput = document.getElementById("edit-modal-time");
-        var editOpenButtons = document.querySelectorAll(".goal-edit-open-btn");
+        var editDateInput = document.getElementById("edit-modal-date");
+        var editDurationInput = document.getElementById("edit-modal-duration");
+        var editColorInputs = document.querySelectorAll('input[name="color"][id^="edit-color-"]');
+        var topEditBtn = document.getElementById("open-top-edit-modal");
+        var detailItems = document.querySelectorAll(".detail-item[data-edit-url]");
         var labOpenBtn = document.getElementById("open-lab-goal-modal");
         var labCloseBtn = document.getElementById("close-lab-goal-modal");
         var labModal = document.getElementById("lab-goal-modal");
@@ -875,15 +1165,38 @@
             modal.classList.remove("is-open");
         });
 
-        if (editModal && closeEditBtn && editForm && editInput && editTimeInput) {
-            editOpenButtons.forEach(function (button) {
-                button.addEventListener("click", function () {
-                    editForm.setAttribute("action", button.getAttribute("data-edit-url"));
-                    editInput.value = button.getAttribute("data-goal-content") || "";
-                    editTimeInput.value = button.getAttribute("data-goal-time") || "";
-                    editModal.classList.add("is-open");
+        if (editModal && closeEditBtn && editForm && editInput && editTimeInput && editDateInput && editDurationInput && editColorInputs.length) {
+            detailItems.forEach(function (item) {
+                item.addEventListener("click", function (event) {
+                    if (event.target.closest("form,button,input")) return;
+                    detailItems.forEach(function (row) { row.classList.remove("is-picked"); });
+                    item.classList.add("is-picked");
+                    if (topEditBtn) {
+                        topEditBtn.disabled = false;
+                        topEditBtn.setAttribute("data-edit-url", item.getAttribute("data-edit-url"));
+                        topEditBtn.setAttribute("data-goal-content", item.getAttribute("data-goal-content") || "");
+                        topEditBtn.setAttribute("data-goal-time", item.getAttribute("data-goal-time") || "");
+                        topEditBtn.setAttribute("data-goal-date", item.getAttribute("data-goal-date") || "");
+                        topEditBtn.setAttribute("data-goal-color", item.getAttribute("data-goal-color") || "red");
+                    }
                 });
             });
+
+            if (topEditBtn) {
+                topEditBtn.addEventListener("click", function () {
+                    if (topEditBtn.disabled) return;
+                    editForm.setAttribute("action", topEditBtn.getAttribute("data-edit-url"));
+                    editInput.value = topEditBtn.getAttribute("data-goal-content") || "";
+                    editTimeInput.value = topEditBtn.getAttribute("data-goal-time") || "";
+                    editDateInput.value = topEditBtn.getAttribute("data-goal-date") || "";
+                    editDurationInput.value = "1";
+                    var selectedColor = topEditBtn.getAttribute("data-goal-color") || "red";
+                    editColorInputs.forEach(function (radio) {
+                        radio.checked = radio.value === selectedColor;
+                    });
+                    editModal.classList.add("is-open");
+                });
+            }
 
             closeEditBtn.addEventListener("click", function () {
                 editModal.classList.remove("is-open");

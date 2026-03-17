@@ -148,6 +148,11 @@ OPENAI_JOB_MODEL = os.getenv("OPENAI_JOB_MODEL", "gpt-4.1-mini")
 JOB_ACTIVE_LIMIT_PER_SOURCE = int(os.getenv("JOB_ACTIVE_LIMIT_PER_SOURCE", "300"))
 JOB_ACTIVE_SOURCES = os.getenv("JOB_ACTIVE_SOURCES", "saramin,wanted").split(",")
 
+# Google Calendar OAuth
+GOOGLE_CALENDAR_CLIENT_ID = os.getenv("GOOGLE_CALENDAR_CLIENT_ID", "")
+GOOGLE_CALENDAR_CLIENT_SECRET = os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET", "")
+GOOGLE_CALENDAR_REDIRECT_URI = os.getenv("GOOGLE_CALENDAR_REDIRECT_URI", "")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
