@@ -28,20 +28,10 @@ except Exception as e:
   sleep 2
 done
 
-echo "DB 연결 성공!"
+#!/bin/sh
+set -e
 
-python manage.py migrate --noinput
-echo "migrate 완료"
-
-echo "공고 수집 시작 (백그라운드)..."
-python manage.py sync_job_sources &
-
-if [ $# -gt 0 ]; then
-  exec "$@"
-else
-  exec gunicorn config.wsgi:application \
-    --bind 0.0.0.0:8000 \
-    --workers 3 \
-    --timeout 300 \
-    --graceful-timeout 30
-fi
+exec gunicorn config.wsgi:application \
+  --bind 0.0.0.0:${PORT:-8000} \
+  --workers 3 \
+  --timeout 120
