@@ -29,6 +29,6 @@ echo "공고 수집 시작 (백그라운드)..."
 python manage.py sync_job_sources &
 
 exec gunicorn config.wsgi:application \
-  --bind 0.0.0.0:8000 \
+  --bind 0.0.0.0:${PORT:-8000} \
   --workers 3 \
   --timeout 120
