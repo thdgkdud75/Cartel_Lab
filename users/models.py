@@ -36,9 +36,15 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
+    CLASS_CHOICES = [
+        ("A", "A반"),
+        ("B", "B반"),
+    ]
+
     username = None
     student_id = models.CharField("학번", max_length=20, unique=True)
     name = models.CharField("이름", max_length=50)
+    class_group = models.CharField("반", max_length=1, choices=CLASS_CHOICES, blank=True, default="")
     github_url = models.URLField("GitHub 링크", blank=True, default="")
     desired_job_direction = models.CharField("희망 방향", max_length=120, blank=True, default="")
     desired_job_direction_other = models.CharField("기타 희망 방향", max_length=120, blank=True, default="")

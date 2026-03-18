@@ -27,3 +27,21 @@ except Exception as e:
   echo "DB 준비 안됨, 2초 후 재시도..."
   sleep 2
 done
+
+echo "DB 연결 성공!"
+
+python manage.py migrate --noinput
+echo "migrate 완료"
+
+echo "공고 수집 시작 (백그라운드)..."
+python manage.py sync_job_sources &
+
+if [ $# -gt 0 ]; then
+  exec "$@"
+else
+  exec gunicorn config.wsgi:application \
+    --bind 0.0.0.0:8000 \
+    --workers 3 \
+    --timeout 300 \
+    --graceful-timeout 30
+fi

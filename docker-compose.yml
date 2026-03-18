@@ -30,6 +30,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - .:/app
       - media_data:/app/media
     depends_on:
       db:
