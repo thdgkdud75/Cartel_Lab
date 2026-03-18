@@ -8,10 +8,11 @@ from .models import User
 class SignupForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ["student_id", "name", "password1", "password2"]
+        fields = ["student_id", "name", "class_group", "password1", "password2"]
         labels = {
             "student_id": "학번",
             "name": "이름",
+            "class_group": "반",
             "password1": "비밀번호",
             "password2": "비밀번호 확인",
         }
@@ -51,6 +52,28 @@ class LoginForm(forms.Form):
 
     def get_user(self):
         return self.user_cache
+
+
+class BasicInfoForm(forms.ModelForm):
+    new_password1 = forms.CharField(label="새 비밀번호", widget=forms.PasswordInput, required=False)
+    new_password2 = forms.CharField(label="새 비밀번호 확인", widget=forms.PasswordInput, required=False)
+
+    class Meta:
+        model = User
+        fields = ["name", "class_group"]
+        labels = {
+            "name": "이름",
+            "class_group": "반",
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        pw1 = cleaned_data.get("new_password1")
+        pw2 = cleaned_data.get("new_password2")
+        if pw1 or pw2:
+            if pw1 != pw2:
+                self.add_error("new_password2", "비밀번호가 일치하지 않습니다.")
+        return cleaned_data
 
 
 class ProfileUpdateForm(forms.ModelForm):

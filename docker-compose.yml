@@ -4,6 +4,7 @@ services:
   db:
     image: mysql:8.0
     restart: always
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_DATABASE: ${DB_NAME:-cartel_lab}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-}
@@ -13,7 +14,7 @@ services:
     ports:
       - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password="]
+      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root --password=\"${MYSQL_ROOT_PASSWORD:-}\""]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,6 +30,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - .:/app
       - media_data:/app/media
     depends_on:
       db:

@@ -37,11 +37,11 @@ def index(request):
         user=request.user, attendance_date=today
     ).first()
     
-    # 최근 1년 출결 현황 (오늘 포함)
-    one_year_ago = today - timedelta(days=365)
+    # 올해 1월 1일부터 오늘까지의 출결 현황
+    first_day_of_year = today.replace(month=1, day=1)
     yearly_records = AttendanceRecord.objects.filter(
         user=request.user,
-        attendance_date__gte=one_year_ago
+        attendance_date__gte=first_day_of_year
     )
     
     heatmap_data = {}
@@ -86,11 +86,13 @@ def attendance_list(request):
     HTMX 폴링을 위한 실시간 출결 목록 (부분 템플릿)
     """
     today = timezone.localdate()
-    records = AttendanceRecord.objects.filter(attendance_date=today)\
-        .exclude(user=request.user)\
+    qs = AttendanceRecord.objects.filter(attendance_date=today)\
         .exclude(user__is_staff=True)\
         .exclude(user__is_superuser=True)\
         .order_by("-check_in_at")
+    if request.user.is_authenticated:
+        qs = qs.exclude(user=request.user)
+    records = qs
     return render(request, "attendance/partial_list.html", {"records": records})
 
 

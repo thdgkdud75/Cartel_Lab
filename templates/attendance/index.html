@@ -46,8 +46,24 @@
         </div>
 
         <div class="recent-attendance-card">
-            <h3>최근 1년 출결 현황</h3>
-            <div id="attendanceHeatmap" class="heatmap-container"></div>
+            <h3>올해의 출결 현황</h3>
+            <div class="heatmap-wrapper">
+                <div class="heatmap-months" id="heatmapMonths">
+                    <!-- JS로 달 라벨이 채워짐 -->
+                </div>
+                <div class="heatmap-body">
+                    <div class="heatmap-days">
+                        <span></span>
+                        <span>월</span>
+                        <span></span>
+                        <span>수</span>
+                        <span></span>
+                        <span>금</span>
+                        <span></span>
+                    </div>
+                    <div id="attendanceHeatmap" class="heatmap-container"></div>
+                </div>
+            </div>
             <div class="heatmap-legend">
                 <span>결석/미출석</span>
                 <div class="heatmap-cell status-absent-color"></div>
@@ -62,7 +78,7 @@
     <!-- 오른쪽 카드 (다른 인원들 출결 현황) -->
     <div class="dashboard-right">
         <div class="others-attendance-card">
-            <h2>다른 인원 출결 현황</h2>
+            <h2 class="my-name">다른 인원 출결 현황</h2>
             <!-- HTMX: 5초마다 /attendance/list/를 호출하여 내용을 갱신함 -->
             <div hx-get="{% url 'attendance:list' %}" 
                  hx-trigger="load, every 5s" 
@@ -80,25 +96,38 @@
         display: flex;
         gap: 24px;
         align-items: flex-start;
+        max-width: 1400px; /* 카드를 감싸는 바깥 영역의 최대 크기를 크게 확장 */
+        margin: 0 auto; /* 좌우 여백을 동일하게 중앙 정렬 */
+        padding: 0 20px;
     }
     .dashboard-left {
-        flex: 1;
+        flex: 2; /* 왼쪽 카드(내 출결 및 1년 현황) 영역을 2배 비율로 넓게 설정 */
         display: flex;
         flex-direction: column;
         gap: 24px;
+        min-width: 0;
     }
     .dashboard-right {
-        flex: 1;
+        flex: 1; /* 오른쪽 카드 영역을 상대적으로 좁게 설정 */
+        min-width: 0;
     }
     
     .my-attendance-card, .recent-attendance-card, .others-attendance-card {
         background: #fff;
         border-radius: 12px;
-        padding: 24px;
+        padding: 24px; /* 기존 원래 패딩으로 복구 */
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        width: 100%;
     }
 
     .my-name {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    .others-title {
         text-align: center;
         margin-bottom: 20px;
         font-size: 24px;
@@ -150,15 +179,56 @@
     }
 
     .recent-attendance-card h3 {
-        margin-bottom: 12px;
+        margin-bottom: 20px;
+    }
+
+    .heatmap-wrapper {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .heatmap-months {
+        display: flex;
+        margin-left: 28px; /* 요일 라벨 너비만큼 띄움 */
+        margin-bottom: 5px;
+        font-size: 11px;
+        color: var(--muted);
+        position: relative;
+        height: 15px;
+    }
+
+    .month-label {
+        position: absolute;
+    }
+
+    .heatmap-body {
+        display: flex;
+        gap: 8px;
+    }
+
+    .heatmap-days {
+        display: flex;
+        flex-direction: column;
+        gap: 2px; /* 셀들 사이의 간격과 동일하게 설정하여 완벽한 정렬 유지 */
+        font-size: 10px;
+        color: var(--muted);
+        width: 15px;
+        text-align: left;
+    }
+    
+    .heatmap-days span {
+        height: 11px;
+        line-height: 11px;
+        display: block; /* 높이가 정확하게 적용되도록 block 처리 */
     }
 
     .heatmap-container {
         display: flex;
-        flex-wrap: wrap; /* 좌우로 길어지지 않고 아래로 줄바꿈되도록 설정 */
-        gap: 8px; /* 줄바꿈된 블록 사이의 간격 */
+        gap: 2px;
+        overflow-x: auto;
         padding-bottom: 8px;
-        max-width: 100%; 
+        flex-grow: 1;
     }
     
     .heatmap-week {
@@ -168,8 +238,8 @@
     }
 
     .heatmap-cell {
-        width: 12px;  /* 원래 너비 복구 */
-        height: 12px; /* 원래 높이 복구 */
+        width: 11px;
+        height: 11px;
         border-radius: 2px;
         background-color: #ebedf0;
         flex-shrink: 0;
@@ -279,77 +349,104 @@
         
         if (container) {
             const today = new Date();
-            const days = 365;
+            const currentYear = today.getFullYear();
             
-            // 1년 전 날짜 찾기
-            let startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - days);
+            // 올해의 1월 1일로 설정
+            let startDate = new Date(currentYear, 0, 1);
             
             // 시작 주의 일요일로 맞추기 (달력 모양 정렬)
             const startDayOfWeek = startDate.getDay();
             startDate.setDate(startDate.getDate() - startDayOfWeek);
             
             let currentDate = new Date(startDate);
+            const monthsContainer = document.getElementById('heatmapMonths');
+            let currentMonthPrinted = -1;
             
-            // 53주 (1년 + 알파)
-            for (let col = 0; col < 53; col++) {
+            // 올해의 남은 주(week) 수 계산 (약 53주)
+            for (let col = 0; col < 54; col++) {
+                // 내년으로 넘어가고 그 주를 다 채웠다면 종료
+                if (currentDate.getFullYear() > currentYear && currentDate.getDay() === 0) {
+                    break; 
+                }
+
                 const colDiv = document.createElement('div');
                 colDiv.className = 'heatmap-week';
                 
+                // 월 표시 추가 로직
+                // 각 열의 화요일(또는 수요일) 쯤의 달을 확인하여 달 라벨을 붙임
+                let tempDate = new Date(currentDate);
+                tempDate.setDate(tempDate.getDate() + 3); // 해당 주의 수요일
+                let colMonth = tempDate.getMonth();
+                
+                if (colMonth !== currentMonthPrinted && tempDate.getFullYear() === currentYear) {
+                    const monthLabel = document.createElement('span');
+                    monthLabel.className = 'month-label';
+                    monthLabel.textContent = (colMonth + 1) + '월';
+                    // 각 열이 약 13px (11px + 2px gap)을 차지하므로 위치 계산
+                    monthLabel.style.left = (col * 13) + 'px';
+                    monthsContainer.appendChild(monthLabel);
+                    currentMonthPrinted = colMonth;
+                }
+                
                 // 일요일부터 토요일까지 7일
                 for (let row = 0; row < 7; row++) {
-                    if (currentDate > today) {
-                        break;
-                    }
-                    
                     const cell = document.createElement('div');
                     cell.className = 'heatmap-cell';
                     
-                    const year = currentDate.getFullYear();
-                    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(currentDate.getDate()).padStart(2, '0');
-                    const dateString = `${year}-${month}-${day}`;
-                    
-                    if (heatmapData[dateString]) {
-                        const inStatus = heatmapData[dateString].in;
-                        const outStatus = heatmapData[dateString].out;
+                    // 올해 1월 1일 이전이거나 내년 이후의 날짜는 숨김 처리 (빈 칸)
+                    if (currentDate.getFullYear() !== currentYear) {
+                        cell.style.backgroundColor = 'transparent';
+                        cell.style.border = 'none';
+                    } else {
+                        const year = currentDate.getFullYear();
+                        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(currentDate.getDate()).padStart(2, '0');
+                        const dateString = `${year}-${month}-${day}`;
                         
-                        if (inStatus === 'late' && outStatus === 'leave') {
-                            cell.classList.add('status-late-leave-color');
-                            cell.title = `${dateString} - 지각 & 조퇴`;
-                        } else if (inStatus === 'present' && outStatus === 'leave') {
-                            cell.classList.add('status-present-leave-color');
-                            cell.title = `${dateString} - 출석 & 조퇴`;
-                        } else if (inStatus === 'late' && outStatus === 'present') {
-                            cell.classList.add('status-late-present-color');
-                            cell.title = `${dateString} - 지각 & 정상퇴근`;
-                        } else if (inStatus === 'present' && outStatus === 'present') {
-                            cell.classList.add('status-present-color');
-                            cell.title = `${dateString} - 정상 출결`;
-                        } else if (inStatus === 'late') {
-                            cell.classList.add('status-late-color');
-                            cell.title = `${dateString} - 지각 (퇴근 전)`;
-                        } else if (inStatus === 'present') {
-                            cell.classList.add('status-present-color');
-                            cell.title = `${dateString} - 출석 (퇴근 전)`;
-                        } else {
-                            // 호환성을 위해 남겨둠 (이전 데이터의 경우)
-                            const legacyStatus = heatmapData[dateString].status || heatmapData[dateString];
-                            if (legacyStatus === 'present') {
+                        if (heatmapData[dateString]) {
+                            const inStatus = heatmapData[dateString].in;
+                            const outStatus = heatmapData[dateString].out;
+                            
+                            if (inStatus === 'late' && outStatus === 'leave') {
+                                cell.classList.add('status-late-leave-color');
+                                cell.title = `${dateString} - 지각 & 조퇴`;
+                            } else if (inStatus === 'present' && outStatus === 'leave') {
+                                cell.classList.add('status-present-leave-color');
+                                cell.title = `${dateString} - 출석 & 조퇴`;
+                            } else if (inStatus === 'late' && outStatus === 'present') {
+                                cell.classList.add('status-late-present-color');
+                                cell.title = `${dateString} - 지각 & 정상퇴근`;
+                            } else if (inStatus === 'present' && outStatus === 'present') {
                                 cell.classList.add('status-present-color');
-                                cell.title = `${dateString} - 출석`;
-                            } else if (legacyStatus === 'late') {
+                                cell.title = `${dateString} - 정상 출결`;
+                            } else if (inStatus === 'late') {
                                 cell.classList.add('status-late-color');
-                                cell.title = `${dateString} - 지각`;
-                            } else if (legacyStatus === 'leave') {
-                                cell.classList.add('status-leave-color');
-                                cell.title = `${dateString} - 조퇴`;
+                                cell.title = `${dateString} - 지각 (퇴근 전)`;
+                            } else if (inStatus === 'present') {
+                                cell.classList.add('status-present-color');
+                                cell.title = `${dateString} - 출석 (퇴근 전)`;
                             } else {
-                                cell.title = `${dateString} - ${legacyStatus}`;
+                                const legacyStatus = heatmapData[dateString].status || heatmapData[dateString];
+                                if (legacyStatus === 'present') {
+                                    cell.classList.add('status-present-color');
+                                    cell.title = `${dateString} - 출석`;
+                                } else if (legacyStatus === 'late') {
+                                    cell.classList.add('status-late-color');
+                                    cell.title = `${dateString} - 지각`;
+                                } else if (legacyStatus === 'leave') {
+                                    cell.classList.add('status-leave-color');
+                                    cell.title = `${dateString} - 조퇴`;
+                                } else {
+                                    cell.title = `${dateString} - ${legacyStatus}`;
+                                }
+                            }
+                        } else {
+                            if (currentDate > today) {
+                                cell.title = `${dateString} - 예정`;
+                            } else {
+                                cell.title = `${dateString} - 기록 없음`;
                             }
                         }
-                    } else {
-                        cell.title = `${dateString} - 기록 없음`;
                     }
                     
                     colDiv.appendChild(cell);
@@ -358,8 +455,19 @@
                 container.appendChild(colDiv);
             }
             
-            // 스크롤을 가장 오른쪽(최근 날짜)으로 이동
-            container.scrollLeft = container.scrollWidth;
+            // 스크롤을 동기화하여 월 표시도 같이 움직이게 함
+            container.addEventListener('scroll', function() {
+                monthsContainer.style.transform = `translateX(-${container.scrollLeft}px)`;
+            });
+
+            // 오늘 날짜가 속한 위치로 자동 스크롤
+            setTimeout(() => {
+                // 오늘 날짜가 대략 몇 번째 주인지 계산해서 스크롤 위치 이동
+                const daysPassed = Math.floor((today - new Date(currentYear, 0, 1)) / (24 * 60 * 60 * 1000));
+                const weeksPassed = Math.floor(daysPassed / 7);
+                const scrollTarget = Math.max(0, (weeksPassed * 13) - (container.clientWidth / 2)); 
+                container.scrollLeft = scrollTarget;
+            }, 100);
         }
     });
 

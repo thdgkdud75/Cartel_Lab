@@ -10,7 +10,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
-from .forms import LoginForm, ProfileUpdateForm, SignupForm
+from .forms import BasicInfoForm, LoginForm, ProfileUpdateForm, SignupForm
 from .services import build_profile_analysis
 from planner.services.market_analysis import (
     get_direction_choices,
@@ -333,6 +333,24 @@ def index(request):
         "market_breakdown_rows": market_snapshot.role_breakdown if market_snapshot else [],
     }
     return render(request, "users/index.html", context)
+
+@login_required
+def edit_basic_info(request):
+    if request.method == "POST":
+        form = BasicInfoForm(request.POST, instance=request.user)
+        if form.is_valid():
+            user = form.save()
+            pw = form.cleaned_data.get("new_password1")
+            if pw:
+                user.set_password(pw)
+                user.save()
+                login(request, user)
+            messages.success(request, "정보가 수정되었습니다.")
+            return redirect("users-edit-basic")
+    else:
+        form = BasicInfoForm(instance=request.user)
+    return render(request, "users/edit_basic_info.html", {"form": form})
+
 
 def signup(request):
     if request.user.is_authenticated:

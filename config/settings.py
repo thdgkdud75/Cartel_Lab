@@ -31,6 +31,11 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+_trusted = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _trusted.split(",") if o.strip()]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Application definition
 
@@ -146,10 +151,6 @@ GITHUB_API_TOKEN = os.getenv("GITHUB_API_TOKEN", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_PROFILE_MODEL = os.getenv("OPENAI_PROFILE_MODEL", "gpt-4.1-mini")
 OPENAI_JOB_MODEL = os.getenv("OPENAI_JOB_MODEL", "gpt-4.1-mini")
-
-# Jobs collection policy
-JOB_ACTIVE_LIMIT_PER_SOURCE = int(os.getenv("JOB_ACTIVE_LIMIT_PER_SOURCE", "300"))
-JOB_ACTIVE_SOURCES = os.getenv("JOB_ACTIVE_SOURCES", "saramin,wanted").split(",")
 
 # Google Calendar OAuth
 GOOGLE_CALENDAR_CLIENT_ID = os.getenv("GOOGLE_CALENDAR_CLIENT_ID", "")
