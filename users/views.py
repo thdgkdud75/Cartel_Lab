@@ -12,7 +12,6 @@ from django.shortcuts import redirect, render
 
 from .forms import BasicInfoForm, LoginForm, ProfileUpdateForm, SignupForm
 from .services import build_profile_analysis
-from planner.models import JobMarketSnapshot
 from planner.services.market_analysis import (
     get_direction_choices,
     get_market_role_context,
@@ -226,9 +225,9 @@ def reset_profile_analysis(user):
 @login_required
 def index(request):
     user = request.user
-    market_snapshot = JobMarketSnapshot.objects.filter(analysis_key="active_jobs").first()
+    market_snapshot = get_or_refresh_market_snapshot()
     role_choices = get_direction_choices(market_snapshot)
-    has_profile_sources = bool(user.github_username or user.resume_file)
+    has_profile_sources = bool(user.github_url or user.resume_file)
     original_direction = user.desired_job_direction
     original_direction_other = user.desired_job_direction_other
 
@@ -245,7 +244,7 @@ def index(request):
             else:
                 user.desired_job_direction = selected_choice
                 user.desired_job_direction_other = ""
-            source_fields = {"resume_file"}
+            source_fields = {"github_url", "resume_file"}
             direction_changed = (
                 original_direction != user.desired_job_direction
                 or original_direction_other != user.desired_job_direction_other
