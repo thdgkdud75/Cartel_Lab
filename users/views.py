@@ -449,12 +449,49 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect("users-index")
 
+    from django.core.cache import cache
+    import time as _time
+
     if request.method == "POST":
+        student_id = request.POST.get("student_id", "").strip()
+        lockout_key = f"login_lockout_{student_id}"
+        attempt_key = f"login_attempts_{student_id}"
+
+        lockout_until = cache.get(lockout_key)
+        if lockout_until:
+            remaining = max(0, int(lockout_until - _time.time()))
+            form = LoginForm(request)
+            return render(request, "users/login.html", {
+                "form": form,
+                "locked": True,
+                "lock_remaining": remaining,
+            })
+
         form = LoginForm(request, request.POST)
         if form.is_valid():
+            cache.delete(attempt_key)
+            cache.delete(lockout_key)
             login(request, form.get_user())
             messages.success(request, "로그인되었습니다.")
             return redirect("users-index")
+        else:
+            attempts = cache.get(attempt_key, 0) + 1
+            if attempts >= 10:
+                cache.set(lockout_key, _time.time() + 600, 600)
+                cache.delete(attempt_key)
+                form = LoginForm(request)
+                return render(request, "users/login.html", {
+                    "form": form,
+                    "locked": True,
+                    "lock_remaining": 600,
+                })
+            else:
+                cache.set(attempt_key, attempts, 600)
+                return render(request, "users/login.html", {
+                    "form": form,
+                    "login_failed": True,
+                    "fail_count": attempts,
+                })
     else:
         form = LoginForm(request)
 

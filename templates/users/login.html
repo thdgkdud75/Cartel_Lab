@@ -185,6 +185,12 @@
             <p class="auth-form-copy">등록된 학번과 비밀번호를 입력하세요.</p>
         </div>
 
+        {% if locked %}
+        <div class="auth-error" style="background:#fff0f0;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px;font-size:14px;">
+            10회 로그인 실패로 <strong>10분간 로그인이 불가</strong>합니다.<br>
+            잠시 후 다시 시도해 주세요.
+        </div>
+        {% else %}
         <form method="post" class="auth-form">
             {% csrf_token %}
             {% for field in form %}
@@ -196,11 +202,16 @@
                     {% endif %}
                 </div>
             {% endfor %}
-            {% if form.non_field_errors %}
+            {% if login_failed %}
+                <div class="auth-error" style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 14px;font-size:13px;">
+                    비밀번호가 틀렸습니다. ({{ fail_count }}회 실패 / 10회 실패 시 10분간 로그인 불가)
+                </div>
+            {% elif form.non_field_errors %}
                 <div class="auth-error">{{ form.non_field_errors|join:", " }}</div>
             {% endif %}
             <button type="submit" class="auth-submit">로그인</button>
         </form>
+        {% endif %}
 
         <div class="auth-links">
             계정이 없으면 <a href="/users/signup/">회원가입</a>
