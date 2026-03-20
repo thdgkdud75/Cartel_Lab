@@ -129,6 +129,7 @@
             <a href="/planner/?view=plan" class="nav-link{% if path|slice:':9' == '/planner/' %} primary{% endif %}">계획/목표</a>
             <a href="/seats/" class="nav-link{% if path|slice:':7' == '/seats/' %} primary{% endif %}">좌석현황</a>
             <a href="/jobs/" class="nav-link{% if path|slice:':6' == '/jobs/' %} primary{% endif %}">최신일자리</a>
+            <a href="/quiz/" class="nav-link{% if path|slice:':6' == '/quiz/' %} primary{% endif %}">Today Code</a>
             {% if request.user.is_authenticated %}
             <div class="user-dropdown" id="userDropdown">
                 <button class="user-dropdown-trigger" type="button" aria-expanded="false" aria-haspopup="true">
