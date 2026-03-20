@@ -8,11 +8,12 @@ from .models import User
 class SignupForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ["student_id", "name", "class_group", "password1", "password2"]
+        fields = ["student_id", "name", "class_group", "grade", "password1", "password2"]
         labels = {
             "student_id": "학번",
             "name": "이름",
             "class_group": "반",
+            "grade": "학년",
             "password1": "비밀번호",
             "password2": "비밀번호 확인",
         }
@@ -60,10 +61,11 @@ class BasicInfoForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["name", "class_group"]
+        fields = ["name", "class_group", "grade"]
         labels = {
             "name": "이름",
             "class_group": "반",
+            "grade": "학년",
         }
 
     def clean(self):
