@@ -12,6 +12,12 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 GOOGLE_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events openid email"
+GOOGLE_EVENT_COLOR_IDS = {
+    "red": "11",
+    "blue": "9",
+    "yellow": "5",
+    "green": "10",
+}
 
 
 class GoogleCalendarError(Exception):
@@ -134,25 +140,33 @@ def ensure_valid_access_token(credential):
     return credential.access_token
 
 
-def _event_payload(target_date, planned_time, summary, description):
+def _event_payload(target_date, planned_time, summary, description, color="red"):
     if planned_time:
         current_tz = timezone.get_current_timezone()
         start_dt = timezone.make_aware(datetime.combine(target_date, planned_time), current_tz)
         end_dt = start_dt + timedelta(hours=1)
-        return {
+        payload = {
             "summary": summary,
             "description": description,
             "start": {"dateTime": start_dt.isoformat(), "timeZone": settings.TIME_ZONE},
             "end": {"dateTime": end_dt.isoformat(), "timeZone": settings.TIME_ZONE},
         }
+        color_id = GOOGLE_EVENT_COLOR_IDS.get(color)
+        if color_id:
+            payload["colorId"] = color_id
+        return payload
 
     end_date = target_date + timedelta(days=1)
-    return {
+    payload = {
         "summary": summary,
         "description": description,
         "start": {"date": target_date.isoformat()},
         "end": {"date": end_date.isoformat()},
     }
+    color_id = GOOGLE_EVENT_COLOR_IDS.get(color)
+    if color_id:
+        payload["colorId"] = color_id
+    return payload
 
 
 def create_todo_event(credential, todo):
@@ -162,6 +176,7 @@ def create_todo_event(credential, todo):
         todo.planned_time,
         todo.content,
         "Cartel Lab planner todo",
+        todo.color,
     )
     try:
         event = _authorized_request(
@@ -182,6 +197,7 @@ def create_goal_event(credential, goal, goal_date):
         goal.planned_time,
         goal.content,
         "Cartel Lab planner goal",
+        goal.color,
     )
     try:
         event = _authorized_request(
@@ -193,6 +209,29 @@ def create_goal_event(credential, goal, goal_date):
     except (HTTPError, URLError) as exc:
         raise GoogleCalendarError("구글 캘린더 목표 일정 생성에 실패했습니다.") from exc
     return event.get("id", "")
+
+
+def update_goal_event(credential, event_id, goal, goal_date):
+    if not event_id:
+        return
+
+    access_token = ensure_valid_access_token(credential)
+    payload = _event_payload(
+        goal_date,
+        goal.planned_time,
+        goal.content,
+        "Cartel Lab planner goal",
+        goal.color,
+    )
+    try:
+        _authorized_request(
+            f"{GOOGLE_CALENDAR_EVENTS_URL}/{parse.quote(event_id, safe='')}",
+            access_token,
+            method="PATCH",
+            payload_dict=payload,
+        )
+    except (HTTPError, URLError) as exc:
+        raise GoogleCalendarError("구글 캘린더 목표 일정 수정에 실패했습니다.") from exc
 
 
 def delete_event(credential, event_id):

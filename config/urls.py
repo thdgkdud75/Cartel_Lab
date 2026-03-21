@@ -33,6 +33,8 @@ urlpatterns = [
     path('planner/', include('planner.urls')),
     path('seats/', include('seats.urls')),
     path('blog/', include('blog.urls')),
+    path('privacy/', TemplateView.as_view(template_name='privacy.html')),
+    path('terms/', TemplateView.as_view(template_name='terms.html'))
 ]
 
 if settings.DEBUG:
