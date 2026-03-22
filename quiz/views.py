@@ -176,7 +176,12 @@ def admin_dashboard(request):
         for d in week_dates:
             day_attempts = week_map.get(user.pk, {}).get(d, [])
             if day_attempts:
-                status = "correct" if any(a.is_correct for a in day_attempts) else "wrong"
+                if any(a.is_ai_flagged for a in day_attempts):
+                    status = "ai"
+                elif any(a.is_correct for a in day_attempts):
+                    status = "correct"
+                else:
+                    status = "wrong"
             else:
                 status = "none"
             week_cells.append({"date": d, "status": status, "attempts": day_attempts})
@@ -187,7 +192,12 @@ def admin_dashboard(request):
             if d > today:
                 status = "future"
             elif day_attempts:
-                status = "correct" if any(a.is_correct for a in day_attempts) else "wrong"
+                if any(a.is_ai_flagged for a in day_attempts):
+                    status = "ai"
+                elif any(a.is_correct for a in day_attempts):
+                    status = "correct"
+                else:
+                    status = "wrong"
             else:
                 status = "none"
             year_cells.append({"date": d, "status": status, "count": len(day_attempts)})
