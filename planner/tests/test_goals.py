@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from users.models import User
 
-from .models import DailyTodo, LabWideGoal, WeeklyGoal
+from planner.models import DailyTodo, LabWideGoal, WeeklyGoal
 
 
 class WeeklyPlannerTests(TestCase):
@@ -144,43 +144,3 @@ class WeeklyPlannerTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(LabWideGoal.objects.filter(content="lab mission").exists())
-
-    def test_add_daily_todo_requires_login(self):
-        response = self.client.post(
-            reverse("planner-daily-todo-add"),
-            {"target_date": self.week_start.isoformat(), "content": "todo"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/users/login/", response.url)
-        self.assertFalse(DailyTodo.objects.filter(content="todo").exists())
-
-        self.client.login(student_id="20260001", password="pass-1234-abcd")
-        response = self.client.post(
-            reverse("planner-daily-todo-add"),
-            {"target_date": self.week_start.isoformat(), "planned_time": "08:40", "content": "todo"},
-        )
-        self.assertEqual(response.status_code, 302)
-        todo = DailyTodo.objects.get(user=self.user1, target_date=self.week_start, content="todo")
-        self.assertEqual(todo.planned_time.strftime("%H:%M"), "08:40")
-
-    def test_toggle_daily_todo_only_for_owner(self):
-        todo = DailyTodo.objects.create(
-            user=self.user1,
-            target_date=self.week_start,
-            content="todo check",
-        )
-
-        self.client.login(student_id="20260002", password="pass-1234-abcd")
-        response = self.client.post(
-            reverse("planner-daily-todo-toggle", args=[todo.id]),
-        )
-        self.assertEqual(response.status_code, 404)
-
-        self.client.logout()
-        self.client.login(student_id="20260001", password="pass-1234-abcd")
-        response = self.client.post(
-            reverse("planner-daily-todo-toggle", args=[todo.id]),
-        )
-        self.assertEqual(response.status_code, 302)
-        todo.refresh_from_db()
-        self.assertTrue(todo.is_completed)

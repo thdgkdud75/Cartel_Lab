@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 패키지 설치
+        run: |
+          pip install -r requirements.txt
+
+      - name: 테스트 실행
+        env:
+          DJANGO_SECRET_KEY: "ci-test-secret-key"
+          DB_ENGINE: django.db.backends.sqlite3
+          DB_NAME: ":memory:"
+          DEBUG: "True"
+        run: |
+          python manage.py test --settings=config.settings_test --verbosity=2
