@@ -4,7 +4,8 @@ from datetime import timedelta
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from .models import AttendanceRecord, LocationSetting, AttendanceTimeSetting
@@ -290,6 +291,23 @@ def set_attendance_time(request):
     cache.delete("attendance_time_setting")
 
     return JsonResponse({
-        "status": "success", 
+        "status": "success",
         "message": f"출결 시간이 설정되었습니다. (입실: ~{check_in_str} / 퇴실: {check_out_str}~)"
+    })
+
+
+@csrf_exempt
+@login_required
+@require_GET
+def today_status(request):
+    """오늘 출결 상태 조회 API (앱용)"""
+    today = timezone.localdate()
+    record = AttendanceRecord.objects.filter(user=request.user, attendance_date=today).first()
+    if not record:
+        return JsonResponse({"attendance": "none"})
+    return JsonResponse({
+        "attendance": "checked_out" if record.check_out_at else "checked_in",
+        "status": record.status,
+        "check_in_at": timezone.localtime(record.check_in_at).strftime("%H:%M") if record.check_in_at else None,
+        "check_out_at": timezone.localtime(record.check_out_at).strftime("%H:%M") if record.check_out_at else None,
     })

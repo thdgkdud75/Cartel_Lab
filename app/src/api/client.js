@@ -42,3 +42,9 @@ export async function checkOut(latitude, longitude) {
   });
   return response.json();
 }
+
+export async function getTodayStatus() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/today/`, { headers });
+  return response.json();
+}

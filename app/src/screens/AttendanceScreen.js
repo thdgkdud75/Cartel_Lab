@@ -8,11 +8,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { checkIn, checkOut } from '../api/client';
+import { checkIn, checkOut, getTodayStatus } from '../api/client';
 
 export default function AttendanceScreen({ name, onLogout }) {
-  const [status, setStatus] = useState('idle'); // idle | checking-in | checking-out
+  const [loading, setLoading] = useState(false);
+  // 'none' | 'checked_in' | 'checked_out'
+  const [attendance, setAttendance] = useState('none');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    getTodayStatus().then(res => {
+      if (res.attendance) setAttendance(res.attendance);
+    }).catch(() => {});
+  }, []);
 
   const getLocation = async () => {
     const { status: perm } = await Location.requestForegroundPermissionsAsync();
@@ -25,32 +33,34 @@ export default function AttendanceScreen({ name, onLogout }) {
   };
 
   const handleCheckIn = async () => {
-    setStatus('checking-in');
+    setLoading(true);
     setMessage('');
     try {
       const coords = await getLocation();
-      if (!coords) { setStatus('idle'); return; }
+      if (!coords) return;
       const res = await checkIn(coords.latitude, coords.longitude);
       setMessage(res.message || '출석 완료!');
+      if (res.status === 'success') setAttendance('checked_in');
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
-      setStatus('idle');
+      setLoading(false);
     }
   };
 
   const handleCheckOut = async () => {
-    setStatus('checking-out');
+    setLoading(true);
     setMessage('');
     try {
       const coords = await getLocation();
-      if (!coords) { setStatus('idle'); return; }
+      if (!coords) return;
       const res = await checkOut(coords.latitude, coords.longitude);
       setMessage(res.message || '퇴실 완료!');
+      if (res.status === 'success') setAttendance('checked_out');
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
-      setStatus('idle');
+      setLoading(false);
     }
   };
 
@@ -70,25 +80,31 @@ export default function AttendanceScreen({ name, onLogout }) {
 
       <Text style={styles.title}>출결 체크</Text>
 
-      <TouchableOpacity
-        style={[styles.button, styles.checkInBtn, status !== 'idle' && styles.disabled]}
-        onPress={handleCheckIn}
-        disabled={status !== 'idle'}
-      >
-        <Text style={styles.btnText}>
-          {status === 'checking-in' ? '처리 중...' : '출석 체크인'}
-        </Text>
-      </TouchableOpacity>
+      {attendance === 'none' && (
+        <TouchableOpacity
+          style={[styles.button, styles.checkInBtn, loading && styles.disabled]}
+          onPress={handleCheckIn}
+          disabled={loading}
+        >
+          <Text style={styles.btnText}>{loading ? '처리 중...' : '출석 체크인'}</Text>
+        </TouchableOpacity>
+      )}
 
-      <TouchableOpacity
-        style={[styles.button, styles.checkOutBtn, status !== 'idle' && styles.disabled]}
-        onPress={handleCheckOut}
-        disabled={status !== 'idle'}
-      >
-        <Text style={styles.btnText}>
-          {status === 'checking-out' ? '처리 중...' : '퇴실 체크아웃'}
-        </Text>
-      </TouchableOpacity>
+      {attendance === 'checked_in' && (
+        <TouchableOpacity
+          style={[styles.button, styles.checkOutBtn, loading && styles.disabled]}
+          onPress={handleCheckOut}
+          disabled={loading}
+        >
+          <Text style={styles.btnText}>{loading ? '처리 중...' : '퇴실 체크아웃'}</Text>
+        </TouchableOpacity>
+      )}
+
+      {attendance === 'checked_out' && (
+        <View style={styles.doneBox}>
+          <Text style={styles.doneText}>오늘 출결 완료!</Text>
+        </View>
+      )}
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
     </View>
@@ -142,6 +158,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  doneBox: {
+    padding: 18,
+    borderRadius: 12,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+  },
+  doneText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#16a34a',
   },
   message: {
     marginTop: 24,
