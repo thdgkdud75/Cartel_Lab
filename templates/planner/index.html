@@ -141,6 +141,16 @@
         background: #fffaf5;
         border-radius: 10px;
     }
+    .lab-goal-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .lab-goal-text {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
     .lab-goal-meta {
         color: #8b9098;
         font-size: 12px;
@@ -152,6 +162,20 @@
         font-size: 14px;
         line-height: 1.35;
         word-break: break-word;
+    }
+    .lab-goal-delete-form {
+        margin: 0;
+        flex: 0 0 auto;
+    }
+    .lab-goal-delete-btn {
+        border: 1px solid #ffd2b3;
+        border-radius: 8px;
+        background: #fff;
+        color: #9f3f10;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 6px 10px;
+        cursor: pointer;
     }
     .daily-todo-panel {
         border: 1px solid var(--planner-line);
@@ -493,6 +517,9 @@
         flex-direction: column;
         gap: 3px;
     }
+    .field-stack.field-span-full {
+        grid-column: 1 / -1;
+    }
     .field-label {
         font-size: 11px;
         line-height: 1;
@@ -507,8 +534,8 @@
     }
     .color-choice-group {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
     }
     .color-choice-group input[type="radio"] {
         position: absolute;
@@ -519,18 +546,39 @@
         display: inline-flex;
         align-items: center;
         gap: 5px;
+        justify-content: center;
         border: 1px solid #dfe3ea;
         border-radius: 999px;
-        padding: 6px 9px;
-        font-size: 12px;
+        min-height: 42px;
+        min-width: 72px;
+        padding: 10px 18px;
+        font-size: 14px;
         color: #5f6570;
         cursor: pointer;
         background: #fff;
         white-space: nowrap;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .color-choice.color-red {
+        color: #b44343;
+        background: #fff5f5;
+    }
+    .color-choice.color-blue {
+        color: #2d63c7;
+        background: #f4f8ff;
+    }
+    .color-choice.color-yellow {
+        color: #9a7200;
+        background: #fffbea;
+    }
+    .color-choice.color-green {
+        color: #287a45;
+        background: #f1fbf4;
     }
     .color-dot {
-        width: 10px;
-        height: 10px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
         display: inline-block;
     }
@@ -539,9 +587,8 @@
     .dot-yellow { background: #e8b422; }
     .dot-green { background: #33a357; }
     .color-choice-group input[type="radio"]:checked + .color-choice {
-        border-color: #ffb882;
-        background: #fff4ea;
-        color: #8a4f1f;
+        border-color: #ff9e58;
+        box-shadow: 0 0 0 2px rgba(255, 111, 15, 0.12);
         font-weight: 700;
     }
     .add-form input,
@@ -750,6 +797,14 @@
     }
     .detail-row.space-between {
         justify-content: space-between;
+        align-items: flex-start;
+    }
+    .goal-main {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex: 1 1 auto;
     }
     .detail-actions {
         display: inline-flex;
@@ -784,12 +839,20 @@
         text-decoration: line-through;
         color: var(--planner-muted);
     }
+    .goal-text {
+        min-width: 0;
+        word-break: break-word;
+    }
     .goal-time {
         display: inline-block;
         font-size: 12px;
         color: #a05a26;
         font-weight: 700;
         min-width: 46px;
+    }
+    .goal-toggle-form {
+        margin: 0;
+        flex: 0 0 auto;
     }
     .empty-box {
         color: var(--planner-muted);
@@ -966,8 +1029,18 @@
     <ul class="lab-goal-list">
         {% for lab_goal in lab_wide_goals %}
         <li class="lab-goal-item">
-            <span class="lab-goal-meta">{{ lab_goal.created_by.name }} | {{ lab_goal.created_at|date:"m-d H:i" }}</span>
-            <span class="lab-goal-content">{{ lab_goal.content }}</span>
+            <div class="lab-goal-row">
+                <div class="lab-goal-text">
+                    <span class="lab-goal-meta">{{ lab_goal.created_by.name }} | {{ lab_goal.created_at|date:"m-d H:i" }}</span>
+                    <span class="lab-goal-content">{{ lab_goal.content }}</span>
+                </div>
+                {% if request.user.is_authenticated and lab_goal.created_by_id == request.user.id %}
+                <form method="post" action="{% url 'planner-lab-goal-delete' lab_goal.id %}" class="lab-goal-delete-form">
+                    {% csrf_token %}
+                    <button type="submit" class="lab-goal-delete-btn">삭제</button>
+                </form>
+                {% endif %}
+            </div>
         </li>
         {% empty %}
         <li class="empty-box">등록된 랩실 전체 목표가 없습니다.</li>
@@ -1023,47 +1096,17 @@
                         <span class="field-label">기간</span>
                         <input type="number" name="duration_days" min="1" max="60" value="1" required>
                     </div>
-                    <div class="field-stack">
-                        <span class="field-label">시간</span>
-                        <div class="time-select-group">
-                            <select name="planned_time_period" aria-label="투두 오전 오후 선택">
-                                <option value="">AM/PM</option>
-                                <option value="AM">AM</option>
-                                <option value="PM">PM</option>
-                            </select>
-                            <select name="planned_time_hour" aria-label="투두 시간 선택">
-                                <option value="">시</option>
-                                <option value="1">1시</option>
-                                <option value="2">2시</option>
-                                <option value="3">3시</option>
-                                <option value="4">4시</option>
-                                <option value="5">5시</option>
-                                <option value="6">6시</option>
-                                <option value="7">7시</option>
-                                <option value="8">8시</option>
-                                <option value="9">9시</option>
-                                <option value="10">10시</option>
-                                <option value="11">11시</option>
-                                <option value="12">12시</option>
-                            </select>
-                            <select name="planned_time_minute" aria-label="투두 분 선택">
-                                <option value="">분</option>
-                                <option value="00">00분</option>
-                                <option value="30">30분</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="field-stack">
+                    <div class="field-stack field-span-full">
                         <span class="field-label">색상</span>
                         <div class="color-choice-group">
                             <input type="radio" id="todo-color-red" name="color" value="red" checked>
-                            <label for="todo-color-red" class="color-choice"><span class="color-dot dot-red"></span>빨강</label>
+                            <label for="todo-color-red" class="color-choice color-red"><span class="color-dot dot-red"></span>빨강</label>
                             <input type="radio" id="todo-color-blue" name="color" value="blue">
-                            <label for="todo-color-blue" class="color-choice"><span class="color-dot dot-blue"></span>파랑</label>
+                            <label for="todo-color-blue" class="color-choice color-blue"><span class="color-dot dot-blue"></span>파랑</label>
                             <input type="radio" id="todo-color-yellow" name="color" value="yellow">
-                            <label for="todo-color-yellow" class="color-choice"><span class="color-dot dot-yellow"></span>노랑</label>
+                            <label for="todo-color-yellow" class="color-choice color-yellow"><span class="color-dot dot-yellow"></span>노랑</label>
                             <input type="radio" id="todo-color-green" name="color" value="green">
-                            <label for="todo-color-green" class="color-choice"><span class="color-dot dot-green"></span>초록</label>
+                            <label for="todo-color-green" class="color-choice color-green"><span class="color-dot dot-green"></span>초록</label>
                         </div>
                     </div>
                     <input type="text" name="content" class="add-form-content" maxlength="255" placeholder="투두 입력" required>
@@ -1129,47 +1172,17 @@
                     <span class="field-label">기간</span>
                     <input type="number" name="duration_days" min="1" max="60" value="1" required>
                 </div>
-                <div class="field-stack">
-                    <span class="field-label">시간</span>
-                    <div class="time-select-group">
-                        <select name="planned_time_period" aria-label="일정 오전 오후 선택">
-                            <option value="">AM/PM</option>
-                            <option value="AM">AM</option>
-                            <option value="PM">PM</option>
-                        </select>
-                        <select name="planned_time_hour" aria-label="일정 시간 선택">
-                            <option value="">시</option>
-                            <option value="1">1시</option>
-                            <option value="2">2시</option>
-                            <option value="3">3시</option>
-                            <option value="4">4시</option>
-                            <option value="5">5시</option>
-                            <option value="6">6시</option>
-                            <option value="7">7시</option>
-                            <option value="8">8시</option>
-                            <option value="9">9시</option>
-                            <option value="10">10시</option>
-                            <option value="11">11시</option>
-                            <option value="12">12시</option>
-                        </select>
-                        <select name="planned_time_minute" aria-label="일정 분 선택">
-                            <option value="">분</option>
-                            <option value="00">00분</option>
-                            <option value="30">30분</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field-stack">
+                <div class="field-stack field-span-full">
                     <span class="field-label">색상</span>
                     <div class="color-choice-group">
                         <input type="radio" id="add-color-red" name="color" value="red" checked>
-                        <label for="add-color-red" class="color-choice"><span class="color-dot dot-red"></span>빨강</label>
+                        <label for="add-color-red" class="color-choice color-red"><span class="color-dot dot-red"></span>빨강</label>
                         <input type="radio" id="add-color-blue" name="color" value="blue">
-                        <label for="add-color-blue" class="color-choice"><span class="color-dot dot-blue"></span>파랑</label>
+                        <label for="add-color-blue" class="color-choice color-blue"><span class="color-dot dot-blue"></span>파랑</label>
                         <input type="radio" id="add-color-yellow" name="color" value="yellow">
-                        <label for="add-color-yellow" class="color-choice"><span class="color-dot dot-yellow"></span>노랑</label>
+                        <label for="add-color-yellow" class="color-choice color-yellow"><span class="color-dot dot-yellow"></span>노랑</label>
                         <input type="radio" id="add-color-green" name="color" value="green">
-                        <label for="add-color-green" class="color-choice"><span class="color-dot dot-green"></span>초록</label>
+                        <label for="add-color-green" class="color-choice color-green"><span class="color-dot dot-green"></span>초록</label>
                     </div>
                 </div>
                 <input type="text" name="content" class="add-form-content" maxlength="255" placeholder="목표 입력" required>
@@ -1240,47 +1253,17 @@
                         <span class="field-label">기간</span>
                         <input type="number" name="duration_days" id="edit-modal-duration" min="1" max="60" value="1" required>
                     </div>
-                    <div class="field-stack">
-                        <span class="field-label">시간</span>
-                        <div class="time-select-group">
-                            <select name="planned_time_period" id="edit-modal-time-period" aria-label="수정 오전 오후 선택">
-                                <option value="">AM/PM</option>
-                                <option value="AM">AM</option>
-                                <option value="PM">PM</option>
-                            </select>
-                            <select name="planned_time_hour" id="edit-modal-time-hour" aria-label="수정 시간 선택">
-                                <option value="">시</option>
-                                <option value="1">1시</option>
-                                <option value="2">2시</option>
-                                <option value="3">3시</option>
-                                <option value="4">4시</option>
-                                <option value="5">5시</option>
-                                <option value="6">6시</option>
-                                <option value="7">7시</option>
-                                <option value="8">8시</option>
-                                <option value="9">9시</option>
-                                <option value="10">10시</option>
-                                <option value="11">11시</option>
-                                <option value="12">12시</option>
-                            </select>
-                            <select name="planned_time_minute" id="edit-modal-time-minute" aria-label="수정 분 선택">
-                                <option value="">분</option>
-                                <option value="00">00분</option>
-                                <option value="30">30분</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="field-stack">
+                    <div class="field-stack field-span-full">
                         <span class="field-label">색상</span>
                         <div class="color-choice-group">
                             <input type="radio" id="edit-color-red" name="color" value="red" checked>
-                            <label for="edit-color-red" class="color-choice"><span class="color-dot dot-red"></span>빨강</label>
+                            <label for="edit-color-red" class="color-choice color-red"><span class="color-dot dot-red"></span>빨강</label>
                             <input type="radio" id="edit-color-blue" name="color" value="blue">
-                            <label for="edit-color-blue" class="color-choice"><span class="color-dot dot-blue"></span>파랑</label>
+                            <label for="edit-color-blue" class="color-choice color-blue"><span class="color-dot dot-blue"></span>파랑</label>
                             <input type="radio" id="edit-color-yellow" name="color" value="yellow">
-                            <label for="edit-color-yellow" class="color-choice"><span class="color-dot dot-yellow"></span>노랑</label>
+                            <label for="edit-color-yellow" class="color-choice color-yellow"><span class="color-dot dot-yellow"></span>노랑</label>
                             <input type="radio" id="edit-color-green" name="color" value="green">
-                            <label for="edit-color-green" class="color-choice"><span class="color-dot dot-green"></span>초록</label>
+                            <label for="edit-color-green" class="color-choice color-green"><span class="color-dot dot-green"></span>초록</label>
                         </div>
                     </div>
                     <input type="text" name="content" id="edit-modal-content" class="edit-form-content" maxlength="255" required>
@@ -1294,15 +1277,20 @@
                     data-edit-url="{% url 'planner-goal-update' goal.id %}"
                     data-delete-url="{% url 'planner-goal-delete' goal.id %}"
                     data-goal-content="{{ goal.content|escape }}"
-                    data-goal-time="{% if goal.planned_time %}{{ goal.planned_time|time:'H:i' }}{% endif %}"
                     data-goal-date="{{ selected_date|date:'Y-m-d' }}"
                     data-goal-color="{{ goal.color }}"
                 >
                     <div class="detail-row space-between">
-                        <span>
+                        <span class="goal-main">
                             {% if goal.planned_time %}<span class="goal-time">{{ goal.planned_time|time:"H:i" }}</span>{% endif %}
                             <span class="goal-text {% if goal.is_completed %}done{% endif %}">{{ goal.content }}</span>
                         </span>
+                        <form method="post" action="{% url 'planner-goal-toggle' goal.id %}" class="goal-toggle-form">
+                            {% csrf_token %}
+                            <button type="submit" class="goal-toggle-btn {% if goal.is_completed %}is-completed{% endif %}">
+                                {% if goal.is_completed %}완료취소{% else %}완료{% endif %}
+                            </button>
+                        </form>
                     </div>
                 </li>
                 {% empty %}
@@ -1323,9 +1311,6 @@
         var closeEditBtn = document.getElementById("close-edit-modal");
         var editForm = document.getElementById("edit-modal-form");
         var editInput = document.getElementById("edit-modal-content");
-        var editTimePeriodInput = document.getElementById("edit-modal-time-period");
-        var editTimeHourInput = document.getElementById("edit-modal-time-hour");
-        var editTimeMinuteInput = document.getElementById("edit-modal-time-minute");
         var editDateInput = document.getElementById("edit-modal-date");
         var editDurationInput = document.getElementById("edit-modal-duration");
         var editColorInputs = document.querySelectorAll('input[name="color"][id^="edit-color-"]');
@@ -1339,17 +1324,17 @@
         var dailyOpenBtn = document.getElementById("open-daily-todo-modal");
         var dailyCloseBtn = document.getElementById("close-daily-todo-modal");
         var dailyModal = document.getElementById("daily-todo-modal");
-        if (!openBtn || !closeBtn || !modal) return;
+        if (openBtn && closeBtn && modal) {
+            openBtn.addEventListener("click", function () {
+                modal.classList.add("is-open");
+            });
 
-        openBtn.addEventListener("click", function () {
-            modal.classList.add("is-open");
-        });
+            closeBtn.addEventListener("click", function () {
+                modal.classList.remove("is-open");
+            });
+        }
 
-        closeBtn.addEventListener("click", function () {
-            modal.classList.remove("is-open");
-        });
-
-        if (editModal && closeEditBtn && editForm && editInput && editTimePeriodInput && editTimeHourInput && editTimeMinuteInput && editDateInput && editDurationInput && editColorInputs.length) {
+        if (editModal && closeEditBtn && editForm && editInput && editDateInput && editDurationInput && editColorInputs.length) {
             detailItems.forEach(function (item) {
                 item.addEventListener("click", function (event) {
                     if (event.target.closest("form,button,input")) return;
@@ -1359,7 +1344,6 @@
                         topEditBtn.disabled = false;
                         topEditBtn.setAttribute("data-edit-url", item.getAttribute("data-edit-url"));
                         topEditBtn.setAttribute("data-goal-content", item.getAttribute("data-goal-content") || "");
-                        topEditBtn.setAttribute("data-goal-time", item.getAttribute("data-goal-time") || "");
                         topEditBtn.setAttribute("data-goal-date", item.getAttribute("data-goal-date") || "");
                         topEditBtn.setAttribute("data-goal-color", item.getAttribute("data-goal-color") || "red");
                     }
@@ -1375,24 +1359,6 @@
                     if (topEditBtn.disabled) return;
                     editForm.setAttribute("action", topEditBtn.getAttribute("data-edit-url"));
                     editInput.value = topEditBtn.getAttribute("data-goal-content") || "";
-                    var goalTime = topEditBtn.getAttribute("data-goal-time") || "";
-                    if (goalTime && goalTime.indexOf(":") > -1) {
-                        var timeParts = goalTime.split(":");
-                        var rawHour = parseInt(timeParts[0] || "", 10);
-                        if (!isNaN(rawHour)) {
-                            editTimePeriodInput.value = rawHour >= 12 ? "PM" : "AM";
-                            var displayHour = rawHour % 12;
-                            editTimeHourInput.value = String(displayHour === 0 ? 12 : displayHour);
-                        } else {
-                            editTimePeriodInput.value = "";
-                            editTimeHourInput.value = "";
-                        }
-                        editTimeMinuteInput.value = timeParts[1] || "";
-                    } else {
-                        editTimePeriodInput.value = "";
-                        editTimeHourInput.value = "";
-                        editTimeMinuteInput.value = "";
-                    }
                     editDateInput.value = topEditBtn.getAttribute("data-goal-date") || "";
                     editDurationInput.value = "1";
                     var selectedColor = topEditBtn.getAttribute("data-goal-color") || "red";

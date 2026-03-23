@@ -357,8 +357,8 @@ def _sync_google_events_for_range(user, start_date, end_date):
             if goal.color != goal_color:
                 goal.color = goal_color
                 changed = True
-            if not goal.is_completed:
-                goal.is_completed = True
+            if goal.is_completed:
+                goal.is_completed = False
                 changed = True
             if changed:
                 goal.save(
@@ -381,7 +381,7 @@ def _sync_google_events_for_range(user, start_date, end_date):
                 planned_time=planned_time,
                 color=goal_color,
                 content=content,
-                is_completed=True,
+                is_completed=False,
                 google_event_id=google_event_id,
             )
             created += 1
@@ -593,12 +593,8 @@ def toggle_goal(request, goal_id):
 
     goal = get_object_or_404(WeeklyGoal, id=goal_id, user=request.user)
     goal_date = _goal_date(goal)
-    google_event_id = goal.google_event_id
-    should_delete_google_event = goal.is_completed and bool(google_event_id)
-
-    goal.delete()
-    if should_delete_google_event:
-        _delete_google_event_for_user(request.user, google_event_id, request=request)
+    goal.is_completed = not goal.is_completed
+    goal.save(update_fields=["is_completed", "updated_at"])
     return _planner_plan_redirect_for_date(goal_date)
 
 
@@ -610,7 +606,7 @@ def delete_goal(request, goal_id):
     goal = get_object_or_404(WeeklyGoal, id=goal_id, user=request.user)
     goal_date = _goal_date(goal)
     google_event_id = goal.google_event_id
-    should_delete_google_event = goal.is_completed and bool(google_event_id)
+    should_delete_google_event = bool(google_event_id)
     goal.delete()
     if should_delete_google_event:
         _delete_google_event_for_user(request.user, google_event_id, request=request)
@@ -714,6 +710,16 @@ def add_lab_goal(request):
     content = request.POST.get("content", "").strip()
     if content:
         LabWideGoal.objects.create(created_by=request.user, content=content)
+    return redirect(f"{reverse('planner-index')}?view=goal")
+
+
+@login_required
+def delete_lab_goal(request, goal_id):
+    if request.method != "POST":
+        return redirect("planner-index")
+
+    goal = get_object_or_404(LabWideGoal, id=goal_id, created_by=request.user)
+    goal.delete()
     return redirect(f"{reverse('planner-index')}?view=goal")
 
 

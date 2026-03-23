@@ -65,8 +65,6 @@ class WeeklyPlannerTests(TestCase):
             reverse("planner-goal-add"),
             {
                 "start_date": date(2026, 3, 10).isoformat(),
-                "planned_time_hour": "09",
-                "planned_time_minute": "30",
                 "content": "new weekly goal",
             },
         )
@@ -75,26 +73,23 @@ class WeeklyPlannerTests(TestCase):
         goal = WeeklyGoal.objects.get(content="new weekly goal")
         self.assertEqual(goal.user, self.user1)
         self.assertEqual(goal.weekday, 2)
-        self.assertEqual(goal.planned_time.strftime("%H:%M"), "09:30")
+        self.assertIsNone(goal.planned_time)
         self.assertFalse(DailyTodo.objects.filter(content="new weekly goal").exists())
 
-    def test_add_goal_accepts_am_pm_time_input(self):
+    def test_add_goal_without_time_leaves_planned_time_empty(self):
         self.client.login(student_id="20260001", password="pass-1234-abcd")
 
         response = self.client.post(
             reverse("planner-goal-add"),
             {
                 "start_date": date(2026, 3, 10).isoformat(),
-                "planned_time_period": "PM",
-                "planned_time_hour": "10",
-                "planned_time_minute": "00",
-                "content": "pm goal",
+                "content": "time-free goal",
             },
         )
 
         self.assertEqual(response.status_code, 302)
-        goal = WeeklyGoal.objects.get(content="pm goal")
-        self.assertEqual(goal.planned_time.strftime("%H:%M"), "22:00")
+        goal = WeeklyGoal.objects.get(content="time-free goal")
+        self.assertIsNone(goal.planned_time)
 
     def test_toggle_goal_only_for_owner(self):
         goal = WeeklyGoal.objects.create(
@@ -118,7 +113,8 @@ class WeeklyPlannerTests(TestCase):
             {"week_start": self.week_start.isoformat()},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(WeeklyGoal.objects.filter(id=goal.id).exists())
+        goal.refresh_from_db()
+        self.assertTrue(goal.is_completed)
         self.assertFalse(DailyTodo.objects.filter(user=self.user1, content="toggle me").exists())
 
     def test_update_goal_only_for_owner(self):
@@ -144,15 +140,13 @@ class WeeklyPlannerTests(TestCase):
             reverse("planner-goal-update", args=[goal.id]),
             {
                 "week_start": self.week_start.isoformat(),
-                "planned_time_hour": "14",
-                "planned_time_minute": "30",
                 "content": "after edit",
             },
         )
         self.assertEqual(response.status_code, 302)
         goal.refresh_from_db()
         self.assertEqual(goal.content, "after edit")
-        self.assertEqual(goal.planned_time.strftime("%H:%M"), "14:30")
+        self.assertIsNone(goal.planned_time)
 
     def test_add_lab_goal_requires_login(self):
         response = self.client.post(
@@ -171,6 +165,25 @@ class WeeklyPlannerTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(LabWideGoal.objects.filter(content="lab mission").exists())
 
+    def test_delete_lab_goal_only_for_owner(self):
+        lab_goal = LabWideGoal.objects.create(created_by=self.user1, content="shared delete target")
+
+        response = self.client.post(reverse("planner-lab-goal-delete", args=[lab_goal.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/users/login/", response.url)
+        self.assertTrue(LabWideGoal.objects.filter(id=lab_goal.id).exists())
+
+        self.client.login(student_id="20260002", password="pass-1234-abcd")
+        response = self.client.post(reverse("planner-lab-goal-delete", args=[lab_goal.id]))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(LabWideGoal.objects.filter(id=lab_goal.id).exists())
+
+        self.client.logout()
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(reverse("planner-lab-goal-delete", args=[lab_goal.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(LabWideGoal.objects.filter(id=lab_goal.id).exists())
+
     def test_add_daily_todo_requires_login(self):
         response = self.client.post(
             reverse("planner-daily-todo-add"),
@@ -185,14 +198,12 @@ class WeeklyPlannerTests(TestCase):
             reverse("planner-daily-todo-add"),
             {
                 "target_date": self.week_start.isoformat(),
-                "planned_time_hour": "08",
-                "planned_time_minute": "30",
                 "content": "todo",
             },
         )
         self.assertEqual(response.status_code, 302)
         todo = DailyTodo.objects.get(user=self.user1, target_date=self.week_start, content="todo")
-        self.assertEqual(todo.planned_time.strftime("%H:%M"), "08:30")
+        self.assertIsNone(todo.planned_time)
 
     def test_toggle_daily_todo_only_for_owner(self):
         todo = DailyTodo.objects.create(
@@ -365,7 +376,7 @@ class WeeklyPlannerTests(TestCase):
         self.assertEqual(goal.weekday, 2)
         self.assertEqual(goal.planned_time.strftime("%H:%M"), "09:30")
         self.assertEqual(goal.color, "green")
-        self.assertTrue(goal.is_completed)
+        self.assertFalse(goal.is_completed)
         self.assertFalse(DailyTodo.objects.filter(user=self.user1, google_event_id="google-event-1").exists())
 
     @patch("planner.views._delete_google_event_for_user")
@@ -386,12 +397,12 @@ class WeeklyPlannerTests(TestCase):
         delete_google_event_mock.assert_called_once_with(self.user1, "google-event-1", request=response.wsgi_request)
 
     @patch("planner.views._delete_google_event_for_user")
-    def test_delete_incomplete_goal_does_not_sync_google_calendar_delete(self, delete_google_event_mock):
+    def test_delete_incomplete_google_goal_syncs_google_calendar_delete(self, delete_google_event_mock):
         goal = WeeklyGoal.objects.create(
             user=self.user1,
             week_start=self.week_start,
             weekday=0,
-            content="incomplete local goal",
+            content="incomplete google goal",
             is_completed=False,
             google_event_id="google-event-1",
         )
@@ -400,7 +411,7 @@ class WeeklyPlannerTests(TestCase):
         response = self.client.post(reverse("planner-goal-delete", args=[goal.id]))
 
         self.assertEqual(response.status_code, 302)
-        delete_google_event_mock.assert_not_called()
+        delete_google_event_mock.assert_called_once_with(self.user1, "google-event-1", request=response.wsgi_request)
 
     @patch("planner.views._sync_weekly_goal_update")
     @patch("planner.views._sync_weekly_goal_create")
@@ -419,8 +430,6 @@ class WeeklyPlannerTests(TestCase):
             {
                 "start_date": date(2026, 3, 10).isoformat(),
                 "duration_days": "2",
-                "planned_time_hour": "10",
-                "planned_time_minute": "00",
                 "content": "after",
                 "color": "blue",
             },

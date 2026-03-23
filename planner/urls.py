@@ -4,6 +4,7 @@ from .views import (
     add_daily_todo,
     add_goal,
     add_lab_goal,
+    delete_lab_goal,
     delete_daily_todos,
     delete_daily_todo,
     delete_goal,
@@ -22,6 +23,7 @@ from .views import (
 urlpatterns = [
     path("", index, name="planner-index"),
     path("lab-goals/add/", add_lab_goal, name="planner-lab-goal-add"),
+    path("lab-goals/<int:goal_id>/delete/", delete_lab_goal, name="planner-lab-goal-delete"),
     path("google/connect/", google_calendar_connect, name="planner-google-calendar-connect"),
     path("google/callback/", google_calendar_callback, name="planner-google-calendar-callback"),
     path("google/disconnect/", google_calendar_disconnect, name="planner-google-calendar-disconnect"),
