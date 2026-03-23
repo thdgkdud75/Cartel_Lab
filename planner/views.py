@@ -1,4 +1,4 @@
-import calendar
+﻿import calendar
 import re
 import secrets
 from datetime import date, datetime, time, timedelta
@@ -177,7 +177,7 @@ def _sync_daily_todo_create(todo):
 
     event_id = create_todo_event(credential, todo)
     if not event_id:
-        raise GoogleCalendarError("구글 캘린더에서 이벤트 ID를 받지 못했습니다.")
+        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉???대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
 
     todo.google_event_id = event_id
     todo.save(update_fields=["google_event_id", "updated_at"])
@@ -191,7 +191,7 @@ def _sync_weekly_goal_create(goal, goal_date):
 
     event_id = create_goal_event(credential, goal, goal_date)
     if not event_id:
-        raise GoogleCalendarError("구글 캘린더에서 목표 이벤트 ID를 받지 못했습니다.")
+        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉??紐⑺몴 ?대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
 
     goal.google_event_id = event_id
     goal.save(update_fields=["google_event_id", "updated_at"])
@@ -237,7 +237,7 @@ def _create_weekly_goal_from_todo(todo, request=None):
             if request is not None:
                 messages.warning(
                     request,
-                    f"체크된 투두는 저장됐지만 Google Calendar 동기화에는 실패했습니다: {exc}",
+                    f"泥댄겕???щ몢????λ릱吏留?Google Calendar ?숆린?붿뿉???ㅽ뙣?덉뒿?덈떎: {exc}",
                 )
 
     return goal
@@ -255,7 +255,7 @@ def _delete_google_event_for_user(user, event_id, request=None):
         delete_event(credential, event_id)
     except GoogleCalendarError as exc:
         if request is not None:
-            messages.warning(request, f"Google Calendar 일정 삭제에 실패했습니다: {exc}")
+            messages.warning(request, f"Google Calendar ?쇱젙 ??젣???ㅽ뙣?덉뒿?덈떎: {exc}")
 
 
 def _parse_google_datetime(raw_value):
@@ -679,7 +679,7 @@ def update_goal(request, goal_id):
                     try:
                         _sync_weekly_goal_update(sibling_goal, _goal_date(sibling_goal))
                     except GoogleCalendarError as exc:
-                        messages.warning(request, f"Google Calendar 일정 색상 동기화에 실패했습니다: {exc}")
+                        messages.warning(request, f"Google Calendar ?쇱젙 ?됱긽 ?숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
                         break
 
         first_week_start = _week_start_from_input(goal_date.isoformat())
@@ -694,7 +694,7 @@ def update_goal(request, goal_id):
             try:
                 _sync_weekly_goal_update(goal, goal_date)
             except GoogleCalendarError as exc:
-                messages.warning(request, f"Google Calendar 일정 수정에 실패했습니다: {exc}")
+                messages.warning(request, f"Google Calendar ?쇱젙 ?섏젙???ㅽ뙣?덉뒿?덈떎: {exc}")
 
         for offset in range(1, duration_days):
             target_date = goal_date + timedelta(days=offset)
@@ -769,7 +769,7 @@ def add_daily_todo(request):
             try:
                 pass
             except GoogleCalendarError as exc:
-                messages.warning(request, f"투두는 저장됐지만 구글 캘린더 동기화에 실패했습니다: {exc}")
+                messages.warning(request, f"?щ몢????λ릱吏留?援ш? 罹섎┛???숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -848,7 +848,7 @@ def register_daily_todos(request):
         DailyTodo.objects.filter(id__in=todo_ids).delete()
 
     if todo_count == 0:
-        messages.info(request, "등록할 체크된 투두가 없습니다.")
+        messages.info(request, "?깅줉??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -882,7 +882,7 @@ def delete_daily_todos(request):
         DailyTodo.objects.filter(id__in=[todo.id for todo in todos]).delete()
 
     if deleted_count == 0:
-        messages.info(request, "삭제할 체크된 투두가 없습니다.")
+        messages.info(request, "??젣??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -908,7 +908,7 @@ def google_calendar_import(request):
         return redirect("planner-index")
 
     if not hasattr(request.user, "google_calendar_credential"):
-        messages.error(request, "Google Calendar 연결 후 가져오기를 사용할 수 있습니다.")
+        messages.error(request, "Google Calendar ?곌껐 ??媛?몄삤湲곕? ?ъ슜?????덉뒿?덈떎.")
         return _planner_plan_redirect_for_date(timezone.localdate())
 
     target_raw = request.POST.get("target_date", "")
@@ -937,7 +937,7 @@ def google_calendar_import(request):
             f"구글 일정 가져오기 완료: 생성 {result['created']}건, 업데이트 {result['updated']}건, 삭제 {result['deleted']}건",
         )
     except GoogleCalendarError as exc:
-        messages.error(request, f"구글 일정 가져오기에 실패했습니다: {exc}")
+        messages.error(request, f"援ш? ?쇱젙 媛?몄삤湲곗뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
 
     return _planner_plan_redirect_for_date(target_date)
 
@@ -945,7 +945,7 @@ def google_calendar_import(request):
 @login_required
 def google_calendar_connect(request):
     if not is_configured():
-        messages.error(request, "Google Calendar 설정이 비어 있습니다. .env 값을 먼저 입력하세요.")
+        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎. .env 媛믪쓣 癒쇱? ?낅젰?섏꽭??")
         return redirect("planner-index")
 
     state = secrets.token_urlsafe(24)
@@ -956,30 +956,30 @@ def google_calendar_connect(request):
 @login_required
 def google_calendar_callback(request):
     if not is_configured():
-        messages.error(request, "Google Calendar 설정이 비어 있습니다.")
+        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎.")
         return redirect("planner-index")
 
     expected_state = request.session.pop("google_oauth_state", "")
     received_state = request.GET.get("state", "")
     if not expected_state or expected_state != received_state:
-        messages.error(request, "구글 로그인 검증(state)에 실패했습니다. 다시 시도하세요.")
+        messages.error(request, "援ш? 濡쒓렇??寃利?state)???ㅽ뙣?덉뒿?덈떎. ?ㅼ떆 ?쒕룄?섏꽭??")
         return redirect("planner-index")
 
     oauth_error = request.GET.get("error")
     if oauth_error:
-        messages.error(request, f"구글 연결이 취소되었거나 실패했습니다: {oauth_error}")
+        messages.error(request, f"援ш? ?곌껐??痍⑥냼?섏뿀嫄곕굹 ?ㅽ뙣?덉뒿?덈떎: {oauth_error}")
         return redirect("planner-index")
 
     code = request.GET.get("code", "")
     if not code:
-        messages.error(request, "구글 인증 코드가 없어 연결할 수 없습니다.")
+        messages.error(request, "援ш? ?몄쬆 肄붾뱶媛 ?놁뼱 ?곌껐?????놁뒿?덈떎.")
         return redirect("planner-index")
 
     try:
         token_data = exchange_code_for_token(request, code)
         google_email = fetch_google_email(token_data["access_token"])
     except GoogleCalendarError as exc:
-        messages.error(request, f"구글 계정 연결에 실패했습니다: {exc}")
+        messages.error(request, f"援ш? 怨꾩젙 ?곌껐???ㅽ뙣?덉뒿?덈떎: {exc}")
         return redirect("planner-index")
 
     credential, created = GoogleCalendarCredential.objects.get_or_create(
@@ -1022,12 +1022,12 @@ def google_calendar_disconnect(request):
         return redirect("planner-index")
 
     GoogleCalendarCredential.objects.filter(user=request.user).delete()
-    messages.success(request, "Google Calendar 연결을 해제했습니다.")
+    messages.success(request, "Google Calendar ?곌껐???댁젣?덉뒿?덈떎.")
     return _planner_plan_redirect_for_date(timezone.localdate())
 
 
 def build_company_mark(name):
-    normalized = re.sub(r"[\(\)\[\]\s]|주식회사|㈜|\(주\)", "", name or "")
+    normalized = re.sub(r"[\(\)\[\]\s]|二쇱떇?뚯궗|??\(二?)", "", name or "")
     if not normalized:
         return "TL"
     if re.search(r"[A-Za-z]", normalized):
@@ -1059,7 +1059,7 @@ def build_deadline_label(job):
     deadline = timezone.localtime(job.deadline_at).date()
     delta = (deadline - today).days
     if delta < 0:
-        return "마감"
+        return "留덇컧"
     if delta == 0:
         return "D-Day"
     return f"D-{delta}"
@@ -1068,7 +1068,7 @@ def build_deadline_label(job):
 def split_detail_lines(value):
     lines = []
     for raw in (value or "").splitlines():
-        cleaned = re.sub(r"\s+", " ", raw).strip(" -•·\t")
+        cleaned = re.sub(r"\s+", " ", raw).strip(" -?◈?t")
         if not cleaned:
             continue
         lines.append(cleaned)
@@ -1134,7 +1134,7 @@ def jobs_sync(request):
         except Exception:
             pass
     threading.Thread(target=run_sync, daemon=True).start()
-    messages.success(request, "공고 수집을 시작했습니다. 잠시 후 새로고침하면 표시됩니다.")
+    messages.success(request, "怨듦퀬 ?섏쭛???쒖옉?덉뒿?덈떎. ?좎떆 ???덈줈怨좎묠?섎㈃ ?쒖떆?⑸땲??")
     return redirect('jobs-index')
 
 

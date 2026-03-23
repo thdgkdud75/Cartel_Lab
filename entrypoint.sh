@@ -6,7 +6,7 @@ until python -c "
 import pymysql, os, sys, traceback
 
 host = os.getenv('DB_HOST') or 'db'
-user = os.getenv('DB_USER') or 'django'
+user = os.getenv('DB_USER') or 'root'
 password = os.getenv('DB_PASSWORD') or ''
 db = os.getenv('DB_NAME') or 'cartel_lab'
 raw_port = os.getenv('DB_PORT') or '3306'
