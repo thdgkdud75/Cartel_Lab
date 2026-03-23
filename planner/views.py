@@ -13,6 +13,7 @@ from django.http import JsonResponse
 
 from .google_calendar import (
     GoogleCalendarError,
+    GOOGLE_EVENT_COLOR_IDS,
     build_authorization_url,
     create_goal_event,
     create_todo_event,
@@ -63,16 +64,34 @@ def _planned_time_from_request(request):
     if direct_time is not None:
         return direct_time
 
+    period_raw = (request.POST.get("planned_time_period") or "").strip().upper()
     hour_raw = (request.POST.get("planned_time_hour") or "").strip()
     minute_raw = (request.POST.get("planned_time_minute") or "").strip()
-    if not hour_raw and not minute_raw:
+    if not period_raw and not hour_raw and not minute_raw:
         return None
     if hour_raw == "" or minute_raw == "":
         return None
 
     try:
-        return time(hour=int(hour_raw), minute=int(minute_raw))
+        hour = int(hour_raw)
+        minute = int(minute_raw)
     except (TypeError, ValueError):
+        return None
+
+    if period_raw in {"AM", "PM"}:
+        if hour < 1 or hour > 12:
+            return None
+        if minute < 0 or minute > 59:
+            return None
+        if period_raw == "AM":
+            hour = 0 if hour == 12 else hour
+        else:
+            hour = 12 if hour == 12 else hour + 12
+        return time(hour=hour, minute=minute)
+
+    try:
+        return time(hour=hour, minute=minute)
+    except ValueError:
         return None
 
 
@@ -250,6 +269,17 @@ def _parse_google_datetime(raw_value):
     return timezone.localtime(parsed)
 
 
+def _color_from_google_event(event, default="red"):
+    color_id = str(event.get("colorId") or "").strip()
+    if not color_id:
+        return default
+
+    for color, mapped_id in GOOGLE_EVENT_COLOR_IDS.items():
+        if mapped_id == color_id:
+            return color
+    return default
+
+
 def _todo_fields_from_google_event(event):
     summary = (event.get("summary") or "").strip()
     start = event.get("start") or {}
@@ -300,40 +330,85 @@ def _sync_google_events_for_range(user, start_date, end_date):
             goal_qs.delete()
             continue
 
-        if goal_qs.exists():
-            deleted += todo_qs.count()
-            todo_qs.delete()
-            continue
-
         target_date, planned_time, content = _todo_fields_from_google_event(event)
         if not target_date or not content:
             continue
 
-        todo = todo_qs.first()
-        if todo:
+        week_start = _week_start_from_input(target_date.isoformat())
+        weekday = (target_date - week_start).days
+        goal = goal_qs.first()
+        migrated_todo = todo_qs.first()
+        goal_color = _color_from_google_event(event, default=migrated_todo.color if migrated_todo else "red")
+
+        if goal:
             changed = False
-            if todo.target_date != target_date:
-                todo.target_date = target_date
+            if goal.week_start != week_start:
+                goal.week_start = week_start
                 changed = True
-            if todo.planned_time != planned_time:
-                todo.planned_time = planned_time
+            if goal.weekday != weekday:
+                goal.weekday = weekday
                 changed = True
-            if todo.content != content:
-                todo.content = content
+            if goal.planned_time != planned_time:
+                goal.planned_time = planned_time
+                changed = True
+            if goal.content != content:
+                goal.content = content
+                changed = True
+            if goal.color != goal_color:
+                goal.color = goal_color
+                changed = True
+            if not goal.is_completed:
+                goal.is_completed = True
                 changed = True
             if changed:
-                todo.save(update_fields=["target_date", "planned_time", "content", "updated_at"])
+                goal.save(
+                    update_fields=[
+                        "week_start",
+                        "weekday",
+                        "planned_time",
+                        "content",
+                        "color",
+                        "is_completed",
+                        "updated_at",
+                    ]
+                )
                 updated += 1
-            continue
+        else:
+            WeeklyGoal.objects.create(
+                user=user,
+                week_start=week_start,
+                weekday=weekday,
+                planned_time=planned_time,
+                color=goal_color,
+                content=content,
+                is_completed=True,
+                google_event_id=google_event_id,
+            )
+            created += 1
 
-        DailyTodo.objects.create(
-            user=user,
-            target_date=target_date,
-            planned_time=planned_time,
-            content=content,
-            google_event_id=google_event_id,
-        )
-        created += 1
+        if todo_qs.exists():
+            deleted += todo_qs.count()
+            todo_qs.delete()
+
+    tracked_goal_ids = []
+    for goal in WeeklyGoal.objects.filter(user=user).exclude(google_event_id=""):
+        goal_date = _goal_date(goal)
+        if start_date <= goal_date <= end_date and goal.google_event_id not in seen_event_ids:
+            tracked_goal_ids.append(goal.id)
+
+    if tracked_goal_ids:
+        deleted += len(tracked_goal_ids)
+        WeeklyGoal.objects.filter(id__in=tracked_goal_ids).delete()
+
+    stale_todo_qs = DailyTodo.objects.filter(
+        user=user,
+        target_date__gte=start_date,
+        target_date__lte=end_date,
+    ).exclude(google_event_id="").exclude(google_event_id__in=seen_event_ids)
+    stale_todo_count = stale_todo_qs.count()
+    if stale_todo_count:
+        deleted += stale_todo_count
+        stale_todo_qs.delete()
 
     tracked_goal_ids = []
     for goal in WeeklyGoal.objects.filter(user=user).exclude(google_event_id=""):
@@ -384,16 +459,6 @@ def index(request):
     leading_days = (first_weekday + 1) % 7
     calendar_start = current_month - timedelta(days=leading_days)
     calendar_end = calendar_start + timedelta(days=41)
-
-    if (
-        request.user.is_authenticated
-        and planner_view == "plan"
-        and hasattr(request.user, "google_calendar_credential")
-    ):
-        try:
-            _sync_google_events_for_range(request.user, calendar_start, calendar_end)
-        except GoogleCalendarError as exc:
-            messages.warning(request, f"구글 캘린더 자동 동기화에 실패했습니다: {exc}")
 
     if request.user.is_authenticated:
         # Legacy registered todos should not remain in the todo list.
@@ -529,20 +594,6 @@ def add_goal(request):
             if not created and goal.color != color:
                 goal.color = color
                 goal.save(update_fields=["color", "updated_at"])
-            if hasattr(request.user, "google_calendar_credential"):
-                try:
-                    if goal.google_event_id:
-                        _sync_weekly_goal_update(goal, target_date)
-                    else:
-                        _sync_weekly_goal_create(goal, target_date)
-                except GoogleCalendarError as exc:
-                    messages.warning(request, f"Google Calendar 일정 동기화에 실패했습니다: {exc}")
-            if False:  # Sync deferred until the todo is checked.
-                try:
-                    pass
-                except GoogleCalendarError as exc:
-                    messages.warning(request, f"투두는 생성됐지만 Google Calendar 동기화에 실패했습니다: {exc}")
-
     if start_date:
         try:
             selected_date = start_date
@@ -563,9 +614,11 @@ def toggle_goal(request, goal_id):
     goal = get_object_or_404(WeeklyGoal, id=goal_id, user=request.user)
     goal_date = _goal_date(goal)
     google_event_id = goal.google_event_id
+    should_delete_google_event = goal.is_completed and bool(google_event_id)
 
     goal.delete()
-    _delete_google_event_for_user(request.user, google_event_id, request=request)
+    if should_delete_google_event:
+        _delete_google_event_for_user(request.user, google_event_id, request=request)
     return _planner_plan_redirect_for_date(goal_date)
 
 
@@ -577,8 +630,10 @@ def delete_goal(request, goal_id):
     goal = get_object_or_404(WeeklyGoal, id=goal_id, user=request.user)
     goal_date = _goal_date(goal)
     google_event_id = goal.google_event_id
+    should_delete_google_event = goal.is_completed and bool(google_event_id)
     goal.delete()
-    _delete_google_event_for_user(request.user, google_event_id, request=request)
+    if should_delete_google_event:
+        _delete_google_event_for_user(request.user, google_event_id, request=request)
     return _planner_plan_redirect_for_date(goal_date)
 
 
@@ -641,7 +696,6 @@ def update_goal(request, goal_id):
             except GoogleCalendarError as exc:
                 messages.warning(request, f"Google Calendar 일정 수정에 실패했습니다: {exc}")
 
-        created_goals_with_dates = []
         for offset in range(1, duration_days):
             target_date = goal_date + timedelta(days=offset)
             target_week_start = _week_start_from_input(target_date.isoformat())
@@ -657,7 +711,7 @@ def update_goal(request, goal_id):
             if exists:
                 continue
 
-            new_goal = WeeklyGoal.objects.create(
+            WeeklyGoal.objects.create(
                 user=request.user,
                 week_start=target_week_start,
                 weekday=target_weekday,
@@ -665,15 +719,6 @@ def update_goal(request, goal_id):
                 color=color,
                 content=content,
             )
-            created_goals_with_dates.append((new_goal, target_date))
-
-        if hasattr(request.user, "google_calendar_credential"):
-            for new_goal, target_date in created_goals_with_dates:
-                try:
-                    _sync_weekly_goal_create(new_goal, target_date)
-                except GoogleCalendarError:
-                    messages.warning(request, "수정된 기간 일정 중 일부 Google Calendar 동기화에 실패했습니다.")
-                    break
 
     month_key = goal_date.strftime("%Y-%m")
     return redirect(
@@ -833,9 +878,6 @@ def delete_daily_todos(request):
     ))
     deleted_count = len(todos)
 
-    for todo in todos:
-        _delete_google_event_for_user(request.user, todo.google_event_id, request=request)
-
     if deleted_count:
         DailyTodo.objects.filter(id__in=[todo.id for todo in todos]).delete()
 
@@ -970,14 +1012,6 @@ def google_calendar_callback(request):
         )
 
     today = timezone.localdate()
-    month_start = today.replace(day=1)
-    _, month_days = calendar.monthrange(today.year, today.month)
-    month_end = today.replace(day=month_days)
-    try:
-        _sync_google_events_for_range(request.user, month_start, month_end)
-    except GoogleCalendarError:
-        pass
-
     messages.success(request, "Google Calendar 연결이 완료되었습니다.")
     return _planner_plan_redirect_for_date(today)
 

@@ -1,13 +1,20 @@
-from datetime import date, time
+﻿from datetime import date, time
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from users.models import User
 
-from .models import DailyTodo, LabWideGoal, WeeklyGoal
+from .models import DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
 
 
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
 class WeeklyPlannerTests(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -26,7 +33,7 @@ class WeeklyPlannerTests(TestCase):
         LabWideGoal.objects.create(created_by=self.user1, content="shared goal")
         response = self.client.get(reverse("planner-index"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "랩실 전체 목표")
+        self.assertContains(response, "?⑹떎 ?꾩껜 紐⑺몴")
         self.assertContains(response, "shared goal")
 
     def test_only_own_goals_are_visible(self):
@@ -70,6 +77,24 @@ class WeeklyPlannerTests(TestCase):
         self.assertEqual(goal.weekday, 2)
         self.assertEqual(goal.planned_time.strftime("%H:%M"), "09:30")
         self.assertFalse(DailyTodo.objects.filter(content="new weekly goal").exists())
+
+    def test_add_goal_accepts_am_pm_time_input(self):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+
+        response = self.client.post(
+            reverse("planner-goal-add"),
+            {
+                "start_date": date(2026, 3, 10).isoformat(),
+                "planned_time_period": "PM",
+                "planned_time_hour": "10",
+                "planned_time_minute": "00",
+                "content": "pm goal",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        goal = WeeklyGoal.objects.get(content="pm goal")
+        self.assertEqual(goal.planned_time.strftime("%H:%M"), "22:00")
 
     def test_toggle_goal_only_for_owner(self):
         goal = WeeklyGoal.objects.create(
@@ -254,6 +279,156 @@ class WeeklyPlannerTests(TestCase):
         self.assertFalse(DailyTodo.objects.filter(id=checked_one.id).exists())
         self.assertFalse(DailyTodo.objects.filter(id=checked_two.id).exists())
         self.assertTrue(DailyTodo.objects.filter(id=unchecked.id).exists())
+
+    @patch("planner.views._sync_google_events_for_range")
+    def test_plan_view_does_not_auto_import_google_calendar(self, sync_mock):
+        GoogleCalendarCredential.objects.create(
+            user=self.user1,
+            google_email="user1@example.com",
+            access_token="access-token",
+        )
+
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.get(
+            f"{reverse('planner-index')}?view=plan&month=2026-03&date={self.week_start.isoformat()}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        sync_mock.assert_not_called()
+        self.assertContains(response, reverse("planner-google-calendar-import"))
+
+    @patch("planner.views.fetch_google_email", return_value="user1@example.com")
+    @patch(
+        "planner.views.exchange_code_for_token",
+        return_value={
+            "access_token": "new-access-token",
+            "refresh_token": "new-refresh-token",
+            "expires_in": 3600,
+            "scope": "calendar.events",
+        },
+    )
+    @patch("planner.views._sync_google_events_for_range")
+    def test_google_callback_only_connects_without_auto_import(
+        self,
+        sync_mock,
+        exchange_mock,
+        email_mock,
+    ):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        session = self.client.session
+        session["google_oauth_state"] = "expected-state"
+        session.save()
+
+        response = self.client.get(
+            reverse("planner-google-calendar-callback"),
+            {"state": "expected-state", "code": "oauth-code"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        sync_mock.assert_not_called()
+        exchange_mock.assert_called_once()
+        email_mock.assert_called_once_with("new-access-token")
+        credential = GoogleCalendarCredential.objects.get(user=self.user1)
+        self.assertEqual(credential.google_email, "user1@example.com")
+        self.assertEqual(credential.access_token, "new-access-token")
+
+    @patch(
+        "planner.views.list_events",
+        return_value=[
+            {
+                "id": "google-event-1",
+                "status": "confirmed",
+                "summary": "imported goal",
+                "colorId": "10",
+                "start": {"dateTime": "2026-03-10T09:30:00+09:00"},
+            }
+        ],
+    )
+    def test_google_import_creates_weekly_goal_instead_of_todo(self, list_events_mock):
+        GoogleCalendarCredential.objects.create(
+            user=self.user1,
+            google_email="user1@example.com",
+            access_token="access-token",
+        )
+
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(
+            reverse("planner-google-calendar-import"),
+            {"target_date": "2026-03-10", "month": "2026-03", "scope": "month"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        list_events_mock.assert_called_once()
+        goal = WeeklyGoal.objects.get(user=self.user1, google_event_id="google-event-1")
+        self.assertEqual(goal.content, "imported goal")
+        self.assertEqual(goal.week_start, date(2026, 3, 8))
+        self.assertEqual(goal.weekday, 2)
+        self.assertEqual(goal.planned_time.strftime("%H:%M"), "09:30")
+        self.assertEqual(goal.color, "green")
+        self.assertTrue(goal.is_completed)
+        self.assertFalse(DailyTodo.objects.filter(user=self.user1, google_event_id="google-event-1").exists())
+
+    @patch("planner.views._delete_google_event_for_user")
+    def test_delete_completed_goal_syncs_google_calendar_delete(self, delete_google_event_mock):
+        goal = WeeklyGoal.objects.create(
+            user=self.user1,
+            week_start=self.week_start,
+            weekday=0,
+            content="completed google goal",
+            is_completed=True,
+            google_event_id="google-event-1",
+        )
+
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(reverse("planner-goal-delete", args=[goal.id]))
+
+        self.assertEqual(response.status_code, 302)
+        delete_google_event_mock.assert_called_once_with(self.user1, "google-event-1", request=response.wsgi_request)
+
+    @patch("planner.views._delete_google_event_for_user")
+    def test_delete_incomplete_goal_does_not_sync_google_calendar_delete(self, delete_google_event_mock):
+        goal = WeeklyGoal.objects.create(
+            user=self.user1,
+            week_start=self.week_start,
+            weekday=0,
+            content="incomplete local goal",
+            is_completed=False,
+            google_event_id="google-event-1",
+        )
+
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(reverse("planner-goal-delete", args=[goal.id]))
+
+        self.assertEqual(response.status_code, 302)
+        delete_google_event_mock.assert_not_called()
+
+    @patch("planner.views._sync_weekly_goal_update")
+    @patch("planner.views._sync_weekly_goal_create")
+    def test_update_goal_does_not_sync_google_calendar(self, create_mock, update_mock):
+        goal = WeeklyGoal.objects.create(
+            user=self.user1,
+            week_start=self.week_start,
+            weekday=1,
+            content="before",
+            google_event_id="google-event-1",
+        )
+
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        response = self.client.post(
+            reverse("planner-goal-update", args=[goal.id]),
+            {
+                "start_date": date(2026, 3, 10).isoformat(),
+                "duration_days": "2",
+                "planned_time_hour": "10",
+                "planned_time_minute": "00",
+                "content": "after",
+                "color": "blue",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        update_mock.assert_not_called()
+        create_mock.assert_not_called()
 
     def test_delete_daily_todos_removes_checked_items(self):
         checked_todo = DailyTodo.objects.create(
