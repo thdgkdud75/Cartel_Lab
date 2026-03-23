@@ -135,6 +135,34 @@
         display: grid;
         gap: 6px;
     }
+    .lab-goal-subtitle {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: #7f858e;
+    }
+    .lab-goal-history {
+        margin-top: 16px;
+        border-top: 1px solid #f1e1d5;
+        padding-top: 14px;
+        display: grid;
+        gap: 12px;
+    }
+    .lab-goal-history-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--planner-orange-deep);
+    }
+    .lab-goal-week-block {
+        display: grid;
+        gap: 6px;
+    }
+    .lab-goal-week-label {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #8a4f1f;
+    }
     .lab-goal-item {
         padding: 10px;
         border: 1px solid #f2e3d7;
@@ -940,6 +968,29 @@
         }
     }
     @media (max-width: 680px) {
+        .planner-topbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .planner-switch {
+            width: fit-content;
+            margin-bottom: 0;
+        }
+        .planner-google-inline {
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .planner-google-text {
+            white-space: normal;
+            width: 100%;
+        }
+        .google-sync-link,
+        .google-sync-btn {
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
         .lab-goal-head {
             flex-direction: column;
             align-items: stretch;
@@ -1006,28 +1057,29 @@
 {% if planner_view == "goal" %}
 <section class="lab-goal-panel">
     <div class="lab-goal-head">
-        <h2 class="lab-goal-title">랩실 전체 목표</h2>
+        <h2 class="lab-goal-title">이번주 목표</h2>
         {% if request.user.is_authenticated %}
         <button type="button" class="lab-goal-open-btn" id="open-lab-goal-modal">추가</button>
         {% else %}
-        <p class="lab-goal-meta">로그인하면 랩실 목표를 추가할 수 있습니다.</p>
+        <p class="lab-goal-meta">로그인하면 이번주 목표를 추가할 수 있습니다.</p>
         {% endif %}
     </div>
+    <p class="lab-goal-subtitle">{{ current_lab_week_start|date:"Y-m-d" }} ~ {{ current_lab_week_end|date:"Y-m-d" }} (월요일 ~ 일요일)</p>
     {% if request.user.is_authenticated %}
     <div class="lab-goal-modal" id="lab-goal-modal">
         <div class="add-modal-header">
-            <p class="add-modal-title">랩실 전체 목표 추가</p>
-            <button type="button" class="close-add-modal-btn" id="close-lab-goal-modal" aria-label="랩실 목표 팝업 닫기">×</button>
+            <p class="add-modal-title">이번주 목표 추가</p>
+            <button type="button" class="close-add-modal-btn" id="close-lab-goal-modal" aria-label="이번주 목표 팝업 닫기">×</button>
         </div>
         <form method="post" action="{% url 'planner-lab-goal-add' %}" class="lab-goal-modal-form">
             {% csrf_token %}
-            <input type="text" name="content" maxlength="255" placeholder="랩실 공용 목표 입력" required>
+            <input type="text" name="content" maxlength="255" placeholder="이번주 공용 목표 입력" required>
             <button type="submit">추가하기</button>
         </form>
     </div>
     {% endif %}
     <ul class="lab-goal-list">
-        {% for lab_goal in lab_wide_goals %}
+        {% for lab_goal in current_lab_week_goals %}
         <li class="lab-goal-item">
             <div class="lab-goal-row">
                 <div class="lab-goal-text">
@@ -1043,9 +1095,37 @@
             </div>
         </li>
         {% empty %}
-        <li class="empty-box">등록된 랩실 전체 목표가 없습니다.</li>
+        <li class="empty-box">이번 주에 등록된 목표가 없습니다.</li>
         {% endfor %}
     </ul>
+    <section class="lab-goal-history">
+        <h3 class="lab-goal-history-title">이전 4주 목표</h3>
+        {% for week in previous_lab_weeks %}
+        <div class="lab-goal-week-block">
+            <p class="lab-goal-week-label">{{ week.week_start|date:"Y-m-d" }} ~ {{ week.week_end|date:"Y-m-d" }}</p>
+            <ul class="lab-goal-list">
+                {% for lab_goal in week.goals %}
+                <li class="lab-goal-item">
+                    <div class="lab-goal-row">
+                        <div class="lab-goal-text">
+                            <span class="lab-goal-meta">{{ lab_goal.created_by.name }} | {{ lab_goal.created_at|date:"m-d H:i" }}</span>
+                            <span class="lab-goal-content">{{ lab_goal.content }}</span>
+                        </div>
+                        {% if request.user.is_authenticated and lab_goal.created_by_id == request.user.id %}
+                        <form method="post" action="{% url 'planner-lab-goal-delete' lab_goal.id %}" class="lab-goal-delete-form">
+                            {% csrf_token %}
+                            <button type="submit" class="lab-goal-delete-btn">삭제</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% empty %}
+        <div class="empty-box">이전 4주에 등록된 목표가 없습니다.</div>
+        {% endfor %}
+    </section>
 </section>
 {% endif %}
 

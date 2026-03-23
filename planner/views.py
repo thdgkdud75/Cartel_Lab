@@ -44,6 +44,10 @@ def _goal_date(goal):
     return goal.week_start + timedelta(days=goal.weekday)
 
 
+def _monday_week_start(target_date):
+    return target_date - timedelta(days=target_date.weekday())
+
+
 def _time_from_input(raw_time):
     if not raw_time:
         return None
@@ -497,6 +501,25 @@ def index(request):
         if request.user.is_authenticated
         else DailyTodo.objects.none()
     )
+    current_lab_week_start = _monday_week_start(today)
+    current_lab_week_end = current_lab_week_start + timedelta(days=6)
+    current_lab_week_goals = list(
+        LabWideGoal.objects.select_related("created_by").filter(week_start=current_lab_week_start)
+    )
+    previous_lab_weeks = []
+    for offset in range(1, 5):
+        week_start = current_lab_week_start - timedelta(days=7 * offset)
+        goals_in_week = list(
+            LabWideGoal.objects.select_related("created_by").filter(week_start=week_start)
+        )
+        if goals_in_week:
+            previous_lab_weeks.append(
+                {
+                    "week_start": week_start,
+                    "week_end": week_start + timedelta(days=6),
+                    "goals": goals_in_week,
+                }
+            )
 
     context = {
         "planner_view": planner_view,
@@ -506,7 +529,10 @@ def index(request):
         "next_month": next_month,
         "weeks": weeks,
         "selected_goals": selected_goals,
-        "lab_wide_goals": LabWideGoal.objects.select_related("created_by")[:8],
+        "current_lab_week_start": current_lab_week_start,
+        "current_lab_week_end": current_lab_week_end,
+        "current_lab_week_goals": current_lab_week_goals,
+        "previous_lab_weeks": previous_lab_weeks,
         "daily_todos": daily_todos,
         "daily_todos_checked_count": daily_todos.filter(is_checked=True).count()
         if request.user.is_authenticated
@@ -568,6 +594,12 @@ def add_goal(request):
             if not created and goal.color != color:
                 goal.color = color
                 goal.save(update_fields=["color", "updated_at"])
+            if hasattr(request.user, "google_calendar_credential") and not goal.google_event_id:
+                try:
+                    _sync_weekly_goal_create(goal, target_date)
+                except GoogleCalendarError as exc:
+                    messages.warning(request, f"일정은 저장됐지만 Google Calendar 동기화에 실패했습니다: {exc}")
+                    break
     if start_date:
         try:
             selected_date = start_date
@@ -703,7 +735,21 @@ def add_lab_goal(request):
 
     content = request.POST.get("content", "").strip()
     if content:
-        LabWideGoal.objects.create(created_by=request.user, content=content)
+        LabWideGoal.objects.create(
+            created_by=request.user,
+            week_start=_monday_week_start(timezone.localdate()),
+            content=content,
+        )
+    return redirect(f"{reverse('planner-index')}?view=goal")
+
+
+@login_required
+def delete_lab_goal(request, goal_id):
+    if request.method != "POST":
+        return redirect("planner-index")
+
+    goal = get_object_or_404(LabWideGoal, id=goal_id, created_by=request.user)
+    goal.delete()
     return redirect(f"{reverse('planner-index')}?view=goal")
 
 
@@ -723,13 +769,12 @@ def add_daily_todo(request):
         return redirect("planner-index")
 
     content = request.POST.get("content", "").strip()
-    start_date_raw = request.POST.get("start_date") or request.POST.get("target_date")
-    duration_raw = request.POST.get("duration_days", "1")
+    start_date_raw = request.POST.get("target_date") or request.POST.get("start_date")
+    duration_days = _duration_days_from_input(request.POST.get("duration_days", "1"), default=1)
     planned_time = _planned_time_from_request(request)
     color = _color_from_input(request.POST.get("color"))
     month_raw = request.POST.get("month")
     target_date = timezone.localdate()
-    duration_days = _duration_days_from_input(duration_raw, default=1)
     try:
         if start_date_raw:
             target_date = date.fromisoformat(start_date_raw)

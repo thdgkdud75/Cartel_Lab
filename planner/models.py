@@ -54,11 +54,12 @@ class LabWideGoal(models.Model):
         on_delete=models.CASCADE,
         related_name="lab_wide_goals",
     )
+    week_start = models.DateField(help_text="Week start date (Monday)", db_index=True)
     content = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-week_start", "-created_at"]
 
     def __str__(self):
         return f"{self.created_by}: {self.content}"

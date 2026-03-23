@@ -33,11 +33,23 @@ class DailyTodoTests(TestCase):
         self.client.login(student_id="20260001", password="pass-1234-abcd")
         response = self.client.post(
             reverse("planner-daily-todo-add"),
-            {"target_date": self.today.isoformat(), "planned_time": "08:40", "content": "todo"},
+            {
+                "start_date": self.today.isoformat(),
+                "duration_days": "2",
+                "planned_time": "08:40",
+                "content": "todo",
+            },
         )
         self.assertEqual(response.status_code, 302)
         todo = DailyTodo.objects.get(user=self.user1, target_date=self.today, content="todo")
         self.assertEqual(todo.planned_time.strftime("%H:%M"), "08:40")
+        self.assertTrue(
+            DailyTodo.objects.filter(
+                user=self.user1,
+                target_date=date(2026, 3, 9),
+                content="todo",
+            ).exists()
+        )
 
     def test_toggle_daily_todo_only_for_owner(self):
         todo = DailyTodo.objects.create(
@@ -59,7 +71,8 @@ class DailyTodoTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         todo.refresh_from_db()
-        self.assertTrue(todo.is_completed)
+        self.assertTrue(todo.is_checked)
+        self.assertFalse(todo.is_completed)
 
     # TODO: 투두 삭제 권한 테스트
     # TODO: 투두 완료 후 WeeklyGoal 생성 확인
