@@ -16,3 +16,4 @@ cryptography>=41.0.0
 django-redis==6.0.0
 redis==7.3.0
 Pillow
+djangorestframework==3.17.0
