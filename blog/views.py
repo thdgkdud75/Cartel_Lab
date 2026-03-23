@@ -1,9 +1,17 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
+from django.http import JsonResponse, HttpResponseRedirect
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
+import uuid
 from .models import Post
 
 class PostListView(ListView):
+    # ... (existing code)
     model = Post
     template_name = "blog/post_list.html"
     context_object_name = "posts"
@@ -13,10 +21,8 @@ class PostListView(ListView):
         tab = self.request.GET.get('tab')
         
         if tab == 'my' and self.request.user.is_authenticated:
-            # 내 글 보기 필터링
             return queryset.filter(author=self.request.user)
         
-        # 기본값: 전체 글 보기
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -61,5 +67,19 @@ class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     def post(self, request, *args, **kwargs):
         post = self.get_object()
         post.delete()
-        from django.http import HttpResponseRedirect
         return HttpResponseRedirect(reverse_lazy("blog:post-list"))
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ImageUploadView(LoginRequiredMixin, CreateView):
+    def post(self, request, *args, **kwargs):
+        if 'image' not in request.FILES:
+            return JsonResponse({'error': 'No image provided'}, status=400)
+        
+        image = request.FILES['image']
+        ext = os.path.splitext(image.name)[1]
+        filename = f"blog/content/{uuid.uuid4()}{ext}"
+        
+        path = default_storage.save(filename, ContentFile(image.read()))
+        url = default_storage.url(path)
+        
+        return JsonResponse({'url': url})
