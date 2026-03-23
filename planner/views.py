@@ -410,6 +410,26 @@ def _sync_google_events_for_range(user, start_date, end_date):
         deleted += stale_todo_count
         stale_todo_qs.delete()
 
+    tracked_goal_ids = []
+    for goal in WeeklyGoal.objects.filter(user=user).exclude(google_event_id=""):
+        goal_date = _goal_date(goal)
+        if start_date <= goal_date <= end_date and goal.google_event_id not in seen_event_ids:
+            tracked_goal_ids.append(goal.id)
+
+    if tracked_goal_ids:
+        deleted += len(tracked_goal_ids)
+        WeeklyGoal.objects.filter(id__in=tracked_goal_ids).delete()
+
+    stale_todo_qs = DailyTodo.objects.filter(
+        user=user,
+        target_date__gte=start_date,
+        target_date__lte=end_date,
+    ).exclude(google_event_id="").exclude(google_event_id__in=seen_event_ids)
+    stale_todo_count = stale_todo_qs.count()
+    if stale_todo_count:
+        deleted += stale_todo_count
+        stale_todo_qs.delete()
+
     return {"created": created, "updated": updated, "deleted": deleted}
 
 
@@ -653,6 +673,14 @@ def update_goal(request, goal_id):
                 color=color,
                 updated_at=timezone.now(),
             )
+            if hasattr(request.user, "google_calendar_credential"):
+                for sibling_goal in WeeklyGoal.objects.filter(id__in=contiguous_ids):
+                    sibling_goal.color = color
+                    try:
+                        _sync_weekly_goal_update(sibling_goal, _goal_date(sibling_goal))
+                    except GoogleCalendarError as exc:
+                        messages.warning(request, f"Google Calendar 일정 색상 동기화에 실패했습니다: {exc}")
+                        break
 
         first_week_start = _week_start_from_input(goal_date.isoformat())
         first_weekday = (goal_date - first_week_start).days
@@ -662,6 +690,11 @@ def update_goal(request, goal_id):
         goal.planned_time = planned_time
         goal.color = color
         goal.save(update_fields=["week_start", "weekday", "content", "planned_time", "color", "updated_at"])
+        if hasattr(request.user, "google_calendar_credential") and goal.google_event_id:
+            try:
+                _sync_weekly_goal_update(goal, goal_date)
+            except GoogleCalendarError as exc:
+                messages.warning(request, f"Google Calendar 일정 수정에 실패했습니다: {exc}")
 
         for offset in range(1, duration_days):
             target_date = goal_date + timedelta(days=offset)
@@ -1056,12 +1089,24 @@ def jobs_index(request):
         JobPosting.objects.filter(is_active=True).order_by("-posted_at", "-updated_at", "-id")[:100]
     )
     scoring_enabled = can_score_user(request.user)
+    if scoring_enabled:
+        from .services.recommendation import extract_profile_skills, detect_profile_roles, normalize_text
+        _profile_skills = extract_profile_skills(request.user)
+        _profile_roles = detect_profile_roles(request.user)
+        _selected_direction = normalize_text(request.user.get_selected_job_direction())
+    else:
+        _profile_skills = _profile_roles = _selected_direction = None
     for job in jobs:
         job.ui_company_mark = build_company_mark(job.company_name)
         job.ui_deadline_label = build_deadline_label(job)
         job.ui_tags = build_job_tags(job)
         job.ui_main_tasks = build_main_task_preview(job)
-        recommendation = score_job_for_user(request.user, job)
+        recommendation = score_job_for_user(
+            request.user, job,
+            profile_skills=_profile_skills,
+            profile_roles=_profile_roles,
+            selected_direction=_selected_direction,
+        )
         job.ui_recommendation_score = recommendation["score"]
         job.ui_recommendation_reasons = recommendation["reasons"]
 

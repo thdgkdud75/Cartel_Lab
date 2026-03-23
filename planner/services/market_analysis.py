@@ -15,7 +15,7 @@ from users.ai_services import call_openai_json_schema, is_openai_configured
 
 MARKET_ANALYSIS_KEY = "active_jobs"
 MARKET_ANALYSIS_SAMPLE_LIMIT = 60
-MARKET_ANALYSIS_TTL_HOURS = 24
+MARKET_ANALYSIS_REFRESH_HOUR = 12  # 매일 이 시간 이후 첫 접근 시 갱신
 
 ROLE_RULES = {
     "AI / ML Engineer": ("ai", "ml", "머신러닝", "딥러닝", "llm", "vision", "nlp", "data scientist"),
@@ -219,24 +219,7 @@ def get_direction_choices(snapshot: JobMarketSnapshot | None) -> list[tuple[str,
     ]
 
 
-def get_or_refresh_market_snapshot(force: bool = False) -> JobMarketSnapshot | None:
-    jobs = list(
-        JobPosting.objects.filter(is_active=True)
-        .order_by("-posted_at", "-updated_at", "-id")[:MARKET_ANALYSIS_SAMPLE_LIMIT]
-    )
-    if not jobs:
-        return JobMarketSnapshot.objects.filter(analysis_key=MARKET_ANALYSIS_KEY).first()
-
-    latest = JobMarketSnapshot.objects.filter(analysis_key=MARKET_ANALYSIS_KEY).first()
-    current_total_jobs = JobPosting.objects.filter(is_active=True).count()
-    if (
-        latest
-        and not force
-        and latest.total_jobs == current_total_jobs
-        and latest.analyzed_at >= timezone.now() - timedelta(hours=MARKET_ANALYSIS_TTL_HOURS)
-    ):
-        return latest
-
+def _run_market_refresh(jobs: list, current_total_jobs: int) -> None:
     generator_name = "heuristic"
     if is_openai_configured():
         try:
@@ -247,7 +230,7 @@ def get_or_refresh_market_snapshot(force: bool = False) -> JobMarketSnapshot | N
     else:
         raw_result = build_heuristic_market_breakdown(jobs)
 
-    snapshot, _ = JobMarketSnapshot.objects.update_or_create(
+    JobMarketSnapshot.objects.update_or_create(
         analysis_key=MARKET_ANALYSIS_KEY,
         defaults={
             "total_jobs": current_total_jobs,
@@ -257,4 +240,50 @@ def get_or_refresh_market_snapshot(force: bool = False) -> JobMarketSnapshot | N
             "model_name": generator_name,
         },
     )
-    return snapshot
+
+
+def _today_refresh_cutoff():
+    """오늘 MARKET_ANALYSIS_REFRESH_HOUR시 기준 datetime 반환."""
+    now = timezone.localtime()
+    cutoff = now.replace(hour=MARKET_ANALYSIS_REFRESH_HOUR, minute=0, second=0, microsecond=0)
+    return cutoff
+
+
+def get_or_refresh_market_snapshot(force: bool = False) -> JobMarketSnapshot | None:
+    import threading
+
+    latest = JobMarketSnapshot.objects.filter(analysis_key=MARKET_ANALYSIS_KEY).first()
+    now = timezone.localtime()
+    cutoff = _today_refresh_cutoff()
+
+    # 오늘 12시가 지났고, 스냅샷이 그 이전에 만들어진 경우 갱신
+    needs_refresh = (
+        force
+        or latest is None
+        or (now >= cutoff and timezone.localtime(latest.analyzed_at) < cutoff)
+    )
+
+    if not needs_refresh:
+        return latest
+
+    jobs = list(
+        JobPosting.objects.filter(is_active=True)
+        .order_by("-posted_at", "-updated_at", "-id")[:MARKET_ANALYSIS_SAMPLE_LIMIT]
+    )
+    if not jobs:
+        return latest
+
+    current_total_jobs = JobPosting.objects.filter(is_active=True).count()
+
+    if latest is None:
+        # 스냅샷이 아예 없으면 동기 실행 (첫 로드)
+        _run_market_refresh(jobs, current_total_jobs)
+        return JobMarketSnapshot.objects.filter(analysis_key=MARKET_ANALYSIS_KEY).first()
+
+    # 기존 스냅샷이 있으면 백그라운드에서 갱신, 현재 스냅샷 즉시 반환
+    threading.Thread(
+        target=_run_market_refresh,
+        args=(jobs, current_total_jobs),
+        daemon=True,
+    ).start()
+    return latest

@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'planner',
     'seats',
     'dashboard',
+    'quiz',
     'blog',
 ]
 
@@ -107,6 +108,7 @@ if _mysql_url:
             'HOST': _u.hostname,
             'PORT': str(_u.port or 3306),
             'OPTIONS': {'charset': 'utf8mb4'},
+            'CONN_MAX_AGE': 60,
         }
     }
 else:
@@ -119,6 +121,7 @@ else:
             'HOST': os.getenv('DB_HOST') or os.getenv('MYSQL_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT') or os.getenv('MYSQL_PORT', '3306'),
             'OPTIONS': {'charset': 'utf8mb4'},
+            'CONN_MAX_AGE': 60,
         }
     }
 
