@@ -922,6 +922,13 @@
             {% endif %}
         </p>
         {% if google_calendar_connected %}
+        <form method="post" action="{% url 'planner-google-calendar-import' %}">
+            {% csrf_token %}
+            <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
+            <input type="hidden" name="month" value="{{ current_month|date:'Y-m' }}">
+            <input type="hidden" name="scope" value="month">
+            <button type="submit" class="google-sync-btn">캘린더 동기화</button>
+        </form>
         <form method="post" action="{% url 'planner-google-calendar-disconnect' %}">
             {% csrf_token %}
             <button type="submit" class="google-sync-btn">연결 해제</button>
@@ -1019,32 +1026,25 @@
                     <div class="field-stack">
                         <span class="field-label">시간</span>
                         <div class="time-select-group">
+                            <select name="planned_time_period" aria-label="투두 오전 오후 선택">
+                                <option value="">AM/PM</option>
+                                <option value="AM">AM</option>
+                                <option value="PM">PM</option>
+                            </select>
                             <select name="planned_time_hour" aria-label="투두 시간 선택">
                                 <option value="">시</option>
-                                <option value="00">00시</option>
-                                <option value="01">01시</option>
-                                <option value="02">02시</option>
-                                <option value="03">03시</option>
-                                <option value="04">04시</option>
-                                <option value="05">05시</option>
-                                <option value="06">06시</option>
-                                <option value="07">07시</option>
-                                <option value="08">08시</option>
-                                <option value="09">09시</option>
+                                <option value="1">1시</option>
+                                <option value="2">2시</option>
+                                <option value="3">3시</option>
+                                <option value="4">4시</option>
+                                <option value="5">5시</option>
+                                <option value="6">6시</option>
+                                <option value="7">7시</option>
+                                <option value="8">8시</option>
+                                <option value="9">9시</option>
                                 <option value="10">10시</option>
                                 <option value="11">11시</option>
                                 <option value="12">12시</option>
-                                <option value="13">13시</option>
-                                <option value="14">14시</option>
-                                <option value="15">15시</option>
-                                <option value="16">16시</option>
-                                <option value="17">17시</option>
-                                <option value="18">18시</option>
-                                <option value="19">19시</option>
-                                <option value="20">20시</option>
-                                <option value="21">21시</option>
-                                <option value="22">22시</option>
-                                <option value="23">23시</option>
                             </select>
                             <select name="planned_time_minute" aria-label="투두 분 선택">
                                 <option value="">분</option>
@@ -1132,32 +1132,25 @@
                 <div class="field-stack">
                     <span class="field-label">시간</span>
                     <div class="time-select-group">
+                        <select name="planned_time_period" aria-label="일정 오전 오후 선택">
+                            <option value="">AM/PM</option>
+                            <option value="AM">AM</option>
+                            <option value="PM">PM</option>
+                        </select>
                         <select name="planned_time_hour" aria-label="일정 시간 선택">
                             <option value="">시</option>
-                            <option value="00">00시</option>
-                            <option value="01">01시</option>
-                            <option value="02">02시</option>
-                            <option value="03">03시</option>
-                            <option value="04">04시</option>
-                            <option value="05">05시</option>
-                            <option value="06">06시</option>
-                            <option value="07">07시</option>
-                            <option value="08">08시</option>
-                            <option value="09">09시</option>
+                            <option value="1">1시</option>
+                            <option value="2">2시</option>
+                            <option value="3">3시</option>
+                            <option value="4">4시</option>
+                            <option value="5">5시</option>
+                            <option value="6">6시</option>
+                            <option value="7">7시</option>
+                            <option value="8">8시</option>
+                            <option value="9">9시</option>
                             <option value="10">10시</option>
                             <option value="11">11시</option>
                             <option value="12">12시</option>
-                            <option value="13">13시</option>
-                            <option value="14">14시</option>
-                            <option value="15">15시</option>
-                            <option value="16">16시</option>
-                            <option value="17">17시</option>
-                            <option value="18">18시</option>
-                            <option value="19">19시</option>
-                            <option value="20">20시</option>
-                            <option value="21">21시</option>
-                            <option value="22">22시</option>
-                            <option value="23">23시</option>
                         </select>
                         <select name="planned_time_minute" aria-label="일정 분 선택">
                             <option value="">분</option>
@@ -1250,32 +1243,25 @@
                     <div class="field-stack">
                         <span class="field-label">시간</span>
                         <div class="time-select-group">
+                            <select name="planned_time_period" id="edit-modal-time-period" aria-label="수정 오전 오후 선택">
+                                <option value="">AM/PM</option>
+                                <option value="AM">AM</option>
+                                <option value="PM">PM</option>
+                            </select>
                             <select name="planned_time_hour" id="edit-modal-time-hour" aria-label="수정 시간 선택">
                                 <option value="">시</option>
-                                <option value="00">00시</option>
-                                <option value="01">01시</option>
-                                <option value="02">02시</option>
-                                <option value="03">03시</option>
-                                <option value="04">04시</option>
-                                <option value="05">05시</option>
-                                <option value="06">06시</option>
-                                <option value="07">07시</option>
-                                <option value="08">08시</option>
-                                <option value="09">09시</option>
+                                <option value="1">1시</option>
+                                <option value="2">2시</option>
+                                <option value="3">3시</option>
+                                <option value="4">4시</option>
+                                <option value="5">5시</option>
+                                <option value="6">6시</option>
+                                <option value="7">7시</option>
+                                <option value="8">8시</option>
+                                <option value="9">9시</option>
                                 <option value="10">10시</option>
                                 <option value="11">11시</option>
                                 <option value="12">12시</option>
-                                <option value="13">13시</option>
-                                <option value="14">14시</option>
-                                <option value="15">15시</option>
-                                <option value="16">16시</option>
-                                <option value="17">17시</option>
-                                <option value="18">18시</option>
-                                <option value="19">19시</option>
-                                <option value="20">20시</option>
-                                <option value="21">21시</option>
-                                <option value="22">22시</option>
-                                <option value="23">23시</option>
                             </select>
                             <select name="planned_time_minute" id="edit-modal-time-minute" aria-label="수정 분 선택">
                                 <option value="">분</option>
@@ -1337,6 +1323,7 @@
         var closeEditBtn = document.getElementById("close-edit-modal");
         var editForm = document.getElementById("edit-modal-form");
         var editInput = document.getElementById("edit-modal-content");
+        var editTimePeriodInput = document.getElementById("edit-modal-time-period");
         var editTimeHourInput = document.getElementById("edit-modal-time-hour");
         var editTimeMinuteInput = document.getElementById("edit-modal-time-minute");
         var editDateInput = document.getElementById("edit-modal-date");
@@ -1362,7 +1349,7 @@
             modal.classList.remove("is-open");
         });
 
-        if (editModal && closeEditBtn && editForm && editInput && editTimeHourInput && editTimeMinuteInput && editDateInput && editDurationInput && editColorInputs.length) {
+        if (editModal && closeEditBtn && editForm && editInput && editTimePeriodInput && editTimeHourInput && editTimeMinuteInput && editDateInput && editDurationInput && editColorInputs.length) {
             detailItems.forEach(function (item) {
                 item.addEventListener("click", function (event) {
                     if (event.target.closest("form,button,input")) return;
@@ -1391,9 +1378,18 @@
                     var goalTime = topEditBtn.getAttribute("data-goal-time") || "";
                     if (goalTime && goalTime.indexOf(":") > -1) {
                         var timeParts = goalTime.split(":");
-                        editTimeHourInput.value = timeParts[0] || "";
+                        var rawHour = parseInt(timeParts[0] || "", 10);
+                        if (!isNaN(rawHour)) {
+                            editTimePeriodInput.value = rawHour >= 12 ? "PM" : "AM";
+                            var displayHour = rawHour % 12;
+                            editTimeHourInput.value = String(displayHour === 0 ? 12 : displayHour);
+                        } else {
+                            editTimePeriodInput.value = "";
+                            editTimeHourInput.value = "";
+                        }
                         editTimeMinuteInput.value = timeParts[1] || "";
                     } else {
+                        editTimePeriodInput.value = "";
                         editTimeHourInput.value = "";
                         editTimeMinuteInput.value = "";
                     }
