@@ -461,6 +461,26 @@
     .job-modal-loading {
         padding: 10px 0 6px;
     }
+    .ai-loading-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 28px 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .ai-loading-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: ai-spin 0.8s linear infinite;
+    }
+    @keyframes ai-spin {
+        to { transform: rotate(360deg); }
+    }
     body.modal-open {
         overflow: hidden;
     }
@@ -786,7 +806,7 @@
             ].join("");
         }
 
-        function renderDetail(detail) {
+        function renderDetail(detail, showAiPlaceholder) {
             if (modalExternalLink) {
                 modalExternalLink.setAttribute("href", detail.external_url || "#");
             }
@@ -855,26 +875,28 @@
                 ].join("");
             }
 
-            var aiRecommendationBox = detail.ai_recommendation
-                ? [
-                    '<section class="job-modal-section">',
-                    '<div class="job-match-box">',
-                    '<div>',
-                    '<h3>AI 추천 해석</h3>',
-                    '<p>' + escapeHtml(detail.ai_recommendation.summary || "") + '</p>',
-                    '</div>',
-                    '<div class="job-match-score">' + escapeHtml(detail.ai_recommendation.fit_score) + '점</div>',
-                    '</div>',
-                    '<div class="ai-analysis-grid">',
-                    renderAiCard("strengths", "✅", "강점", detail.ai_recommendation.strengths || []),
-                    renderAiCard("gaps", "⚠️", "보완점", detail.ai_recommendation.gaps || []),
-                    renderAiCard("study", "📚", "학습 추천", detail.ai_recommendation.study_plan || []),
-                    '</div>',
-                    '</section>',
-                ].join("")
-                : (detail.ai_recommendation_error
-                    ? '<section class="job-modal-section"><p class="job-modal-copy">AI 추천 분석을 불러오지 못했습니다: ' + escapeHtml(detail.ai_recommendation_error) + '</p></section>'
-                    : "");
+            var aiRecommendationBox = showAiPlaceholder
+                ? '<div id="ai-recommendation-placeholder"><section class="job-modal-section"><div class="ai-loading-box"><div class="ai-loading-spinner"></div><span>AI 분석 중입니다... (10초 내외 소요)</span></div></section></div>'
+                : detail.ai_recommendation
+                    ? [
+                        '<section class="job-modal-section">',
+                        '<div class="job-match-box">',
+                        '<div>',
+                        '<h3>AI 추천 해석</h3>',
+                        '<p>' + escapeHtml(detail.ai_recommendation.summary || "") + '</p>',
+                        '</div>',
+                        '<div class="job-match-score">' + escapeHtml(detail.ai_recommendation.fit_score) + '점</div>',
+                        '</div>',
+                        '<div class="ai-analysis-grid">',
+                        renderAiCard("strengths", "✅", "강점", detail.ai_recommendation.strengths || []),
+                        renderAiCard("gaps", "⚠️", "보완점", detail.ai_recommendation.gaps || []),
+                        renderAiCard("study", "📚", "학습 추천", detail.ai_recommendation.study_plan || []),
+                        '</div>',
+                        '</section>',
+                    ].join("")
+                    : (detail.ai_recommendation_error
+                        ? '<section class="job-modal-section"><p class="job-modal-copy">AI 추천 분석을 불러오지 못했습니다: ' + escapeHtml(detail.ai_recommendation_error) + '</p></section>'
+                        : "");
 
             modalBody.innerHTML = [
                 '<div class="job-modal-hero">',
@@ -909,12 +931,58 @@
             document.body.classList.add("modal-open");
             modalBody.innerHTML = '<p class="job-modal-loading">상세 정보를 불러오는 중입니다...</p>';
 
-            fetch("/jobs/" + jobId + "/detail/")
+            // 1단계: AI 없이 기본 정보 즉시 로드
+            fetch("/jobs/" + jobId + "/detail/?ai=0")
                 .then(function (response) {
                     if (!response.ok) throw new Error("detail fetch failed");
                     return response.json();
                 })
-                .then(renderDetail)
+                .then(function (detail) {
+                    // 기본 정보 먼저 렌더링, AI 섹션은 스피너로 placeholder
+                    renderDetail(detail, true);
+
+                    // 2단계: AI 분석 별도 로드
+                    fetch("/jobs/" + jobId + "/detail/")
+                        .then(function (r) { return r.json(); })
+                        .then(function (fullDetail) {
+                            var aiBox = document.getElementById("ai-recommendation-placeholder");
+                            if (!aiBox) return;
+                            if (fullDetail.ai_recommendation) {
+                                function renderAiCard(type, icon, title, items) {
+                                    if (!items || !items.length) return "";
+                                    return [
+                                        '<div class="ai-analysis-card ' + type + '">',
+                                        '<div class="ai-analysis-card-title">' + icon + ' ' + title + '</div>',
+                                        '<ul class="ai-analysis-card-list">',
+                                        items.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join(""),
+                                        "</ul>",
+                                        "</div>",
+                                    ].join("");
+                                }
+                                aiBox.outerHTML = [
+                                    '<section class="job-modal-section">',
+                                    '<div class="job-match-box">',
+                                    '<div><h3>AI 추천 해석</h3>',
+                                    '<p>' + escapeHtml(fullDetail.ai_recommendation.summary || "") + '</p></div>',
+                                    '<div class="job-match-score">' + escapeHtml(fullDetail.ai_recommendation.fit_score) + '점</div>',
+                                    '</div>',
+                                    '<div class="ai-analysis-grid">',
+                                    renderAiCard("strengths", "✅", "강점", fullDetail.ai_recommendation.strengths || []),
+                                    renderAiCard("gaps", "⚠️", "보완점", fullDetail.ai_recommendation.gaps || []),
+                                    renderAiCard("study", "📚", "학습 추천", fullDetail.ai_recommendation.study_plan || []),
+                                    '</div></section>',
+                                ].join("");
+                            } else if (fullDetail.ai_recommendation_error) {
+                                aiBox.outerHTML = '<section class="job-modal-section"><p class="job-modal-copy">AI 분석을 불러오지 못했습니다.</p></section>';
+                            } else {
+                                aiBox.remove();
+                            }
+                        })
+                        .catch(function () {
+                            var aiBox = document.getElementById("ai-recommendation-placeholder");
+                            if (aiBox) aiBox.remove();
+                        });
+                })
                 .catch(function () {
                     modalBody.innerHTML = '<p class="job-modal-empty">상세 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>';
                 });
