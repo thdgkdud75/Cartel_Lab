@@ -410,26 +410,6 @@ def _sync_google_events_for_range(user, start_date, end_date):
         deleted += stale_todo_count
         stale_todo_qs.delete()
 
-    tracked_goal_ids = []
-    for goal in WeeklyGoal.objects.filter(user=user).exclude(google_event_id=""):
-        goal_date = _goal_date(goal)
-        if start_date <= goal_date <= end_date and goal.google_event_id not in seen_event_ids:
-            tracked_goal_ids.append(goal.id)
-
-    if tracked_goal_ids:
-        deleted += len(tracked_goal_ids)
-        WeeklyGoal.objects.filter(id__in=tracked_goal_ids).delete()
-
-    stale_todo_qs = DailyTodo.objects.filter(
-        user=user,
-        target_date__gte=start_date,
-        target_date__lte=end_date,
-    ).exclude(google_event_id="").exclude(google_event_id__in=seen_event_ids)
-    stale_todo_count = stale_todo_qs.count()
-    if stale_todo_count:
-        deleted += stale_todo_count
-        stale_todo_qs.delete()
-
     return {"created": created, "updated": updated, "deleted": deleted}
 
 
