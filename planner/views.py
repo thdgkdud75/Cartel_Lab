@@ -8,9 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.http import JsonResponse
-
-
 from .google_calendar import (
     GoogleCalendarError,
     GOOGLE_EVENT_COLOR_IDS,
@@ -25,10 +22,7 @@ from .google_calendar import (
     token_expiry_from_seconds,
     update_goal_event,
 )
-from .models import DailyTodo, GoogleCalendarCredential, JobPosting, LabWideGoal, WeeklyGoal
-from .services.job_detail import fetch_job_detail
-from .services.recommendation import can_score_user, score_job_for_user
-from users.ai_services import generate_job_recommendation, is_openai_configured
+from .models import DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
 
 
 def _week_start_from_input(raw_date):
@@ -181,7 +175,7 @@ def _sync_daily_todo_create(todo):
 
     event_id = create_todo_event(credential, todo)
     if not event_id:
-        raise GoogleCalendarError("구글 캘린더에서 이벤트 ID를 받지 못했습니다.")
+        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉???대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
 
     todo.google_event_id = event_id
     todo.save(update_fields=["google_event_id", "updated_at"])
@@ -195,7 +189,7 @@ def _sync_weekly_goal_create(goal, goal_date):
 
     event_id = create_goal_event(credential, goal, goal_date)
     if not event_id:
-        raise GoogleCalendarError("구글 캘린더에서 목표 이벤트 ID를 받지 못했습니다.")
+        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉??紐⑺몴 ?대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
 
     goal.google_event_id = event_id
     goal.save(update_fields=["google_event_id", "updated_at"])
@@ -241,7 +235,7 @@ def _create_weekly_goal_from_todo(todo, request=None):
             if request is not None:
                 messages.warning(
                     request,
-                    f"체크된 투두는 저장됐지만 Google Calendar 동기화에는 실패했습니다: {exc}",
+                    f"泥댄겕???щ몢????λ릱吏留?Google Calendar ?숆린?붿뿉???ㅽ뙣?덉뒿?덈떎: {exc}",
                 )
 
     return goal
@@ -259,7 +253,7 @@ def _delete_google_event_for_user(user, event_id, request=None):
         delete_event(credential, event_id)
     except GoogleCalendarError as exc:
         if request is not None:
-            messages.warning(request, f"Google Calendar 일정 삭제에 실패했습니다: {exc}")
+            messages.warning(request, f"Google Calendar ?쇱젙 ??젣???ㅽ뙣?덉뒿?덈떎: {exc}")
 
 
 def _parse_google_datetime(raw_value):
@@ -687,7 +681,7 @@ def update_goal(request, goal_id):
                     try:
                         _sync_weekly_goal_update(sibling_goal, _goal_date(sibling_goal))
                     except GoogleCalendarError as exc:
-                        messages.warning(request, f"Google Calendar 일정 색상 동기화에 실패했습니다: {exc}")
+                        messages.warning(request, f"Google Calendar ?쇱젙 ?됱긽 ?숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
                         break
 
         first_week_start = _week_start_from_input(goal_date.isoformat())
@@ -702,7 +696,7 @@ def update_goal(request, goal_id):
             try:
                 _sync_weekly_goal_update(goal, goal_date)
             except GoogleCalendarError as exc:
-                messages.warning(request, f"Google Calendar 일정 수정에 실패했습니다: {exc}")
+                messages.warning(request, f"Google Calendar ?쇱젙 ?섏젙???ㅽ뙣?덉뒿?덈떎: {exc}")
 
         for offset in range(1, duration_days):
             target_date = goal_date + timedelta(days=offset)
@@ -760,12 +754,23 @@ def delete_lab_goal(request, goal_id):
 
 
 @login_required
+def delete_lab_goal(request, goal_id):
+    if request.method != "POST":
+        return redirect("planner-index")
+
+    goal = get_object_or_404(LabWideGoal, id=goal_id, created_by=request.user)
+    goal.delete()
+    return redirect(f"{reverse('planner-index')}?view=goal")
+
+
+@login_required
 def add_daily_todo(request):
     if request.method != "POST":
         return redirect("planner-index")
 
     content = request.POST.get("content", "").strip()
     start_date_raw = request.POST.get("target_date") or request.POST.get("start_date")
+    duration_days = _duration_days_from_input(request.POST.get("duration_days", "1"), default=1)
     planned_time = _planned_time_from_request(request)
     color = _color_from_input(request.POST.get("color"))
     month_raw = request.POST.get("month")
@@ -777,18 +782,19 @@ def add_daily_todo(request):
         pass
 
     if content:
-        DailyTodo.objects.create(
-            user=request.user,
-            target_date=target_date,
-            planned_time=planned_time,
-            color=color,
-            content=content,
-        )
+        for offset in range(duration_days):
+            DailyTodo.objects.create(
+                user=request.user,
+                target_date=target_date + timedelta(days=offset),
+                planned_time=planned_time,
+                color=color,
+                content=content,
+            )
         if False:  # Sync deferred until the todo is checked.
             try:
                 pass
             except GoogleCalendarError as exc:
-                messages.warning(request, f"투두는 저장됐지만 구글 캘린더 동기화에 실패했습니다: {exc}")
+                messages.warning(request, f"?щ몢????λ릱吏留?援ш? 罹섎┛???숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -867,7 +873,7 @@ def register_daily_todos(request):
         DailyTodo.objects.filter(id__in=todo_ids).delete()
 
     if todo_count == 0:
-        messages.info(request, "등록할 체크된 투두가 없습니다.")
+        messages.info(request, "?깅줉??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -901,7 +907,7 @@ def delete_daily_todos(request):
         DailyTodo.objects.filter(id__in=[todo.id for todo in todos]).delete()
 
     if deleted_count == 0:
-        messages.info(request, "삭제할 체크된 투두가 없습니다.")
+        messages.info(request, "??젣??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -927,7 +933,7 @@ def google_calendar_import(request):
         return redirect("planner-index")
 
     if not hasattr(request.user, "google_calendar_credential"):
-        messages.error(request, "Google Calendar 연결 후 가져오기를 사용할 수 있습니다.")
+        messages.error(request, "Google Calendar ?곌껐 ??媛?몄삤湲곕? ?ъ슜?????덉뒿?덈떎.")
         return _planner_plan_redirect_for_date(timezone.localdate())
 
     target_raw = request.POST.get("target_date", "")
@@ -956,7 +962,7 @@ def google_calendar_import(request):
             f"구글 일정 가져오기 완료: 생성 {result['created']}건, 업데이트 {result['updated']}건, 삭제 {result['deleted']}건",
         )
     except GoogleCalendarError as exc:
-        messages.error(request, f"구글 일정 가져오기에 실패했습니다: {exc}")
+        messages.error(request, f"援ш? ?쇱젙 媛?몄삤湲곗뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
 
     return _planner_plan_redirect_for_date(target_date)
 
@@ -964,7 +970,7 @@ def google_calendar_import(request):
 @login_required
 def google_calendar_connect(request):
     if not is_configured():
-        messages.error(request, "Google Calendar 설정이 비어 있습니다. .env 값을 먼저 입력하세요.")
+        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎. .env 媛믪쓣 癒쇱? ?낅젰?섏꽭??")
         return redirect("planner-index")
 
     state = secrets.token_urlsafe(24)
@@ -975,30 +981,30 @@ def google_calendar_connect(request):
 @login_required
 def google_calendar_callback(request):
     if not is_configured():
-        messages.error(request, "Google Calendar 설정이 비어 있습니다.")
+        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎.")
         return redirect("planner-index")
 
     expected_state = request.session.pop("google_oauth_state", "")
     received_state = request.GET.get("state", "")
     if not expected_state or expected_state != received_state:
-        messages.error(request, "구글 로그인 검증(state)에 실패했습니다. 다시 시도하세요.")
+        messages.error(request, "援ш? 濡쒓렇??寃利?state)???ㅽ뙣?덉뒿?덈떎. ?ㅼ떆 ?쒕룄?섏꽭??")
         return redirect("planner-index")
 
     oauth_error = request.GET.get("error")
     if oauth_error:
-        messages.error(request, f"구글 연결이 취소되었거나 실패했습니다: {oauth_error}")
+        messages.error(request, f"援ш? ?곌껐??痍⑥냼?섏뿀嫄곕굹 ?ㅽ뙣?덉뒿?덈떎: {oauth_error}")
         return redirect("planner-index")
 
     code = request.GET.get("code", "")
     if not code:
-        messages.error(request, "구글 인증 코드가 없어 연결할 수 없습니다.")
+        messages.error(request, "援ш? ?몄쬆 肄붾뱶媛 ?놁뼱 ?곌껐?????놁뒿?덈떎.")
         return redirect("planner-index")
 
     try:
         token_data = exchange_code_for_token(request, code)
         google_email = fetch_google_email(token_data["access_token"])
     except GoogleCalendarError as exc:
-        messages.error(request, f"구글 계정 연결에 실패했습니다: {exc}")
+        messages.error(request, f"援ш? 怨꾩젙 ?곌껐???ㅽ뙣?덉뒿?덈떎: {exc}")
         return redirect("planner-index")
 
     credential, created = GoogleCalendarCredential.objects.get_or_create(
@@ -1041,148 +1047,7 @@ def google_calendar_disconnect(request):
         return redirect("planner-index")
 
     GoogleCalendarCredential.objects.filter(user=request.user).delete()
-    messages.success(request, "Google Calendar 연결을 해제했습니다.")
+    messages.success(request, "Google Calendar ?곌껐???댁젣?덉뒿?덈떎.")
     return _planner_plan_redirect_for_date(timezone.localdate())
 
 
-def build_company_mark(name):
-    normalized = re.sub(r"[\(\)\[\]\s]|주식회사|㈜|\(주\)", "", name or "")
-    if not normalized:
-        return "TL"
-    if re.search(r"[A-Za-z]", normalized):
-        letters = "".join(ch for ch in normalized if ch.isalpha())
-        return (letters[:2] or normalized[:2]).upper()
-    return normalized[:2]
-
-
-def build_job_tags(job):
-    raw = job.required_skills or job.job_role or job.summary_text or ""
-    tags = []
-    for item in re.split(r"[,/]", raw):
-        cleaned = re.sub(r"\s+", " ", item).strip()
-        if cleaned and cleaned not in tags:
-            tags.append(cleaned)
-        if len(tags) == 3:
-            break
-    if not tags and job.location:
-        tags.append(job.location)
-    if not tags and job.company_name:
-        tags.append(job.company_name)
-    return [f"#{tag}" for tag in tags[:3]]
-
-
-def build_deadline_label(job):
-    if not job.deadline_at:
-        return ""
-    today = timezone.localdate()
-    deadline = timezone.localtime(job.deadline_at).date()
-    delta = (deadline - today).days
-    if delta < 0:
-        return "마감"
-    if delta == 0:
-        return "D-Day"
-    return f"D-{delta}"
-
-
-def split_detail_lines(value):
-    lines = []
-    for raw in (value or "").splitlines():
-        cleaned = re.sub(r"\s+", " ", raw).strip(" -•·\t")
-        if not cleaned:
-            continue
-        lines.append(cleaned)
-    return lines
-
-
-def build_main_task_preview(job):
-    tasks = split_detail_lines(job.detail_main_tasks)
-    if tasks:
-        return tasks[:3]
-    if job.summary_text:
-        return [re.sub(r"\s+", " ", job.summary_text).strip()]
-    return []
-
-
-def jobs_index(request):
-    jobs = list(
-        JobPosting.objects.filter(is_active=True).order_by("-posted_at", "-updated_at", "-id")[:100]
-    )
-    scoring_enabled = can_score_user(request.user)
-    if scoring_enabled:
-        from .services.recommendation import extract_profile_skills, detect_profile_roles, normalize_text
-        _profile_skills = extract_profile_skills(request.user)
-        _profile_roles = detect_profile_roles(request.user)
-        _selected_direction = normalize_text(request.user.get_selected_job_direction())
-    else:
-        _profile_skills = _profile_roles = _selected_direction = None
-    for job in jobs:
-        job.ui_company_mark = build_company_mark(job.company_name)
-        job.ui_deadline_label = build_deadline_label(job)
-        job.ui_tags = build_job_tags(job)
-        job.ui_main_tasks = build_main_task_preview(job)
-        recommendation = score_job_for_user(
-            request.user, job,
-            profile_skills=_profile_skills,
-            profile_roles=_profile_roles,
-            selected_direction=_selected_direction,
-        )
-        job.ui_recommendation_score = recommendation["score"]
-        job.ui_recommendation_reasons = recommendation["reasons"]
-
-    jobs.sort(
-        key=lambda job: (
-            0 if job.source == "wanted" else 1,
-            -(job.ui_recommendation_score or -1) if scoring_enabled else 0,
-            -(job.posted_at.timestamp() if job.posted_at else 0),
-            -job.id,
-        )
-    )
-    return render(request, "jobs/index.html", {"jobs": jobs, "scoring_enabled": scoring_enabled})
-
-
-def jobs_sync(request):
-    from django.contrib.auth.decorators import login_required
-    from django.core.management import call_command
-    import threading
-    if not request.user.is_authenticated:
-        from django.shortcuts import redirect
-        return redirect('/users/login/')
-    def run_sync():
-        try:
-            call_command('sync_job_sources')
-        except Exception:
-            pass
-    threading.Thread(target=run_sync, daemon=True).start()
-    messages.success(request, "공고 수집을 시작했습니다. 잠시 후 새로고침하면 표시됩니다.")
-    return redirect('jobs-index')
-
-
-def job_detail_api(request, job_id):
-    job = get_object_or_404(JobPosting, pk=job_id, is_active=True)
-    detail = fetch_job_detail(job)
-    recommendation = score_job_for_user(request.user, job)
-    detail["recommendation_score"] = recommendation["score"]
-    detail["recommendation_reasons"] = recommendation["reasons"]
-    if (
-        is_openai_configured()
-        and getattr(request.user, "is_authenticated", False)
-        and getattr(request.user, "ai_profile_payload", None)
-    ):
-        try:
-            ai_result = generate_job_recommendation(
-                ai_profile=request.user.ai_profile_payload,
-                job_payload={
-                    "title": detail.get("title", ""),
-                    "company_name": detail.get("company_name", ""),
-                    "job_role": detail.get("job_role", ""),
-                    "overview": detail.get("overview", ""),
-                    "main_tasks": detail.get("main_tasks", []),
-                    "requirements": detail.get("requirements", []),
-                    "preferred_points": detail.get("preferred_points", []),
-                    "required_skills": detail.get("required_skills", []),
-                },
-            )
-            detail["ai_recommendation"] = ai_result
-        except Exception as exc:
-            detail["ai_recommendation_error"] = str(exc)
-    return JsonResponse(detail)

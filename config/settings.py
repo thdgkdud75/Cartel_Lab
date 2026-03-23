@@ -52,8 +52,17 @@ INSTALLED_APPS = [
     'seats',
     'dashboard',
     'quiz',
+    'jobs',
     'blog',
+    'rest_framework',
+    'rest_framework.authtoken',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
 
 AUTH_USER_MODEL = 'users.User'
 LOGIN_URL = '/users/login/'
@@ -122,6 +131,28 @@ else:
             'PORT': os.getenv('DB_PORT') or os.getenv('MYSQL_PORT', '3306'),
             'OPTIONS': {'charset': 'utf8mb4'},
             'CONN_MAX_AGE': 60,
+        }
+    }
+
+
+# Cache (Redis)
+# REDIS_URL이 있으면 Upstash Redis 사용, 없으면 로컬 메모리 캐시 사용
+_redis_url = os.getenv('REDIS_URL', '')
+if _redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": _redis_url,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "cartellab",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         }
     }
 

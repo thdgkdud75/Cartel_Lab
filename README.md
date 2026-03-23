@@ -141,8 +141,36 @@ deactivate
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
+## Redis 캐시 설정 (Upstash)
+
+AI 추천 결과 및 반복 DB 쿼리 캐싱을 위해 Upstash Redis를 사용합니다.
+
+### 환경변수 설정
+```
+REDIS_URL=rediss://default:<password>@<host>:6379
+```
+- 로컬: `.env`에 추가
+- 배포: Railway 대시보드 Variables에 추가
+
+`REDIS_URL`이 없으면 자동으로 로컬 메모리 캐시로 폴백합니다.
+
+### 캐시 적용 목록
+
+| 대상 | 캐시 키 | TTL | 무효화 시점 |
+|------|---------|-----|------------|
+| jobs 공고 목록 + 스코어링 | `jobs_index_{user_id}` | 24시간 | DB 자정 초기화 시 자동 만료 |
+| AI 공고 추천 결과 | `ai_job_rec_{user_id}_{job_id}` | 24시간 | DB 자정 초기화 시 자동 만료 |
+| 시장 분석 스냅샷 | `market_snapshot` | 1시간 | 매일 12시 갱신 후 자동 만료 |
+| 출결 시간 설정 | `attendance_time_setting` | 24시간 | 설정 변경 시 즉시 삭제 |
+| 출결 위치 설정 | `attendance_location_setting` | 24시간 | 위치 변경 시 즉시 삭제 |
+| 오늘 퀴즈 | `quiz_today_{date}` | 자정까지 | 날짜 바뀌면 자동 만료 |
+
 ## DB Guide
-- Team MySQL setup: `DB_MYSQL_SETUP.md`
+- Team MySQL setup: `docs/DB_MYSQL_SETUP.md`
 
 ## Docker Guide
-- Docker 실행 방법: `DOCKER.md`
+- Docker 실행 방법: `docs/DOCKER.md`
+
+## 문서 목록
+- 상세 문서는 `docs/` 폴더에서 관리합니다.
+- 작업 우선순위: `docs/PRIORITY.md`

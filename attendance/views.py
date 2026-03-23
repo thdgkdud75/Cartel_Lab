@@ -10,12 +10,23 @@ from django.core.cache import cache
 from .models import AttendanceRecord, LocationSetting, AttendanceTimeSetting
 
 
+_ONE_DAY = 60 * 60 * 24
+
+
 def _get_time_setting():
     setting = cache.get("attendance_time_setting")
     if setting is None:
         setting = AttendanceTimeSetting.objects.first()
-        cache.set("attendance_time_setting", setting, 300)
+        cache.set("attendance_time_setting", setting, _ONE_DAY)
     return setting
+
+
+def _get_location_setting():
+    location = cache.get("attendance_location_setting")
+    if location is None:
+        location = LocationSetting.objects.filter(is_active=True).first()
+        cache.set("attendance_location_setting", location, _ONE_DAY)
+    return location
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -121,7 +132,7 @@ def check_in(request):
         return JsonResponse({"status": "error", "message": "잘못된 위치 정보입니다."}, status=400)
 
     # 활성화된 출결 가능 위치 정보를 가져옴
-    location = LocationSetting.objects.filter(is_active=True).first()
+    location = _get_location_setting()
     if not location:
         return JsonResponse({"status": "error", "message": "설정된 출결 위치가 없습니다. 관리자에게 문의하세요."}, status=400)
 
@@ -162,6 +173,27 @@ def check_out(request):
     """
     위치에 상관 없이 퇴실 처리
     """
+    try:
+        import json
+        data = json.loads(request.body)
+        user_lat = float(data.get("latitude"))
+        user_lon = float(data.get("longitude"))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({"status": "error", "message": "잘못된 위치 정보입니다."}, status=400)
+
+    location = _get_location_setting()
+    if not location:
+        return JsonResponse({"status": "error", "message": "설정된 위치 정보가 없습니다."}, status=400)
+
+    distance = haversine_distance(user_lat, user_lon, location.latitude, location.longitude)
+
+    if distance > location.radius:
+        return JsonResponse({
+            "status": "error",
+            "message": f"위치 범위를 벗어났습니다. (현재 약 {int(distance)}m 거리)"
+        }, status=403)
+
+
     # 오늘 출석 기록 찾기
     today = timezone.localdate()
     try:
@@ -219,9 +251,10 @@ def set_location(request):
             "radius": radius,
         }
     )
+    cache.delete("attendance_location_setting")  # 위치 변경 시 캐시 무효화
 
     return JsonResponse({
-        "status": "success", 
+        "status": "success",
         "message": f"현재 위치({lat}, {lon})가 '{name}'(으)로 설정되었습니다."
     })
 

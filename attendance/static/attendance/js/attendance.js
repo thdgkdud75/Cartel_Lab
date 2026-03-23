@@ -96,11 +96,24 @@ function initHeatmap(heatmapData) {
         monthsContainer.style.transform = `translateX(-${container.scrollLeft}px)`;
     });
 
+    // 현재 월을 중앙으로 스크롤 (모바일 대응)
     setTimeout(() => {
-        const daysPassed = Math.floor((today - new Date(currentYear, 0, 1)) / (24 * 60 * 60 * 1000));
-        const weeksPassed = Math.floor(daysPassed / 7);
-        container.scrollLeft = Math.max(0, (weeksPassed * 13) - (container.clientWidth / 2));
-    }, 100);
+        const startOfMonth = new Date(currentYear, today.getMonth(), 1);
+        const endOfMonth = new Date(currentYear, today.getMonth() + 1, 0);
+        
+        // 히트맵 시작일(startDate)로부터의 주차 계산
+        const startWeek = Math.floor((startOfMonth - startDate) / (7 * 24 * 60 * 60 * 1000));
+        const endWeek = Math.floor((endOfMonth - startDate) / (7 * 24 * 60 * 60 * 1000));
+        const middleWeek = (startWeek + endWeek) / 2;
+        
+        // 주차별 너비(13px = 셀11px + 갭2px)를 기준으로 중앙 위치 계산
+        const scrollPos = (middleWeek * 13) - (container.clientWidth / 2) + 6.5;
+        
+        container.scrollTo({
+            left: Math.max(0, scrollPos),
+            behavior: 'smooth'
+        });
+    }, 300);
 }
 
 document.addEventListener("DOMContentLoaded", function() {

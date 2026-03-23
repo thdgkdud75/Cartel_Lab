@@ -8,11 +8,12 @@ from .forms import LoginForm, SignupForm
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 
 from .forms import BasicInfoForm, LoginForm, ProfileUpdateForm, SignupForm
 from .services import build_profile_analysis
-from planner.services.market_analysis import (
+from jobs.services.market_analysis import (
     get_direction_choices,
     get_market_role_context,
     get_or_refresh_market_snapshot,
@@ -474,7 +475,10 @@ def login_view(request):
             cache.delete(lockout_key)
             login(request, form.get_user())
             messages.success(request, "로그인되었습니다.")
-            return redirect("users-index")
+            
+            # next 파라미터가 있으면 해당 URL로, 없으면 기본 인덱스로 리다이렉트
+            next_url = request.POST.get("next") or request.GET.get("next") or "users-index"
+            return redirect(next_url)
         else:
             attempts = cache.get(attempt_key, 0) + 1
             if attempts >= 10:
@@ -504,3 +508,28 @@ def logout_view(request):
         logout(request)
         messages.success(request, "로그아웃되었습니다.")
     return redirect("home")
+
+
+@csrf_exempt
+def api_login(request):
+    """앱 전용 토큰 로그인 API"""
+    import json
+    from django.contrib.auth import authenticate
+    from django.http import JsonResponse
+    from rest_framework.authtoken.models import Token
+
+    if request.method != "POST":
+        return JsonResponse({"error": "POST만 허용됩니다."}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
+
+    student_id = data.get("student_id", "").strip()
+    password = data.get("password", "")
+    user = authenticate(request, username=student_id, password=password)
+    if user is None:
+        return JsonResponse({"error": "학번 또는 비밀번호가 올바르지 않습니다."}, status=401)
+
+    token, _ = Token.objects.get_or_create(user=user)
+    return JsonResponse({"token": token.key, "name": user.name})

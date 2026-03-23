@@ -1168,7 +1168,14 @@
                 <form method="post" action="{% url 'planner-daily-todo-add' %}" class="add-form">
                     {% csrf_token %}
                     <input type="hidden" name="month" value="{{ current_month|date:'Y-m' }}">
-                    <input type="hidden" name="target_date" value="{{ selected_date|date:'Y-m-d' }}">
+                    <div class="field-stack">
+                        <span class="field-label">날짜</span>
+                        <input type="date" name="start_date" value="{{ selected_date|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="field-stack">
+                        <span class="field-label">기간</span>
+                        <input type="number" name="duration_days" min="1" max="60" value="1" required>
+                    </div>
                     <div class="field-stack field-span-full">
                         <span class="field-label">색상</span>
                         <div class="color-choice-group">

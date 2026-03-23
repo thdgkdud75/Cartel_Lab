@@ -31,3 +31,7 @@ media/
 
 # Claude Code
 .claude/
+
+# React Native / Expo
+app/node_modules/
+app/.expo/

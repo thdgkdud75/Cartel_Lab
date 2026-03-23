@@ -193,6 +193,7 @@
         {% else %}
         <form method="post" class="auth-form">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
             {% for field in form %}
                 <div class="auth-field">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>

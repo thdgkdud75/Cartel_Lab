@@ -390,6 +390,68 @@
         flex-wrap: wrap;
         margin-top: 28px;
     }
+    .ai-analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 14px;
+        align-items: stretch;
+    }
+    .ai-analysis-card {
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .ai-analysis-card.strengths {
+        background: #f0faf2;
+        border: 1px solid #c6e8cc;
+    }
+    .ai-analysis-card.gaps {
+        background: #fff8f0;
+        border: 1px solid #f5d9b8;
+    }
+    .ai-analysis-card.study {
+        background: #f0f4ff;
+        border: 1px solid #c5d4f8;
+    }
+    .ai-analysis-card-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+    }
+    .ai-analysis-card.strengths .ai-analysis-card-title { color: #1e7e34; }
+    .ai-analysis-card.gaps .ai-analysis-card-title { color: #b85c00; }
+    .ai-analysis-card.study .ai-analysis-card-title { color: #2850b8; }
+    .ai-analysis-card-list {
+        flex: 1;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+        align-content: start;
+    }
+    .ai-analysis-card-list li {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #3b4048;
+        padding-left: 14px;
+        position: relative;
+    }
+    .ai-analysis-card-list li::before {
+        content: "·";
+        position: absolute;
+        left: 4px;
+        font-weight: 900;
+    }
+    @media (max-width: 760px) {
+        .ai-analysis-grid { grid-template-columns: 1fr; gap: 8px; }
+    }
     .job-modal-empty,
     .job-modal-loading {
         color: var(--muted);
@@ -399,8 +461,73 @@
     .job-modal-loading {
         padding: 10px 0 6px;
     }
+    .ai-loading-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 28px 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    .ai-loading-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: ai-spin 0.8s linear infinite;
+    }
+    @keyframes ai-spin {
+        to { transform: rotate(360deg); }
+    }
     body.modal-open {
         overflow: hidden;
+    }
+    .job-tag-filter {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0 4px;
+    }
+    .job-tag-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 13px;
+        border-radius: 999px;
+        border: 1.5px solid #e2e6ef;
+        background: #f6f7f9;
+        color: #555d6b;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+        white-space: nowrap;
+    }
+    .job-tag-btn:hover {
+        background: #edf3ff;
+        border-color: #bad0fb;
+        color: #2563eb;
+    }
+    .job-tag-btn.active {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+    }
+    .job-tag-filter-clear {
+        display: none;
+        align-items: center;
+        padding: 7px 13px;
+        border-radius: 999px;
+        border: 1.5px solid #e2e6ef;
+        background: #fff;
+        color: #888;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .job-tag-filter-clear.visible {
+        display: inline-flex;
     }
     @media (max-width: 760px) {
         /* 카드 */
@@ -489,10 +616,19 @@
 </p>
 {% endif %}
 
+{% if categories %}
+<div class="job-tag-filter" id="tag-filter-bar">
+    <button class="job-tag-filter-clear" id="tag-filter-clear">전체 보기</button>
+    {% for cat in categories %}
+    <button class="job-tag-btn" data-category="{{ cat.key }}">{{ cat.label }}</button>
+    {% endfor %}
+</div>
+{% endif %}
+
 {% if jobs %}
-<div class="jobs-list">
+<div class="jobs-list" id="jobs-list">
     {% for job in jobs %}
-    <article class="landing-card job-card" data-job-id="{{ job.id }}" tabindex="0" role="button" aria-haspopup="dialog">
+    <article class="landing-card job-card" data-job-id="{{ job.id }}" data-categories="{{ job.ui_categories|join:',' }}" tabindex="0" role="button" aria-haspopup="dialog">
         <div class="job-card-top">
             <div class="job-card-topline">
                 <div class="job-card-badge">
@@ -595,6 +731,48 @@
 </div>
 
 <script>
+    // 카테고리 필터
+    (function () {
+        var catBtns = document.querySelectorAll(".job-tag-btn");
+        var clearBtn = document.getElementById("tag-filter-clear");
+        var jobCards = document.querySelectorAll(".job-card");
+        var activeCategory = null;
+
+        function applyFilter(category) {
+            jobCards.forEach(function (card) {
+                var cats = (card.getAttribute("data-categories") || "").split(",").map(function (c) { return c.trim(); });
+                card.style.display = (!category || cats.indexOf(category) !== -1) ? "" : "none";
+            });
+        }
+
+        catBtns.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var category = btn.getAttribute("data-category");
+                if (activeCategory === category) {
+                    activeCategory = null;
+                    btn.classList.remove("active");
+                    clearBtn.classList.remove("visible");
+                } else {
+                    catBtns.forEach(function (b) { b.classList.remove("active"); });
+                    btn.classList.add("active");
+                    activeCategory = category;
+                    clearBtn.classList.add("visible");
+                }
+                applyFilter(activeCategory);
+            });
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener("click", function () {
+                activeCategory = null;
+                catBtns.forEach(function (b) { b.classList.remove("active"); });
+                clearBtn.classList.remove("visible");
+                applyFilter(null);
+            });
+        }
+    })();
+
+    // 모달
     (function () {
         var modal = document.getElementById("job-modal");
         var modalBody = document.getElementById("job-modal-body");
@@ -628,7 +806,7 @@
             ].join("");
         }
 
-        function renderDetail(detail) {
+        function renderDetail(detail, showAiPlaceholder) {
             if (modalExternalLink) {
                 modalExternalLink.setAttribute("href", detail.external_url || "#");
             }
@@ -685,24 +863,40 @@
                     '</section>',
                 ].join("")
                 : "";
-            var aiRecommendationBox = detail.ai_recommendation
-                ? [
-                    '<section class="job-modal-section">',
-                    '<div class="job-match-box">',
-                    '<div>',
-                    '<h3>AI 추천 해석</h3>',
-                    '<p>' + escapeHtml(detail.ai_recommendation.summary || "") + '</p>',
-                    '</div>',
-                    '<div class="job-match-score">' + escapeHtml(detail.ai_recommendation.fit_score) + '점</div>',
-                    '</div>',
-                    '</section>',
-                    renderList("AI가 본 강점", detail.ai_recommendation.strengths || []),
-                    renderList("AI가 본 보완점", detail.ai_recommendation.gaps || []),
-                    renderList("AI 학습 추천", detail.ai_recommendation.study_plan || []),
-                ].join("")
-                : (detail.ai_recommendation_error
-                    ? '<section class="job-modal-section"><p class="job-modal-copy">AI 추천 분석을 불러오지 못했습니다: ' + escapeHtml(detail.ai_recommendation_error) + '</p></section>'
-                    : "");
+            function renderAiCard(type, icon, title, items) {
+                if (!items || !items.length) return "";
+                return [
+                    '<div class="ai-analysis-card ' + type + '">',
+                    '<div class="ai-analysis-card-title">' + icon + ' ' + title + '</div>',
+                    '<ul class="ai-analysis-card-list">',
+                    items.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join(""),
+                    "</ul>",
+                    "</div>",
+                ].join("");
+            }
+
+            var aiRecommendationBox = showAiPlaceholder
+                ? '<div id="ai-recommendation-placeholder"><section class="job-modal-section"><div class="ai-loading-box"><div class="ai-loading-spinner"></div><span>AI 분석 중입니다... (10초 내외 소요)</span></div></section></div>'
+                : detail.ai_recommendation
+                    ? [
+                        '<section class="job-modal-section">',
+                        '<div class="job-match-box">',
+                        '<div>',
+                        '<h3>AI 추천 해석</h3>',
+                        '<p>' + escapeHtml(detail.ai_recommendation.summary || "") + '</p>',
+                        '</div>',
+                        '<div class="job-match-score">' + escapeHtml(detail.ai_recommendation.fit_score) + '점</div>',
+                        '</div>',
+                        '<div class="ai-analysis-grid">',
+                        renderAiCard("strengths", "✅", "강점", detail.ai_recommendation.strengths || []),
+                        renderAiCard("gaps", "⚠️", "보완점", detail.ai_recommendation.gaps || []),
+                        renderAiCard("study", "📚", "학습 추천", detail.ai_recommendation.study_plan || []),
+                        '</div>',
+                        '</section>',
+                    ].join("")
+                    : (detail.ai_recommendation_error
+                        ? '<section class="job-modal-section"><p class="job-modal-copy">AI 추천 분석을 불러오지 못했습니다: ' + escapeHtml(detail.ai_recommendation_error) + '</p></section>'
+                        : "");
 
             modalBody.innerHTML = [
                 '<div class="job-modal-hero">',
@@ -737,12 +931,58 @@
             document.body.classList.add("modal-open");
             modalBody.innerHTML = '<p class="job-modal-loading">상세 정보를 불러오는 중입니다...</p>';
 
-            fetch("/jobs/" + jobId + "/detail/")
+            // 1단계: AI 없이 기본 정보 즉시 로드
+            fetch("/jobs/" + jobId + "/detail/?ai=0")
                 .then(function (response) {
                     if (!response.ok) throw new Error("detail fetch failed");
                     return response.json();
                 })
-                .then(renderDetail)
+                .then(function (detail) {
+                    // 기본 정보 먼저 렌더링, AI 섹션은 스피너로 placeholder
+                    renderDetail(detail, true);
+
+                    // 2단계: AI 분석 별도 로드
+                    fetch("/jobs/" + jobId + "/detail/")
+                        .then(function (r) { return r.json(); })
+                        .then(function (fullDetail) {
+                            var aiBox = document.getElementById("ai-recommendation-placeholder");
+                            if (!aiBox) return;
+                            if (fullDetail.ai_recommendation) {
+                                function renderAiCard(type, icon, title, items) {
+                                    if (!items || !items.length) return "";
+                                    return [
+                                        '<div class="ai-analysis-card ' + type + '">',
+                                        '<div class="ai-analysis-card-title">' + icon + ' ' + title + '</div>',
+                                        '<ul class="ai-analysis-card-list">',
+                                        items.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join(""),
+                                        "</ul>",
+                                        "</div>",
+                                    ].join("");
+                                }
+                                aiBox.outerHTML = [
+                                    '<section class="job-modal-section">',
+                                    '<div class="job-match-box">',
+                                    '<div><h3>AI 추천 해석</h3>',
+                                    '<p>' + escapeHtml(fullDetail.ai_recommendation.summary || "") + '</p></div>',
+                                    '<div class="job-match-score">' + escapeHtml(fullDetail.ai_recommendation.fit_score) + '점</div>',
+                                    '</div>',
+                                    '<div class="ai-analysis-grid">',
+                                    renderAiCard("strengths", "✅", "강점", fullDetail.ai_recommendation.strengths || []),
+                                    renderAiCard("gaps", "⚠️", "보완점", fullDetail.ai_recommendation.gaps || []),
+                                    renderAiCard("study", "📚", "학습 추천", fullDetail.ai_recommendation.study_plan || []),
+                                    '</div></section>',
+                                ].join("");
+                            } else if (fullDetail.ai_recommendation_error) {
+                                aiBox.outerHTML = '<section class="job-modal-section"><p class="job-modal-copy">AI 분석을 불러오지 못했습니다.</p></section>';
+                            } else {
+                                aiBox.remove();
+                            }
+                        })
+                        .catch(function () {
+                            var aiBox = document.getElementById("ai-recommendation-placeholder");
+                            if (aiBox) aiBox.remove();
+                        });
+                })
                 .catch(function () {
                     modalBody.innerHTML = '<p class="job-modal-empty">상세 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>';
                 });
