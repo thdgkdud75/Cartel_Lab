@@ -46,6 +46,9 @@ echo "DB 연결 성공!"
 python manage.py migrate --noinput
 echo "migrate 완료"
 
+python manage.py loaddata timetable/fixtures/initial_timetable.json
+echo "시간표 fixture 로드 완료"
+
 python manage.py shell -c "
 import os
 from users.models import User
