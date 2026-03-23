@@ -507,3 +507,27 @@ def logout_view(request):
         logout(request)
         messages.success(request, "로그아웃되었습니다.")
     return redirect("home")
+
+
+def api_login(request):
+    """앱 전용 토큰 로그인 API"""
+    import json
+    from django.contrib.auth import authenticate
+    from django.http import JsonResponse
+    from rest_framework.authtoken.models import Token
+
+    if request.method != "POST":
+        return JsonResponse({"error": "POST만 허용됩니다."}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
+
+    student_id = data.get("student_id", "").strip()
+    password = data.get("password", "")
+    user = authenticate(request, username=student_id, password=password)
+    if user is None:
+        return JsonResponse({"error": "학번 또는 비밀번호가 올바르지 않습니다."}, status=401)
+
+    token, _ = Token.objects.get_or_create(user=user)
+    return JsonResponse({"token": token.key, "name": user.name})
