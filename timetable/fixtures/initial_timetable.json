@@ -1,0 +1,23 @@
+[
+  {"model": "timetable.timetable", "pk": 1,  "fields": {"class_group": "A", "weekday": 0, "subject": "데이터베이스",           "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 2,  "fields": {"class_group": "A", "weekday": 0, "subject": "디지털포렌식",           "start_time": "14:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 3,  "fields": {"class_group": "A", "weekday": 1, "subject": "데이터베이스",           "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 4,  "fields": {"class_group": "A", "weekday": 1, "subject": "해킹 및 침해대응",       "start_time": "14:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 5,  "fields": {"class_group": "A", "weekday": 2, "subject": "객체지향프로그래밍",     "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 6,  "fields": {"class_group": "A", "weekday": 2, "subject": "캡스톤디자인",           "start_time": "13:00", "end_time": "15:00"}},
+  {"model": "timetable.timetable", "pk": 7,  "fields": {"class_group": "A", "weekday": 3, "subject": "AI프롬프트엔지니어링",   "start_time": "10:00", "end_time": "14:00"}},
+  {"model": "timetable.timetable", "pk": 8,  "fields": {"class_group": "A", "weekday": 3, "subject": "취업과창업",             "start_time": "15:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 9,  "fields": {"class_group": "A", "weekday": 4, "subject": "객체지향프로그래밍",     "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 10, "fields": {"class_group": "A", "weekday": 4, "subject": "함께하는 여행",          "start_time": "16:00", "end_time": "17:00"}},
+
+  {"model": "timetable.timetable", "pk": 11, "fields": {"class_group": "B", "weekday": 0, "subject": "AI프롬프트엔지니어링",   "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 12, "fields": {"class_group": "B", "weekday": 0, "subject": "데이터베이스",           "start_time": "14:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 13, "fields": {"class_group": "B", "weekday": 1, "subject": "모바일프로그래밍",       "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 14, "fields": {"class_group": "B", "weekday": 1, "subject": "데이터베이스",           "start_time": "14:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 15, "fields": {"class_group": "B", "weekday": 2, "subject": "JAVA프로그래밍 실무",    "start_time": "10:00", "end_time": "13:00"}},
+  {"model": "timetable.timetable", "pk": 16, "fields": {"class_group": "B", "weekday": 2, "subject": "캡스톤디자인",           "start_time": "13:00", "end_time": "15:00"}},
+  {"model": "timetable.timetable", "pk": 17, "fields": {"class_group": "B", "weekday": 2, "subject": "JAVA프로그래밍 실무",    "start_time": "15:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 18, "fields": {"class_group": "B", "weekday": 3, "subject": "취업과창업",             "start_time": "15:00", "end_time": "16:00"}},
+  {"model": "timetable.timetable", "pk": 19, "fields": {"class_group": "B", "weekday": 3, "subject": "함께하는 여행",          "start_time": "16:00", "end_time": "17:00"}},
+  {"model": "timetable.timetable", "pk": 20, "fields": {"class_group": "B", "weekday": 4, "subject": "웹프로그래밍 실무",      "start_time": "10:00", "end_time": "13:00"}}
+]

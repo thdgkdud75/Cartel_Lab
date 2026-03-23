@@ -48,3 +48,9 @@ export async function getTodayStatus() {
   const response = await fetch(`${BASE_URL}/attendance/today/`, { headers });
   return response.json();
 }
+
+export async function getTimetable() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/timetable/api/`, { headers });
+  return response.json();
+}
