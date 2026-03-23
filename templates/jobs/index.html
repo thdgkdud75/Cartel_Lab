@@ -390,6 +390,64 @@
         flex-wrap: wrap;
         margin-top: 28px;
     }
+    .ai-analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 14px;
+    }
+    .ai-analysis-card {
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: grid;
+        gap: 10px;
+    }
+    .ai-analysis-card.strengths {
+        background: #f0faf2;
+        border: 1px solid #c6e8cc;
+    }
+    .ai-analysis-card.gaps {
+        background: #fff8f0;
+        border: 1px solid #f5d9b8;
+    }
+    .ai-analysis-card.study {
+        background: #f0f4ff;
+        border: 1px solid #c5d4f8;
+    }
+    .ai-analysis-card-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+    }
+    .ai-analysis-card.strengths .ai-analysis-card-title { color: #1e7e34; }
+    .ai-analysis-card.gaps .ai-analysis-card-title { color: #b85c00; }
+    .ai-analysis-card.study .ai-analysis-card-title { color: #2850b8; }
+    .ai-analysis-card-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+    }
+    .ai-analysis-card-list li {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #3b4048;
+        padding-left: 14px;
+        position: relative;
+    }
+    .ai-analysis-card-list li::before {
+        content: "·";
+        position: absolute;
+        left: 4px;
+        font-weight: 900;
+    }
+    @media (max-width: 760px) {
+        .ai-analysis-grid { grid-template-columns: 1fr; gap: 8px; }
+    }
     .job-modal-empty,
     .job-modal-loading {
         color: var(--muted);
@@ -781,6 +839,18 @@
                     '</section>',
                 ].join("")
                 : "";
+            function renderAiCard(type, icon, title, items) {
+                if (!items || !items.length) return "";
+                return [
+                    '<div class="ai-analysis-card ' + type + '">',
+                    '<div class="ai-analysis-card-title">' + icon + ' ' + title + '</div>',
+                    '<ul class="ai-analysis-card-list">',
+                    items.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join(""),
+                    "</ul>",
+                    "</div>",
+                ].join("");
+            }
+
             var aiRecommendationBox = detail.ai_recommendation
                 ? [
                     '<section class="job-modal-section">',
@@ -791,10 +861,12 @@
                     '</div>',
                     '<div class="job-match-score">' + escapeHtml(detail.ai_recommendation.fit_score) + '점</div>',
                     '</div>',
+                    '<div class="ai-analysis-grid">',
+                    renderAiCard("strengths", "✅", "강점", detail.ai_recommendation.strengths || []),
+                    renderAiCard("gaps", "⚠️", "보완점", detail.ai_recommendation.gaps || []),
+                    renderAiCard("study", "📚", "학습 추천", detail.ai_recommendation.study_plan || []),
+                    '</div>',
                     '</section>',
-                    renderList("AI가 본 강점", detail.ai_recommendation.strengths || []),
-                    renderList("AI가 본 보완점", detail.ai_recommendation.gaps || []),
-                    renderList("AI 학습 추천", detail.ai_recommendation.study_plan || []),
                 ].join("")
                 : (detail.ai_recommendation_error
                     ? '<section class="job-modal-section"><p class="job-modal-copy">AI 추천 분석을 불러오지 못했습니다: ' + escapeHtml(detail.ai_recommendation_error) + '</p></section>'
