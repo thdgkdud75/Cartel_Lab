@@ -1,8 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}출결 현황 - Team Lab{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'attendance/css/attendance.css' %}">
+
 <div id="statusMessage" class="status-message"></div>
 
 <div class="attendance-dashboard">
@@ -31,16 +34,12 @@
             </div>
 
             <div class="actions center-actions">
-                {% if user.is_staff %}
-                <button id="setLocationBtn" class="btn-secondary">현재 위치를 출결지로 설정</button>
-                <button id="setTimeBtn" class="btn-secondary">출결 시간 설정</button>
-                {% endif %}
                 {% if not today_record %}
-                <button id="checkInBtn" class="btn-primary">출석체크 하기</button>
+                    <button id="checkInBtn" class="btn-primary">출석체크 하기</button>
                 {% elif not today_record.check_out_at %}
-                <button id="checkOutBtn" class="btn-danger">퇴실하기</button>
+                    <button id="checkOutBtn" class="btn-danger">퇴실하기</button>
                 {% else %}
-                <button class="btn-secondary" disabled>퇴실 완료</button>
+                    <button class="btn-secondary" disabled>퇴실 완료</button>
                 {% endif %}
             </div>
         </div>
@@ -48,9 +47,7 @@
         <div class="recent-attendance-card">
             <h3>올해의 출결 현황</h3>
             <div class="heatmap-wrapper">
-                <div class="heatmap-months" id="heatmapMonths">
-                    <!-- JS로 달 라벨이 채워짐 -->
-                </div>
+                <div class="heatmap-months" id="heatmapMonths"></div>
                 <div class="heatmap-body">
                     <div class="heatmap-days">
                         <span></span>
@@ -79,9 +76,9 @@
     <div class="dashboard-right">
         <div class="others-attendance-card">
             <h2 class="my-name">다른 인원 출결 현황</h2>
-            <!-- HTMX: 5초마다 /attendance/list/를 호출하여 내용을 갱신함 -->
+            <!-- HTMX: 15초마다 목록 갱신 -->
             <div hx-get="{% url 'attendance:list' %}" 
-                 hx-trigger="load, every 5s" 
+                 hx-trigger="load, every 15s" 
                  hx-target="#attendanceList">
                 <div id="attendanceList">
                     <p class="loading">데이터를 불러오는 중...</p>
@@ -91,594 +88,26 @@
     </div>
 </div>
 
-<style>
-    .attendance-dashboard {
-        display: flex;
-        gap: 24px;
-        align-items: flex-start;
-        max-width: 1400px; /* 카드를 감싸는 바깥 영역의 최대 크기를 크게 확장 */
-        margin: 0 auto; /* 좌우 여백을 동일하게 중앙 정렬 */
-        padding: 0 20px;
-    }
-    .dashboard-left {
-        flex: 2; /* 왼쪽 카드(내 출결 및 1년 현황) 영역을 2배 비율로 넓게 설정 */
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        min-width: 0;
-    }
-    .dashboard-right {
-        flex: 1; /* 오른쪽 카드 영역을 상대적으로 좁게 설정 */
-        min-width: 0;
-    }
-    
-    .my-attendance-card, .recent-attendance-card, .others-attendance-card {
-        background: #fff;
-        border-radius: 12px;
-        padding: 24px; /* 기존 원래 패딩으로 복구 */
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        width: 100%;
-    }
-
-    .my-name {
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 24px;
-        font-weight: 700;
-    }
-    
-    .others-title {
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 24px;
-        font-weight: 700;
-    }
-
-    .my-status-display {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 24px;
-    }
-
-    .status-large {
-        font-size: 32px;
-        font-weight: 800;
-        padding: 10px 30px;
-        border-radius: 12px;
-    }
-    .status-absent { background: #f1f3f5; color: #868e96; }
-    .status-present { background: #e6fcf5; color: #0ca678; }
-    .status-late { background: #fff9db; color: #f08c00; }
-    .status-leave { background: #e7f5ff; color: #1c7ed6; }
-
-    .my-time-info {
-        display: flex;
-        justify-content: center;
-        gap: 40px;
-        margin-bottom: 30px;
-    }
-    .time-block {
-        text-align: center;
-    }
-    .time-label {
-        display: block;
-        font-size: 14px;
-        color: var(--muted);
-        margin-bottom: 8px;
-    }
-    .time-value {
-        font-size: 20px;
-        font-weight: 700;
-        color: var(--text);
-    }
-
-    .center-actions {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-    }
-
-    .recent-attendance-card h3 {
-        margin-bottom: 20px;
-    }
-
-    .heatmap-wrapper {
-        display: flex;
-        flex-direction: column;
-        position: relative;
-    }
-
-    .heatmap-months {
-        display: flex;
-        margin-left: 28px; /* 요일 라벨 너비만큼 띄움 */
-        margin-bottom: 5px;
-        font-size: 11px;
-        color: var(--muted);
-        position: relative;
-        height: 15px;
-    }
-
-    .month-label {
-        position: absolute;
-    }
-
-    .heatmap-body {
-        display: flex;
-        gap: 8px;
-    }
-
-    .heatmap-days {
-        display: flex;
-        flex-direction: column;
-        gap: 2px; /* 셀들 사이의 간격과 동일하게 설정하여 완벽한 정렬 유지 */
-        font-size: 10px;
-        color: var(--muted);
-        width: 15px;
-        text-align: left;
-    }
-    
-    .heatmap-days span {
-        height: 11px;
-        line-height: 11px;
-        display: block; /* 높이가 정확하게 적용되도록 block 처리 */
-    }
-
-    .heatmap-container {
-        display: flex;
-        gap: 2px;
-        overflow-x: auto;
-        padding-bottom: 8px;
-        flex-grow: 1;
-    }
-    
-    .heatmap-week {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .heatmap-cell {
-        width: 11px;
-        height: 11px;
-        border-radius: 2px;
-        background-color: #ebedf0;
-        flex-shrink: 0;
-    }
-
-    .heatmap-legend {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 6px;
-        margin-top: 8px;
-        font-size: 12px;
-        color: var(--muted);
-    }
-
-    /* 단일 색상 (기존) */
-    .status-present-color { background-color: #40c463; }
-    .status-late-color { background-color: #fab005; }
-    .status-leave-color { background-color: #339af0; }
-    .status-absent-color { background-color: #ebedf0; }
-
-    /* 복합 색상 (지각+조퇴) - 좌: 지각(노랑), 우: 조퇴(파랑) */
-    .status-late-leave-color {
-        background: linear-gradient(to right, #fab005 50%, #339af0 50%);
-    }
-
-    /* 복합 색상 (정상+조퇴) - 좌: 정상(초록), 우: 조퇴(파랑) */
-    .status-present-leave-color {
-        background: linear-gradient(to right, #40c463 50%, #339af0 50%);
-    }
-
-    /* 복합 색상 (지각+정상) - 좌: 지각(노랑), 우: 정상(초록) */
-    .status-late-present-color {
-        background: linear-gradient(to right, #fab005 50%, #40c463 50%);
-    }
-
-    /* 기존 버튼 스타일 유지 */
-    .btn-primary {
-        background: var(--brand);
-        color: #fff;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background .2s;
-    }
-    .btn-primary:hover {
-        background: #e15900;
-    }
-    .btn-secondary {
-        background: #f1f2f4;
-        color: var(--text);
-        border: 1px solid var(--line);
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background .2s;
-        margin-right: 10px;
-    }
-    .btn-secondary:hover {
-        background: #e1e2e4;
-    }
-    .btn-danger {
-        background: #fa5252;
-        color: #fff;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background .2s;
-    }
-    .btn-danger:hover {
-        background: #e03131;
-    }
-    .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled {
-        background: var(--muted);
-        cursor: not-allowed;
-    }
-    .status-message {
-        margin: 10px 0;
-        padding: 10px;
-        border-radius: 8px;
-        display: none;
-    }
-    .status-success { background: #e6fcf5; color: #0ca678; display: block; }
-    .status-error { background: #fff5f5; color: #fa5252; display: block; }
-    .status-info { background: #e7f5ff; color: #228be6; display: block; }
-    .loading { color: var(--muted); text-align: center; padding: 20px; }
-</style>
+<!-- 서버 데이터를 자바스크립트로 안전하게 전달 -->
+<script id="heatmap-data" type="application/json">
+    {{ heatmap_data|safe|default:"{}" }}
+</script>
 
 <script>
-    const statusDiv = document.getElementById('statusMessage');
-
-    function showMessage(status, message) {
-        statusDiv.className = `status-message status-${status}`;
-        statusDiv.textContent = message;
-        statusDiv.style.display = 'block';
-    }
-
-    // Heatmap 생성 로직
-    document.addEventListener("DOMContentLoaded", function() {
-        const heatmapData = {{ heatmap_data|safe|default:"{}" }};
-        const container = document.getElementById('attendanceHeatmap');
-        
-        if (container) {
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            
-            // 올해의 1월 1일로 설정
-            let startDate = new Date(currentYear, 0, 1);
-            
-            // 시작 주의 일요일로 맞추기 (달력 모양 정렬)
-            const startDayOfWeek = startDate.getDay();
-            startDate.setDate(startDate.getDate() - startDayOfWeek);
-            
-            let currentDate = new Date(startDate);
-            const monthsContainer = document.getElementById('heatmapMonths');
-            let currentMonthPrinted = -1;
-            
-            // 올해의 남은 주(week) 수 계산 (약 53주)
-            for (let col = 0; col < 54; col++) {
-                // 내년으로 넘어가고 그 주를 다 채웠다면 종료
-                if (currentDate.getFullYear() > currentYear && currentDate.getDay() === 0) {
-                    break; 
-                }
-
-                const colDiv = document.createElement('div');
-                colDiv.className = 'heatmap-week';
-                
-                // 월 표시 추가 로직
-                // 각 열의 화요일(또는 수요일) 쯤의 달을 확인하여 달 라벨을 붙임
-                let tempDate = new Date(currentDate);
-                tempDate.setDate(tempDate.getDate() + 3); // 해당 주의 수요일
-                let colMonth = tempDate.getMonth();
-                
-                if (colMonth !== currentMonthPrinted && tempDate.getFullYear() === currentYear) {
-                    const monthLabel = document.createElement('span');
-                    monthLabel.className = 'month-label';
-                    monthLabel.textContent = (colMonth + 1) + '월';
-                    // 각 열이 약 13px (11px + 2px gap)을 차지하므로 위치 계산
-                    monthLabel.style.left = (col * 13) + 'px';
-                    monthsContainer.appendChild(monthLabel);
-                    currentMonthPrinted = colMonth;
-                }
-                
-                // 일요일부터 토요일까지 7일
-                for (let row = 0; row < 7; row++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'heatmap-cell';
-                    
-                    // 올해 1월 1일 이전이거나 내년 이후의 날짜는 숨김 처리 (빈 칸)
-                    if (currentDate.getFullYear() !== currentYear) {
-                        cell.style.backgroundColor = 'transparent';
-                        cell.style.border = 'none';
-                    } else {
-                        const year = currentDate.getFullYear();
-                        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                        const day = String(currentDate.getDate()).padStart(2, '0');
-                        const dateString = `${year}-${month}-${day}`;
-                        
-                        if (heatmapData[dateString]) {
-                            const inStatus = heatmapData[dateString].in;
-                            const outStatus = heatmapData[dateString].out;
-                            
-                            if (inStatus === 'late' && outStatus === 'leave') {
-                                cell.classList.add('status-late-leave-color');
-                                cell.title = `${dateString} - 지각 & 조퇴`;
-                            } else if (inStatus === 'present' && outStatus === 'leave') {
-                                cell.classList.add('status-present-leave-color');
-                                cell.title = `${dateString} - 출석 & 조퇴`;
-                            } else if (inStatus === 'late' && outStatus === 'present') {
-                                cell.classList.add('status-late-present-color');
-                                cell.title = `${dateString} - 지각 & 정상퇴근`;
-                            } else if (inStatus === 'present' && outStatus === 'present') {
-                                cell.classList.add('status-present-color');
-                                cell.title = `${dateString} - 정상 출결`;
-                            } else if (inStatus === 'late') {
-                                cell.classList.add('status-late-color');
-                                cell.title = `${dateString} - 지각 (퇴근 전)`;
-                            } else if (inStatus === 'present') {
-                                cell.classList.add('status-present-color');
-                                cell.title = `${dateString} - 출석 (퇴근 전)`;
-                            } else {
-                                const legacyStatus = heatmapData[dateString].status || heatmapData[dateString];
-                                if (legacyStatus === 'present') {
-                                    cell.classList.add('status-present-color');
-                                    cell.title = `${dateString} - 출석`;
-                                } else if (legacyStatus === 'late') {
-                                    cell.classList.add('status-late-color');
-                                    cell.title = `${dateString} - 지각`;
-                                } else if (legacyStatus === 'leave') {
-                                    cell.classList.add('status-leave-color');
-                                    cell.title = `${dateString} - 조퇴`;
-                                } else {
-                                    cell.title = `${dateString} - ${legacyStatus}`;
-                                }
-                            }
-                        } else {
-                            if (currentDate > today) {
-                                cell.title = `${dateString} - 예정`;
-                            } else {
-                                cell.title = `${dateString} - 기록 없음`;
-                            }
-                        }
-                    }
-                    
-                    colDiv.appendChild(cell);
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
-                container.appendChild(colDiv);
-            }
-            
-            // 스크롤을 동기화하여 월 표시도 같이 움직이게 함
-            container.addEventListener('scroll', function() {
-                monthsContainer.style.transform = `translateX(-${container.scrollLeft}px)`;
-            });
-
-            // 오늘 날짜가 속한 위치로 자동 스크롤
-            setTimeout(() => {
-                // 오늘 날짜가 대략 몇 번째 주인지 계산해서 스크롤 위치 이동
-                const daysPassed = Math.floor((today - new Date(currentYear, 0, 1)) / (24 * 60 * 60 * 1000));
-                const weeksPassed = Math.floor(daysPassed / 7);
-                const scrollTarget = Math.max(0, (weeksPassed * 13) - (container.clientWidth / 2)); 
-                container.scrollLeft = scrollTarget;
-            }, 100);
-        }
-    });
-
-    // 출석체크 버튼 로직
-    const checkInBtn = document.getElementById('checkInBtn');
-    if (checkInBtn) {
-        checkInBtn.addEventListener('click', function() {
-            const btn = this;
-        
-        btn.disabled = true;
-        btn.textContent = '위치 확인 중...';
-        statusDiv.style.display = 'none';
-
-        if (!navigator.geolocation) {
-            showMessage('error', '이 브라우저는 위치 서비스를 지원하지 않습니다.');
-            resetBtn(btn);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-
-                fetch("{% url 'attendance:check-in' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        latitude: lat,
-                        longitude: lon
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    showMessage(data.status, data.message);
-                    if (data.status === 'success') {
-                        htmx.trigger('#attendanceList', 'load');
-                        setTimeout(() => window.location.reload(), 1500);
-                    }
-                    resetBtn(btn);
-                })
-                .catch(error => {
-                    showMessage('error', '서버 통신 중 오류가 발생했습니다.');
-                    resetBtn(btn);
-                });
-            },
-            (error) => {
-                let msg = '위치 정보를 가져올 수 없습니다.';
-                if (error.code === 1) msg = '위치 정보 접근 권한이 거부되었습니다.';
-                showMessage('error', msg);
-                resetBtn(btn);
-            }
-        );
-
-        function resetBtn(b) {
-            b.disabled = false;
-            b.textContent = '출석체크 하기';
-        }
-        });
-    }
-
-    // 퇴실하기 버튼 로직
-    const checkOutBtn = document.getElementById('checkOutBtn');
-    if (checkOutBtn) {
-        checkOutBtn.addEventListener('click', function() {
-            const btn = this;
-        
-        if (!confirm('퇴실 처리를 하시겠습니까?')) return;
-
-        btn.disabled = true;
-        btn.textContent = '위치 확인 중...';
-        statusDiv.style.display = 'none';
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-
-                fetch("{% url 'attendance:check-out' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        latitude: lat,
-                        longitude: lon
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    showMessage(data.status, data.message);
-                    if (data.status === 'success') {
-                        htmx.trigger('#attendanceList', 'load');
-                        setTimeout(() => window.location.reload(), 1500);
-                    }
-                    btn.disabled = false;
-                    btn.textContent = '퇴실하기';
-                })
-                .catch(error => {
-                    showMessage('error', '서버 통신 중 오류가 발생했습니다.');
-                    btn.disabled = false;
-                    btn.textContent = '퇴실하기';
-                });
-            },
-            (error) => {
-                showMessage('error', '위치 정보를 가져올 수 없습니다.');
-                btn.disabled = false;
-                btn.textContent = '퇴실하기';
-            }
-        );
-        });
-    }
-
-    // 관리자용 위치 설정 버튼 로직
-    const setLocBtn = document.getElementById('setLocationBtn');
-    if (setLocBtn) {
-        setLocBtn.addEventListener('click', function() {
-            const btn = this;
-            
-            if (!confirm('현재 위치를 새로운 출결 허용 위치로 설정하시겠습니까?')) return;
-
-            btn.disabled = true;
-            btn.textContent = '위치 설정 중...';
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    const locationName = prompt('위치 이름을 입력하세요 (예: 연구실)', '연구실') || '연구실';
-
-                    fetch("{% url 'attendance:set-location' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify({
-                            latitude: lat,
-                            longitude: lon,
-                            name: locationName
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        showMessage(data.status, data.message);
-                        btn.disabled = false;
-                        btn.textContent = '현재 위치를 출결지로 설정';
-                    })
-                    .catch(error => {
-                        showMessage('error', '서버 통신 중 오류가 발생했습니다.');
-                        btn.disabled = false;
-                        btn.textContent = '현재 위치를 출결지로 설정';
-                    });
-                },
-                (error) => {
-                    showMessage('error', '위치 정보를 가져올 수 없습니다.');
-                    btn.disabled = false;
-                    btn.textContent = '현재 위치를 출결지로 설정';
-                }
-            );
-        });
-    }
-    // 관리자용 출결 시간 설정 버튼 로직
-    const setTimeBtn = document.getElementById('setTimeBtn');
-    if (setTimeBtn) {
-        setTimeBtn.addEventListener('click', function() {
-            const btn = this;
-            
-            const checkInTime = prompt('지각 기준 시간을 입력하세요 (예: 10:00)', '10:00');
-            if (!checkInTime) return;
-            
-            const checkOutTime = prompt('조퇴 기준 시간을 입력하세요 (예: 18:00)', '18:00');
-            if (!checkOutTime) return;
-            
-            // 정규식으로 HH:MM 형식 확인
-            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-            if (!timeRegex.test(checkInTime) || !timeRegex.test(checkOutTime)) {
-                alert('시간 형식이 잘못되었습니다. HH:MM 형식으로 입력해주세요.');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = '설정 중...';
-
-            fetch("{% url 'attendance:set-time' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({
-                    check_in: checkInTime,
-                    check_out: checkOutTime
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                showMessage(data.status, data.message);
-                btn.disabled = false;
-                btn.textContent = '출결 시간 설정';
-            })
-            .catch(error => {
-                showMessage('error', '서버 통신 중 오류가 발생했습니다.');
-                btn.disabled = false;
-                btn.textContent = '출결 시간 설정';
-            });
-        });
+    // JS 외부 파일에서 사용할 전역 변수 설정
+    const csrfToken = '{{ csrf_token }}';
+    const checkInUrl = "{% url 'attendance:check-in' %}";
+    const checkOutUrl = "{% url 'attendance:check-out' %}";
+    const setLocationUrl = "{% url 'attendance:set-location' %}";
+    const setTimeUrl = "{% url 'attendance:set-time' %}";
+    
+    // JSON 데이터를 안전하게 파싱
+    let heatmapRawData = {};
+    try {
+        heatmapRawData = JSON.parse(document.getElementById('heatmap-data').textContent);
+    } catch (e) {
+        console.error("Heatmap data parsing error:", e);
     }
 </script>
+<script src="{% static 'attendance/js/attendance.js' %}"></script>
 {% endblock %}

@@ -18,6 +18,7 @@ class WeeklyGoal(models.Model):
         ("red", "Red"),
         ("blue", "Blue"),
         ("yellow", "Yellow"),
+        ("green", "Green"),
     ]
 
     user = models.ForeignKey(
@@ -69,6 +70,7 @@ class DailyTodo(models.Model):
         ("red", "Red"),
         ("blue", "Blue"),
         ("yellow", "Yellow"),
+        ("green", "Green"),
     ]
 
     user = models.ForeignKey(
@@ -80,6 +82,7 @@ class DailyTodo(models.Model):
     planned_time = models.TimeField(null=True, blank=True)
     color = models.CharField(max_length=10, choices=COLOR_CHOICES, default="red")
     content = models.CharField(max_length=255)
+    is_checked = models.BooleanField(default=False)
     is_completed = models.BooleanField(default=False)
     google_event_id = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)

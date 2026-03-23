@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+<!-- Markdown & Syntax Highlighting -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+
+<style>
+    body { background-color: white; }
+    .post-view {
+        max-width: 768px;
+        margin: 5rem auto;
+        padding: 0 1rem;
+    }
+    .post-view h1 {
+        font-size: 3rem;
+        line-height: 1.5;
+        letter-spacing: -0.01em;
+        margin-top: 0;
+        font-weight: 800;
+        color: #212529;
+        margin-bottom: 2rem;
+        word-break: keep-all;
+    }
+    .post-view-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    .post-view-info .meta {
+        font-size: 1rem;
+        color: #495057;
+    }
+    .post-view-info .meta b {
+        color: #212529;
+        margin-right: 0.5rem;
+    }
+    .post-view-info .actions a {
+        color: #868e96;
+        text-decoration: none;
+        margin-left: 0.5rem;
+        font-size: 1rem;
+    }
+    .post-view-info .actions a:hover {
+        color: #212529;
+    }
+    
+    .post-view-content {
+        font-size: 1.125rem;
+        color: #212529;
+        line-height: 1.7;
+        letter-spacing: -0.004em;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+    }
+    
+    /* Markdown Adjustments */
+    .post-view-content h1, .post-view-content h2, .post-view-content h3 {
+        line-height: 1.5;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    .post-view-content p {
+        margin-bottom: 1.5rem;
+    }
+    .post-view-content img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 3rem auto;
+    }
+    .post-view-content pre {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        overflow-x: auto;
+        margin: 1.5rem 0;
+    }
+    .post-view-content blockquote {
+        margin: 2rem 0;
+        border-left: 4px solid #20c997;
+        background: #f8f9fa;
+        padding: 1rem 1rem 1rem 2rem;
+        color: #495057;
+    }
+
+    /* Author Footer */
+    .post-author-footer {
+        display: flex;
+        align-items: center;
+        margin-top: 8rem;
+        padding-top: 2rem;
+        border-top: 1px solid #f1f3f5;
+        margin-bottom: 4rem;
+    }
+    .post-author-footer .avatar {
+        width: 8rem;
+        height: 8rem;
+        border-radius: 50%;
+        margin-right: 1.5rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .post-author-footer .author-info h3 {
+        font-size: 1.5rem;
+        margin: 0 0 0.5rem;
+        font-weight: 700;
+    }
+    .post-author-footer .author-info p {
+        color: #495057;
+        margin: 0;
+    }
+</style>
+
+<div class="post-view">
+    <h1>{{ post.title }}</h1>
+    
+    <div class="post-view-info">
+        <div class="meta">
+            <b>{{ post.author.name }}</b>
+            <span>· {{ post.created_at|date:"Y년 m월 d일" }}</span>
+        </div>
+        <div class="actions">
+            {% if user == post.author or user.is_staff %}
+            <a href="{% url 'blog:post-update' post.slug %}">수정</a>
+            <a href="javascript:void(0);" onclick="deletePost()" style="color: #fa5252;">삭제</a>
+            <form id="deleteForm" action="{% url 'blog:post-delete' post.slug %}" method="post" style="display:none;">
+                {% csrf_token %}
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function deletePost() {
+            if (confirm('정말로 이 포스트를 삭제하시겠습니까?')) {
+                document.getElementById('deleteForm').submit();
+            }
+        }
+    </script>
+
+    {% if post.thumbnail %}
+    <img src="{{ post.thumbnail.url }}" style="width: 100%; border-radius: 4px; margin-bottom: 3rem;">
+    {% endif %}
+
+    <div id="markdown-content" class="post-view-content">
+        {{ post.content|safe }}
+    </div>
+
+    <div class="post-author-footer">
+        <img src="https://ui-avatars.com/api/?name={{ post.author.name }}&background=random&size=128" class="avatar">
+        <div class="author-info">
+            <h3>{{ post.author.name }}</h3>
+            <p>{{ post.author.student_id }} · Jvision Lab Member</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const contentDiv = document.getElementById('markdown-content');
+    const rawContent = `{{ post.content|escapejs }}`;
+    contentDiv.innerHTML = marked.parse(rawContent);
+    Prism.highlightAll();
+</script>
+{% endblock %}

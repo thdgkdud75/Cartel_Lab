@@ -1,6 +1,7 @@
-from datetime import date
+﻿from datetime import date, time
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from users.models import User
@@ -8,6 +9,12 @@ from users.models import User
 from planner.models import DailyTodo, LabWideGoal, WeeklyGoal
 
 
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
 class WeeklyPlannerTests(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -26,7 +33,7 @@ class WeeklyPlannerTests(TestCase):
         LabWideGoal.objects.create(created_by=self.user1, content="shared goal")
         response = self.client.get(reverse("planner-index"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "랩실 전체 목표")
+        self.assertContains(response, "?⑹떎 ?꾩껜 紐⑺몴")
         self.assertContains(response, "shared goal")
 
     def test_only_own_goals_are_visible(self):
@@ -57,9 +64,9 @@ class WeeklyPlannerTests(TestCase):
         response = self.client.post(
             reverse("planner-goal-add"),
             {
-                "week_start": self.week_start.isoformat(),
-                "weekday": "2",
-                "planned_time": "09:30",
+                "start_date": date(2026, 3, 10).isoformat(),
+                "planned_time_hour": "09",
+                "planned_time_minute": "30",
                 "content": "new weekly goal",
             },
         )
@@ -69,6 +76,25 @@ class WeeklyPlannerTests(TestCase):
         self.assertEqual(goal.user, self.user1)
         self.assertEqual(goal.weekday, 2)
         self.assertEqual(goal.planned_time.strftime("%H:%M"), "09:30")
+        self.assertFalse(DailyTodo.objects.filter(content="new weekly goal").exists())
+
+    def test_add_goal_accepts_am_pm_time_input(self):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+
+        response = self.client.post(
+            reverse("planner-goal-add"),
+            {
+                "start_date": date(2026, 3, 10).isoformat(),
+                "planned_time_period": "PM",
+                "planned_time_hour": "10",
+                "planned_time_minute": "00",
+                "content": "pm goal",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        goal = WeeklyGoal.objects.get(content="pm goal")
+        self.assertEqual(goal.planned_time.strftime("%H:%M"), "22:00")
 
     def test_toggle_goal_only_for_owner(self):
         goal = WeeklyGoal.objects.create(
@@ -92,9 +118,8 @@ class WeeklyPlannerTests(TestCase):
             {"week_start": self.week_start.isoformat()},
         )
         self.assertEqual(response.status_code, 302)
-
-        goal.refresh_from_db()
-        self.assertTrue(goal.is_completed)
+        self.assertFalse(WeeklyGoal.objects.filter(id=goal.id).exists())
+        self.assertFalse(DailyTodo.objects.filter(user=self.user1, content="toggle me").exists())
 
     def test_update_goal_only_for_owner(self):
         goal = WeeklyGoal.objects.create(
@@ -119,14 +144,15 @@ class WeeklyPlannerTests(TestCase):
             reverse("planner-goal-update", args=[goal.id]),
             {
                 "week_start": self.week_start.isoformat(),
-                "planned_time": "14:15",
+                "planned_time_hour": "14",
+                "planned_time_minute": "30",
                 "content": "after edit",
             },
         )
         self.assertEqual(response.status_code, 302)
         goal.refresh_from_db()
         self.assertEqual(goal.content, "after edit")
-        self.assertEqual(goal.planned_time.strftime("%H:%M"), "14:15")
+        self.assertEqual(goal.planned_time.strftime("%H:%M"), "14:30")
 
     def test_add_lab_goal_requires_login(self):
         response = self.client.post(

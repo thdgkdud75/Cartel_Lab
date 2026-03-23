@@ -6,7 +6,7 @@ until python -c "
 import pymysql, os, sys, traceback
 
 host = os.getenv('DB_HOST') or 'db'
-user = os.getenv('DB_USER') or 'django'
+user = os.getenv('DB_USER') or 'root'
 password = os.getenv('DB_PASSWORD') or ''
 db = os.getenv('DB_NAME') or 'cartel_lab'
 raw_port = os.getenv('DB_PORT') or '3306'
@@ -62,5 +62,9 @@ if sid and pw:
 else:
     print('ADMIN_ID / ADMIN_PASSWORD 미설정, 건너뜀')
 "
+
+if [ "$#" -eq 0 ]; then
+  set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 3 --timeout 120
+fi
 
 exec "$@"

@@ -107,6 +107,7 @@ def attendance_list(request):
     """
     today = timezone.localdate()
     qs = AttendanceRecord.objects.filter(attendance_date=today)\
+        .select_related('user')\
         .exclude(user__is_staff=True)\
         .exclude(user__is_superuser=True)\
         .order_by("-check_in_at")
@@ -170,7 +171,7 @@ def check_in(request):
 @require_POST
 def check_out(request):
     """
-    사용자 위치를 기반으로 퇴실 처리
+    위치에 상관 없이 퇴실 처리
     """
     try:
         import json
@@ -188,9 +189,10 @@ def check_out(request):
 
     if distance > location.radius:
         return JsonResponse({
-            "status": "error", 
+            "status": "error",
             "message": f"위치 범위를 벗어났습니다. (현재 약 {int(distance)}m 거리)"
         }, status=403)
+
 
     # 오늘 출석 기록 찾기
     today = timezone.localdate()
