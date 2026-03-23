@@ -827,12 +827,24 @@ def jobs_index(request):
         JobPosting.objects.filter(is_active=True).order_by("-posted_at", "-updated_at", "-id")[:100]
     )
     scoring_enabled = can_score_user(request.user)
+    if scoring_enabled:
+        from .services.recommendation import extract_profile_skills, detect_profile_roles, normalize_text
+        _profile_skills = extract_profile_skills(request.user)
+        _profile_roles = detect_profile_roles(request.user)
+        _selected_direction = normalize_text(request.user.get_selected_job_direction())
+    else:
+        _profile_skills = _profile_roles = _selected_direction = None
     for job in jobs:
         job.ui_company_mark = build_company_mark(job.company_name)
         job.ui_deadline_label = build_deadline_label(job)
         job.ui_tags = build_job_tags(job)
         job.ui_main_tasks = build_main_task_preview(job)
-        recommendation = score_job_for_user(request.user, job)
+        recommendation = score_job_for_user(
+            request.user, job,
+            profile_skills=_profile_skills,
+            profile_roles=_profile_roles,
+            selected_direction=_selected_direction,
+        )
         job.ui_recommendation_score = recommendation["score"]
         job.ui_recommendation_reasons = recommendation["reasons"]
 

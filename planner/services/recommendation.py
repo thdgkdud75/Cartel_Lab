@@ -126,18 +126,21 @@ def can_score_user(user) -> bool:
     )
 
 
-def score_job_for_user(user, job) -> dict:
+def score_job_for_user(user, job, *, profile_skills=None, profile_roles=None, selected_direction=None) -> dict:
     if not can_score_user(user):
         return {"score": None, "matched_skills": [], "matched_roles": [], "reasons": []}
 
-    profile_skills = extract_profile_skills(user)
-    profile_roles = detect_profile_roles(user)
+    if profile_skills is None:
+        profile_skills = extract_profile_skills(user)
+    if profile_roles is None:
+        profile_roles = detect_profile_roles(user)
+    if selected_direction is None:
+        selected_direction = normalize_text(getattr(user, "get_selected_job_direction", lambda: "")())
     job_skills = extract_job_skills(job)
     job_roles = detect_job_roles(job)
 
     matched_skills = sorted(profile_skills & job_skills)
     matched_roles = sorted(profile_roles & job_roles)
-    selected_direction = normalize_text(getattr(user, "get_selected_job_direction", lambda: "")())
     direction_matches = selected_direction and any(selected_direction in role or role in selected_direction for role in matched_roles)
 
     skill_score = min(60, len(matched_skills) * 12)

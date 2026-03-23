@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+
+{% block title %}Today Code{% endblock %}
+
+{% block content %}
+<style>
+    .qp { display: grid; gap: 20px; }
+
+    /* 상단 헤더 */
+    .qp-header {
+        display: flex; align-items: flex-start;
+        justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .qp-title { margin: 0; font-size: clamp(24px,3.5vw,36px); letter-spacing: -0.03em; }
+    .qp-desc  { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+
+    .qp-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    }
+    .qp-badge.g1 { background: #e8f5e9; color: #2e7d32; }
+    .qp-badge.g2 { background: var(--brand-soft); color: var(--brand); }
+
+    /* 탭 */
+    .qp-tabs { display: flex; gap: 8px; }
+    .qp-tab {
+        display: inline-flex; align-items: center; padding: 9px 18px;
+        border-radius: 10px; font-size: 14px; font-weight: 700;
+        text-decoration: none; transition: background .15s, color .15s;
+    }
+    .qp-tab.active   { background: var(--brand); color: #fff; }
+    .qp-tab.inactive { background: #fff; color: var(--muted); border: 1px solid var(--line); }
+    .qp-tab.inactive:hover { color: var(--text); background: #f5f5f7; }
+
+    /* 새 문제 버튼 */
+    .qp-add-btn {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 10px 18px; border-radius: 10px; border: none;
+        background: var(--brand); color: #fff;
+        font-size: 14px; font-weight: 700; cursor: pointer;
+        transition: background .15s;
+    }
+    .qp-add-btn:hover { background: #e96307; }
+
+    /* 모달 */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,.45); z-index: 200;
+        align-items: flex-start; justify-content: center;
+        padding: 40px 20px; overflow-y: auto;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+        background: #fff; border-radius: 20px;
+        width: 100%; max-width: 640px;
+        padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+        margin: auto;
+    }
+    .modal-head {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 20px;
+    }
+    .modal-head h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
+    .modal-close {
+        background: none; border: none; cursor: pointer;
+        color: var(--muted); font-size: 24px; line-height: 1; padding: 4px;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* 주간 카드 그리드 */
+    .week-day-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+        margin-bottom: 4px;
+    }
+    .day-card {
+        border: 1px solid var(--line); border-radius: 12px;
+        padding: 10px 6px; text-align: center; min-height: 80px;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        transition: border-color .15s, background .15s;
+        position: relative;
+    }
+    .day-card { cursor: pointer; }
+    .day-card.empty:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .day-card.empty.selected { border-color: var(--brand); border-width: 2px; background: var(--brand-soft); }
+    .day-card.has-quiz { background: #f0fdf4; border-color: #86efac; }
+    .day-card.has-quiz:hover { border-color: #4ade80; background: #dcfce7; }
+    .day-card.has-quiz.selected { border-color: #16a34a; border-width: 2px; background: #dcfce7; }
+    .day-card.is-today { box-shadow: 0 0 0 2px var(--brand); }
+    .day-card.is-past.empty { cursor: default; opacity: 0.45; pointer-events: none; }
+    .day-card.is-past.has-quiz { opacity: 0.7; }
+    .day-card.is-past.has-quiz.selected { border-color: #86efac; border-width: 2px; opacity: 1; }
+    .day-dow { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .day-date-num { font-size: 13px; font-weight: 700; }
+    .day-card.is-today .day-date-num { color: var(--brand); }
+    .day-plus { font-size: 20px; color: var(--brand); margin-top: 2px; }
+    .day-quiz-name {
+        font-size: 10px; color: #166534; font-weight: 600;
+        line-height: 1.3; word-break: keep-all; text-align: center;
+        max-width: 100%; overflow: hidden; display: -webkit-box;
+        -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .day-del-btn {
+        border: none; border-radius: 6px; padding: 3px 7px; margin-top: auto;
+        font-size: 10px; font-weight: 700; cursor: pointer; transition: background .15s;
+        background: #fee2e2; color: #c2410c;
+    }
+    .day-del-btn:hover { background: #fca5a5; }
+
+    /* 주간 네비게이션 */
+    .week-nav {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .week-nav-label { font-size: 13px; font-weight: 700; color: var(--text); }
+    .week-nav-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+        background: #fff; color: var(--muted); font-size: 13px; font-weight: 700;
+        text-decoration: none; transition: background .15s, color .15s;
+    }
+    .week-nav-btn:hover { background: #f5f5f7; color: var(--text); }
+    .week-nav-btn.next { background: var(--brand-soft); color: var(--brand); border-color: #ffcca0; }
+    .week-nav-btn.next:hover { background: #ffe0c2; }
+
+    /* 폼 섹션 */
+    .modal-form-section { margin-top: 20px; }
+
+    /* 읽기 전용 뷰 섹션 */
+    .view-field { display: grid; gap: 5px; }
+    .view-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .view-val { font-size: 14px; color: var(--text); line-height: 1.6; }
+    .view-val.answer { font-weight: 700; color: var(--brand); }
+    .view-past-notice {
+        text-align: center; padding: 14px; border-radius: 10px;
+        background: #f4f4f6; color: var(--muted); font-size: 13px; font-weight: 600;
+    }
+    .form-section-label {
+        font-size: 13px; font-weight: 700; color: var(--brand);
+        padding: 10px 0 14px; border-top: 1px solid var(--line);
+        display: block;
+    }
+
+    /* 폼 필드 */
+    .mf { display: grid; gap: 6px; }
+    .mf label { font-size: 13px; font-weight: 700; }
+    .mf input, .mf textarea {
+        width: 100%; box-sizing: border-box;
+        border: 1px solid #e2e5e9; border-radius: 10px;
+        padding: 11px 14px; font-size: 14px; font-family: inherit; resize: vertical;
+        background: #fcfcfd; transition: border-color .2s, box-shadow .2s;
+    }
+    .mf input:focus, .mf textarea:focus {
+        outline: none; border-color: #ffb78b;
+        box-shadow: 0 0 0 4px rgba(255,111,15,.12); background: #fff;
+    }
+    .mf textarea.code-dark {
+        font-family: 'Courier New', monospace; font-size: 13px; min-height: 42px;
+        background: #1e1e2e; color: #cdd6f4; border-color: #2a2a3a;
+        overflow: hidden; resize: none; transition: border-color .2s;
+    }
+    .mf textarea.code-dark:focus { border-color: #585870; }
+    .mf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .mf-hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+    .modal-trap {
+        border: 1px dashed #e2a96b; border-radius: 12px;
+        padding: 14px; background: #fff8f3;
+    }
+    .modal-trap summary { font-size: 13px; font-weight: 700; color: var(--brand); cursor: pointer; }
+    .modal-trap-body { display: grid; gap: 12px; margin-top: 12px; }
+
+    .modal-submit {
+        border: none; border-radius: 10px; padding: 13px;
+        background: var(--brand); color: #fff; font-size: 15px; font-weight: 700;
+        cursor: pointer; width: 100%; transition: background .15s;
+    }
+    .modal-submit:hover { background: #e96307; }
+    .modal-form-grid { display: grid; gap: 14px; }
+
+    /* 문제 카드 (2학년 목록) */
+    .quiz-list { display: grid; gap: 12px; }
+    .quiz-card {
+        background: #fff; border: 1px solid var(--line);
+        border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px;
+    }
+    .quiz-card.today-card { border-color: var(--brand); border-width: 2px; }
+    .quiz-card-head {
+        display: flex; align-items: flex-start;
+        justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .qc-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+    .qc-meta  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .qc-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .qc-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+        background: var(--brand-soft); color: var(--brand);
+    }
+    .qc-chip.ai { background: #fff3cd; color: #92400e; }
+    .qc-del {
+        border: 1px solid #f4cccc; border-radius: 8px;
+        padding: 4px 10px; background: #fff; color: #c2410c;
+        font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .qc-del:hover { background: #fff5f0; }
+    .qc-trap-badge {
+        display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+        padding: 3px 8px; border-radius: 6px;
+        background: #fff3cd; color: #92400e; border: 1px dashed #e2a96b;
+    }
+    .quiz-code {
+        background: #1e1e2e; color: #cdd6f4; border-radius: 10px;
+        padding: 12px 14px; font-family: 'Courier New', monospace;
+        font-size: 13px; line-height: 1.6; white-space: pre; overflow-x: auto;
+        position: relative;
+    }
+    .qc-answer { font-size: 13px; color: var(--muted); }
+
+    /* 날짜 레이블 배지 */
+    .date-badge {
+        display: inline-flex; align-items: center;
+        padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    }
+    .date-badge.today { background: var(--brand); color: #fff; }
+    .date-badge.past  { background: #f4f4f6; color: var(--muted); }
+    .date-badge.future { background: #e8f5e9; color: #2e7d32; }
+
+    /* 1학년 오늘 문제 */
+    .today-wrap {
+        background: #fff; border: 2px solid var(--brand);
+        border-radius: 18px; padding: 24px; display: grid; gap: 14px;
+    }
+    .today-label {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 13px; font-weight: 700; color: var(--brand);
+    }
+    .answer-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .answer-input {
+        flex: 1; min-width: 160px; border: 1px solid #e2e5e9;
+        border-radius: 10px; padding: 11px 14px; font-size: 14px; background: #fcfcfd;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .answer-input:focus {
+        outline: none; border-color: #ffb78b;
+        box-shadow: 0 0 0 4px rgba(255,111,15,.12); background: #fff;
+    }
+    .answer-submit {
+        border: none; border-radius: 10px; padding: 11px 20px;
+        background: var(--brand); color: #fff; font-size: 14px; font-weight: 700;
+        cursor: pointer; white-space: nowrap; transition: background .15s;
+    }
+    .answer-submit:hover { background: #e96307; }
+    .result-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 14px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    }
+    .result-badge.correct { background: #e8f5e9; color: #2e7d32; }
+    .result-badge.wrong   { background: #fce4e4; color: #c2410c; }
+
+    /* 메시지 */
+    .qp-msgs { display: grid; gap: 8px; }
+    .qp-msg  { padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+    .qp-msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .qp-msg.error   { background: #fce4e4; color: #c2410c; border: 1px solid #f8b4b4; }
+    .qp-msg.warning { background: #fff8e1; color: #b45309; border: 1px solid #fde68a; }
+
+    /* 빈 상태 */
+    .qp-empty {
+        text-align: center; padding: 48px 24px; background: #fff;
+        border: 1px dashed #e2e5e9; border-radius: 16px; color: var(--muted);
+    }
+
+    @media (max-width: 760px) {
+        .mf-row { grid-template-columns: 1fr; }
+        .modal-box { padding: 20px; }
+        .today-wrap { padding: 18px; }
+    }
+</style>
+
+{# ── 모달 (2학년) ── #}
+{% if request.user.grade == "2" %}
+<div class="modal-overlay" id="quizModal">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>문제 관리
+                <span style="font-size:14px;font-weight:400;color:var(--muted);">
+                    {% if week_offset == 1 %}다음 주{% else %}이번 주{% endif %}
+                    {{ week_start|date:"m/d" }} ~ {{ week_end|date:"m/d" }}
+                </span>
+            </h2>
+            <button class="modal-close" onclick="closeModal()" type="button">&times;</button>
+        </div>
+
+        {# 주간 네비게이션 #}
+        <div class="week-nav">
+            {% if week_offset == 1 %}
+            <a href="?modal=1" class="week-nav-btn">← 이번 주</a>
+            {% else %}
+            <div></div>
+            {% endif %}
+            {% if week_offset == 0 and show_next_arrow or week_offset == 0 %}
+            <a href="?w=1&modal=1" class="week-nav-btn next">다음 주 →</a>
+            {% endif %}
+        </div>
+
+        {# 7일 카드 #}
+        <div class="week-day-grid">
+            {% for day in week_days %}
+            <div class="day-card {% if day.quiz %}has-quiz{% else %}empty{% endif %}{% if day.date == today %} is-today{% elif day.date < today %} is-past{% endif %}"
+                 id="dayCard-{{ day.date|date:'Y-m-d' }}"
+                 data-date="{{ day.date|date:'Y-m-d' }}"
+                 data-label="{{ day.day_ko }}요일 {{ day.date|date:'m/d' }}"
+                 data-is-past="{% if day.date < today %}1{% else %}0{% endif %}"
+                 {% if day.quiz %}
+                 data-quiz-id="{{ day.quiz.pk }}"
+                 data-quiz-title="{{ day.quiz.title }}"
+                 data-quiz-code="{{ day.quiz.code_snippet }}"
+                 data-quiz-question="{{ day.quiz.question }}"
+                 data-quiz-answer="{{ day.quiz.answer }}"
+                 data-quiz-trap-code="{{ day.quiz.ai_trap_code }}"
+                 data-quiz-trap-answer="{{ day.quiz.ai_trap_answer }}"
+                 {% endif %}
+                 onclick="selectDay(this)">
+                <div class="day-dow">{{ day.day_ko }}</div>
+                <div class="day-date-num">{{ day.date|date:"d" }}</div>
+                {% if day.quiz %}
+                    <div class="day-quiz-name">{{ day.quiz.title }}</div>
+                    {% if day.date >= today %}
+                    <form method="post" action="{% url 'quiz-delete' day.quiz.pk %}"
+                          onsubmit="return confirm('삭제할까요?');"
+                          onclick="event.stopPropagation();" style="margin:0;">
+                        {% csrf_token %}
+                        <button class="day-del-btn" type="submit">삭제</button>
+                    </form>
+                    {% endif %}
+                {% else %}
+                    {% if day.date >= today %}
+                    <div class="day-plus">+</div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {# 읽기 전용 뷰 (과거 문제) #}
+        <div class="modal-form-section" id="modalViewSection" style="display:none;">
+            <span class="form-section-label" id="viewSectionLabel"></span>
+            <div id="viewContent" class="modal-form-grid"></div>
+        </div>
+
+        {# 동적 폼 (신규/수정) #}
+        <div class="modal-form-section" id="modalFormSection" style="display:none;">
+            <span class="form-section-label" id="formSectionLabel"></span>
+            <form id="quizForm" method="post" action="" class="modal-form-grid">
+                {% csrf_token %}
+                <input type="hidden" name="scheduled_date" id="f-date">
+                <div class="mf">
+                    <label>문제 제목</label>
+                    <input type="text" id="f-title" name="title" placeholder="예) range(5) 합계 구하기" required>
+                </div>
+                <div class="mf">
+                    <label>화면에 보여줄 코드 <span class="mf-hint">(선택)</span></label>
+                    <textarea id="f-code" name="code_snippet" class="code-dark" placeholder="sum = 0&#10;for i in range(5):&#10;    sum += i&#10;print(sum)"></textarea>
+                </div>
+                <div class="mf-row">
+                    <div class="mf">
+                        <label>문제 설명</label>
+                        <textarea id="f-question" name="question" rows="3" placeholder="출력 결과는?" required></textarea>
+                    </div>
+                    <div class="mf">
+                        <label>정답 <span class="mf-hint">(복수는 쉼표 구분)</span></label>
+                        <textarea id="f-answer" name="answer" rows="3" placeholder="10, 십" required></textarea>
+                    </div>
+                </div>
+                <details class="modal-trap">
+                    <summary>AI 감지 함정 설정 (선택)</summary>
+                    <div class="modal-trap-body">
+                        <p style="font-size:13px;color:var(--muted);line-height:1.5;margin:0;">
+                            복붙 시 AI가 받는 전체 코드를 따로 작성합니다. 화면엔 안 보이지만 복사하면 이 코드가 클립보드에 담깁니다.
+                        </p>
+                        <div class="mf">
+                            <label>복붙 시 AI가 받는 코드 <span class="mf-hint">(전체 코드 작성)</span></label>
+                            <textarea id="f-trap-code" name="ai_trap_code" class="code-dark" placeholder="sum = 0&#10;sum = 100&#10;for i in range(5):&#10;    sum += i&#10;print(sum)"></textarea>
+                        </div>
+                        <div class="mf">
+                            <label>AI가 낼 오답 <span class="mf-hint">(쉼표로 복수 가능)</span></label>
+                            <input type="text" id="f-trap-answer" name="ai_trap_answer" placeholder="110, 백십">
+                        </div>
+                    </div>
+                </details>
+                <button type="submit" class="modal-submit" id="f-submit">문제 등록하기</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="qp">
+
+    {% if messages %}
+    <div class="qp-msgs">
+        {% for msg in messages %}
+        <div class="qp-msg {{ msg.tags }}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="qp-header">
+        <div>
+            <h1 class="qp-title">Today Code</h1>
+            <p class="qp-desc">
+                {% if request.user.grade == "2" %}출제자 모드 — 날짜별 문제를 관리합니다.
+                {% else %}도전자 모드 — 오늘의 문제를 풀어보세요.{% endif %}
+            </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="qp-badge {% if request.user.grade == '2' %}g2{% else %}g1{% endif %}">
+                {{ request.user.grade }}학년 · {{ request.user.name }}
+            </span>
+            {% if request.user.grade == "2" %}
+            <button class="qp-add-btn" onclick="openModal()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                새 문제 출제
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if request.user.grade == "2" %}
+    {# 탭 #}
+    <div class="qp-tabs">
+        <a href="{% url 'quiz-index' %}" class="qp-tab active">문제 목록</a>
+        <a href="{% url 'quiz-admin' %}" class="qp-tab inactive">관리자 현황</a>
+    </div>
+
+    {# 2학년: 문제 목록 #}
+    {% if quiz_stats %}
+    <div class="quiz-list">
+        {% for item in quiz_stats %}
+        <div class="quiz-card {% if item.quiz.scheduled_date == today %}today-card{% endif %}">
+            <div class="quiz-card-head">
+                <div>
+                    <h2 class="qc-title">{{ item.quiz.title }}</h2>
+                    <p class="qc-meta">{{ item.quiz.created_at|date:"Y.m.d H:i" }}</p>
+                </div>
+                <div class="qc-stats">
+                    {% if item.quiz.scheduled_date %}
+                        {% if item.quiz.scheduled_date == today %}
+                        <span class="date-badge today">오늘</span>
+                        {% elif item.quiz.scheduled_date > today %}
+                        <span class="date-badge future">{{ item.quiz.scheduled_date|date:"m/d" }} 예정</span>
+                        {% else %}
+                        <span class="date-badge past">{{ item.quiz.scheduled_date|date:"m/d" }}</span>
+                        {% endif %}
+                    {% endif %}
+                    <span class="qc-chip">응시 {{ item.total }} / 정답 {{ item.correct }}</span>
+                    {% if item.ai_flagged > 0 %}
+                    <span class="qc-chip ai">⚠ AI {{ item.ai_flagged }}</span>
+                    {% endif %}
+                    {% if item.quiz.ai_trap_code %}
+                    <span class="qc-trap-badge">함정 ON</span>
+                    {% endif %}
+                    <form method="post" action="{% url 'quiz-delete' item.quiz.pk %}" onsubmit="return confirm('이 문제를 삭제할까요?');" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="qc-del">삭제</button>
+                    </form>
+                </div>
+            </div>
+            {% if item.quiz.code_snippet %}
+            <pre class="quiz-code">{{ item.quiz.code_snippet }}</pre>
+            {% endif %}
+            <p style="color:#3a3a3c; font-size:14px; margin:0;">{{ item.quiz.question }}</p>
+            <p class="qc-answer">정답: <strong style="color:var(--text);">{{ item.quiz.answer }}</strong></p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="qp-empty">
+        <div style="font-size:40px; margin-bottom:12px;">📝</div>
+        <p style="margin:0; font-size:15px;">아직 출제한 문제가 없습니다.<br>우상단 버튼으로 첫 문제를 만들어보세요!</p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    {# ── 1학년: 오늘의 문제 ── #}
+    {% if today_quiz %}
+    <div class="today-wrap">
+        <div>
+            <span class="today-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                오늘의 문제 · {{ today }}
+            </span>
+            <h2 style="margin:8px 0 0; font-size:20px; font-weight:700; letter-spacing:-0.02em;">{{ today_quiz.title }}</h2>
+            <p style="margin:4px 0 0; font-size:13px; color:var(--muted);">출제자: {{ today_quiz.created_by.name }}</p>
+        </div>
+
+        {% if today_quiz.code_snippet %}
+        <pre class="quiz-code" id="quizCodeBlock"
+             data-ai-code="{{ today_quiz.ai_trap_code }}">{{ today_quiz.code_snippet }}</pre>
+        {% endif %}
+
+        <p style="font-size:15px; color:#3a3a3c; margin:0; line-height:1.6;">{{ today_quiz.question }}</p>
+
+        {% if attempt %}
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            {% if attempt.is_correct %}
+            <span class="result-badge correct">✓ 정답</span>
+            {% else %}
+            <span class="result-badge wrong">✗ 오답</span>
+            {% endif %}
+            <span style="font-size:14px; color:var(--muted);">내 답변: <strong style="color:var(--text);">{{ attempt.submitted_answer }}</strong></span>
+        </div>
+        {% else %}
+        <form method="post" action="{% url 'quiz-submit' today_quiz.pk %}" class="answer-form">
+            {% csrf_token %}
+            <input type="text" name="answer" class="answer-input" placeholder="답변을 입력하세요" required autofocus>
+            <button type="submit" class="answer-submit">제출</button>
+        </form>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="qp-empty">
+        <div style="font-size:40px; margin-bottom:12px;">🎯</div>
+        <p style="margin:0; font-size:15px;">오늘의 문제가 아직 없습니다.<br>2학년이 문제를 올리면 여기에 나타납니다.</p>
+    </div>
+    {% endif %}
+    {% endif %}
+
+</div>
+
+<script>
+var CREATE_URL = "{% url 'quiz-create' %}";
+
+/* ── 모달 열기/닫기 ── */
+function openModal() {
+    document.getElementById('quizModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+    document.getElementById('quizModal').classList.remove('open');
+    document.body.style.overflow = '';
+    document.querySelectorAll('.day-card.selected').forEach(function(c) { c.classList.remove('selected'); });
+    document.getElementById('modalFormSection').style.display = 'none';
+    document.getElementById('modalViewSection').style.display = 'none';
+}
+
+/* ── 카드 선택 ── */
+function _selectCard(card) {
+    document.querySelectorAll('.day-card.selected').forEach(function(c) { c.classList.remove('selected'); });
+    card.classList.add('selected');
+}
+
+/* ── 폼 표시 ── */
+function _showForm(label, action, submitText) {
+    document.getElementById('modalViewSection').style.display = 'none';
+    document.getElementById('formSectionLabel').textContent = label;
+    document.getElementById('quizForm').action = action;
+    document.getElementById('f-submit').textContent = submitText;
+    var section = document.getElementById('modalFormSection');
+    section.style.display = '';
+    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── HTML 이스케이프 ── */
+function _esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── 읽기 전용 뷰 표시 (과거 문제) ── */
+function _showView(label, card) {
+    document.getElementById('modalFormSection').style.display = 'none';
+    document.getElementById('viewSectionLabel').textContent = label + ' — 문제 보기 (수정 불가)';
+    var code = card.dataset.quizCode;
+    document.getElementById('viewContent').innerHTML =
+        '<div class="view-field"><div class="view-lbl">제목</div><div class="view-val">' + _esc(card.dataset.quizTitle) + '</div></div>' +
+        (code ? '<div class="view-field"><div class="view-lbl">코드</div><pre class="quiz-code" style="margin:0;">' + _esc(code) + '</pre></div>' : '') +
+        '<div class="view-field"><div class="view-lbl">문제 설명</div><div class="view-val">' + _esc(card.dataset.quizQuestion) + '</div></div>' +
+        '<div class="view-field"><div class="view-lbl">정답</div><div class="view-val answer">' + _esc(card.dataset.quizAnswer) + '</div></div>' +
+        '<div class="view-past-notice">이전에 출제된 문제는 수정할 수 없습니다.</div>';
+    var section = document.getElementById('modalViewSection');
+    section.style.display = '';
+    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── 카드 클릭 통합 핸들러 ── */
+function selectDay(card) {
+    var isPast  = card.dataset.isPast === '1';
+    var hasQuiz = card.classList.contains('has-quiz');
+    var isEmpty = card.classList.contains('empty');
+
+    if (isPast && isEmpty) return;
+
+    _selectCard(card);
+    var date  = card.dataset.date;
+    var label = card.dataset.label;
+
+    if (hasQuiz && isPast) {
+        _showView(label, card);
+    } else if (hasQuiz) {
+        document.getElementById('f-date').value        = date;
+        document.getElementById('f-title').value       = card.dataset.quizTitle    || '';
+        document.getElementById('f-code').value        = card.dataset.quizCode     || '';
+        document.getElementById('f-question').value    = card.dataset.quizQuestion || '';
+        document.getElementById('f-answer').value      = card.dataset.quizAnswer   || '';
+        document.getElementById('f-trap-code').value   = card.dataset.quizTrapCode || '';
+        document.getElementById('f-trap-answer').value = card.dataset.quizTrapAnswer || '';
+        _showForm(label + ' — 문제 수정', '/quiz/' + card.dataset.quizId + '/edit/', '문제 저장하기');
+        document.querySelectorAll('textarea.code-dark').forEach(autoResize);
+    } else {
+        document.getElementById('f-date').value        = date;
+        document.getElementById('f-title').value       = '';
+        document.getElementById('f-code').value        = '';
+        document.getElementById('f-question').value    = '';
+        document.getElementById('f-answer').value      = '';
+        document.getElementById('f-trap-code').value   = '';
+        document.getElementById('f-trap-answer').value = '';
+        _showForm(label + ' — 새 문제 등록', CREATE_URL, '문제 등록하기');
+        document.querySelectorAll('textarea.code-dark').forEach(autoResize);
+    }
+}
+
+/* ── 코드 textarea 자동 높이 + 탭 들여쓰기 ── */
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}
+document.querySelectorAll('textarea.code-dark').forEach(function(ta) {
+    ta.addEventListener('input', function() { autoResize(this); });
+    ta.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var s = this.selectionStart, end = this.selectionEnd;
+            this.value = this.value.substring(0, s) + '    ' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = s + 4;
+            autoResize(this);
+        }
+    });
+    autoResize(ta);
+});
+
+/* ── 오버레이 클릭 닫기 ── */
+var modal = document.getElementById('quizModal');
+if (modal) modal.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+/* ── ?modal=1 이면 자동 열기 ── */
+if (new URLSearchParams(location.search).get('modal') === '1') openModal();
+
+/* ── AI 함정: 코드 복사 시 클립보드를 AI 버전으로 교체 ── */
+(function () {
+    var block = document.getElementById('quizCodeBlock');
+    if (!block || !block.dataset.aiCode) return;
+
+    function trapCopy(e) {
+        var sel = window.getSelection();
+        if (!sel || sel.isCollapsed) return;
+        var container = sel.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+        if (!container) return;
+        var inBlock = block === container || block.contains(container);
+        if (!inBlock) return;
+        e.preventDefault();
+        e.clipboardData.setData('text/plain', block.dataset.aiCode);
+    }
+
+    // capture + bubble 둘 다 등록 (브라우저별 차이 대응)
+    document.addEventListener('copy', trapCopy, true);
+    document.addEventListener('copy', trapCopy, false);
+})();
+</script>
+{% endblock %}
