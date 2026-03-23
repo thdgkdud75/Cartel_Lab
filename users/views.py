@@ -8,6 +8,7 @@ from .forms import LoginForm, SignupForm
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render
 
 from .forms import BasicInfoForm, LoginForm, ProfileUpdateForm, SignupForm
@@ -509,6 +510,7 @@ def logout_view(request):
     return redirect("home")
 
 
+@csrf_exempt
 def api_login(request):
     """앱 전용 토큰 로그인 API"""
     import json
