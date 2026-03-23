@@ -2,6 +2,7 @@ import re
 import threading
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -151,21 +152,31 @@ def job_detail_api(request, job_id):
         and getattr(request.user, "is_authenticated", False)
         and getattr(request.user, "ai_profile_payload", None)
     ):
-        try:
-            ai_result = generate_job_recommendation(
-                ai_profile=request.user.ai_profile_payload,
-                job_payload={
-                    "title": detail.get("title", ""),
-                    "company_name": detail.get("company_name", ""),
-                    "job_role": detail.get("job_role", ""),
-                    "overview": detail.get("overview", ""),
-                    "main_tasks": detail.get("main_tasks", []),
-                    "requirements": detail.get("requirements", []),
-                    "preferred_points": detail.get("preferred_points", []),
-                    "required_skills": detail.get("required_skills", []),
-                },
-            )
+        # 캐시 키: 유저 ID + 공고 ID 조합 → 같은 유저가 같은 공고를 다시 열면 Redis에서 즉시 반환
+        cache_key = f"ai_job_rec_{request.user.id}_{job_id}"
+        ai_result = cache.get(cache_key)
+
+        if ai_result is None:
+            # 캐시 미스 → OpenAI API 호출 후 24시간 동안 Redis에 저장
+            try:
+                ai_result = generate_job_recommendation(
+                    ai_profile=request.user.ai_profile_payload,
+                    job_payload={
+                        "title": detail.get("title", ""),
+                        "company_name": detail.get("company_name", ""),
+                        "job_role": detail.get("job_role", ""),
+                        "overview": detail.get("overview", ""),
+                        "main_tasks": detail.get("main_tasks", []),
+                        "requirements": detail.get("requirements", []),
+                        "preferred_points": detail.get("preferred_points", []),
+                        "required_skills": detail.get("required_skills", []),
+                    },
+                )
+                cache.set(cache_key, ai_result, timeout=60 * 60 * 24)  # 24시간
+            except Exception as exc:
+                detail["ai_recommendation_error"] = str(exc)
+                ai_result = None
+
+        if ai_result:
             detail["ai_recommendation"] = ai_result
-        except Exception as exc:
-            detail["ai_recommendation_error"] = str(exc)
     return JsonResponse(detail)

@@ -126,6 +126,28 @@ else:
     }
 
 
+# Cache (Redis)
+# REDIS_URL이 있으면 Upstash Redis 사용, 없으면 로컬 메모리 캐시 사용
+_redis_url = os.getenv('REDIS_URL', '')
+if _redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": _redis_url,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "cartellab",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
