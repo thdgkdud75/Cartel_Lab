@@ -12,7 +12,7 @@ from django.shortcuts import redirect, render
 
 from .forms import BasicInfoForm, LoginForm, ProfileUpdateForm, SignupForm
 from .services import build_profile_analysis
-from planner.services.market_analysis import (
+from jobs.services.market_analysis import (
     get_direction_choices,
     get_market_role_context,
     get_or_refresh_market_snapshot,
