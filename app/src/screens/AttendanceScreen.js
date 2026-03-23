@@ -40,7 +40,7 @@ export default function AttendanceScreen({ name, onLogout }) {
       if (!coords) return;
       const res = await checkIn(coords.latitude, coords.longitude);
       setMessage(res.message || '출석 완료!');
-      if (res.status === 'success') setAttendance('checked_in');
+      if (res.status === 'success' || res.status === 'info') setAttendance('checked_in');
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
@@ -56,7 +56,7 @@ export default function AttendanceScreen({ name, onLogout }) {
       if (!coords) return;
       const res = await checkOut(coords.latitude, coords.longitude);
       setMessage(res.message || '퇴실 완료!');
-      if (res.status === 'success') setAttendance('checked_out');
+      if (res.status === 'success' || res.status === 'info') setAttendance('checked_out');
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
