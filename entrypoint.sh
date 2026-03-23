@@ -63,6 +63,9 @@ else:
     print('ADMIN_ID / ADMIN_PASSWORD 미설정, 건너뜀')
 "
 
+service cron start
+echo "cron 시작 완료"
+
 if [ "$#" -eq 0 ]; then
   set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 3 --timeout 120
 fi
