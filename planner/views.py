@@ -1012,7 +1012,7 @@ def google_calendar_callback(request):
         )
 
     today = timezone.localdate()
-    messages.success(request, "Google Calendar ?곌껐???꾨즺?섏뿀?듬땲??")
+    messages.success(request, "Google Calendar 연결이 완료되었습니다.")
     return _planner_plan_redirect_for_date(today)
 
 
