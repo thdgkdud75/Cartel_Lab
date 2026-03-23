@@ -156,6 +156,12 @@ def job_detail_api(request, job_id):
     recommendation = score_job_for_user(request.user, job)
     detail["recommendation_score"] = recommendation["score"]
     detail["recommendation_reasons"] = recommendation["reasons"]
+
+    # ?ai=0 이면 AI 분석 스킵 (1단계: 기본 정보 즉시 반환)
+    skip_ai = request.GET.get("ai") == "0"
+    if skip_ai:
+        return JsonResponse(detail)
+
     if (
         is_openai_configured()
         and getattr(request.user, "is_authenticated", False)
