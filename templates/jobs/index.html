@@ -9,6 +9,7 @@
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 18px;
         margin-top: 16px;
+        min-width: 0;
     }
     .job-card {
         padding: 18px 18px 20px;
@@ -18,6 +19,8 @@
         display: flex;
         flex-direction: column;
         gap: 18px;
+        min-width: 0;
+        overflow: hidden;
     }
     .job-card:hover {
         transform: translateY(-2px);
@@ -96,6 +99,22 @@
         font-size: 19px;
         line-height: 1.35;
         letter-spacing: -0.03em;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+    }
+    .job-card-task-tags {
+        display: none;
+    }
+    .job-card-task-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: #f0f4ff;
+        color: #3a5cbf;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
     }
     .job-card-actions {
         display: flex;
@@ -384,61 +403,79 @@
         overflow: hidden;
     }
     @media (max-width: 760px) {
+        /* 카드 */
         .jobs-list {
             grid-template-columns: 1fr;
-            gap: 14px;
+            gap: 10px;
         }
         .job-card {
-            padding: 16px;
+            padding: 14px 16px;
             min-height: auto;
-        }
-        .job-card-top {
-            align-items: flex-start;
-        }
-        .job-card-company {
-            grid-template-columns: 72px 1fr;
-            gap: 14px;
-        }
-        .job-card-logo {
-            width: 72px;
-            height: 72px;
+            gap: 10px;
             border-radius: 18px;
-            font-size: 24px;
         }
-        .job-modal {
-            padding: 0;
-            align-items: end;
+
+        /* 뱃지+마감일 */
+        .job-card-top { align-items: center; }
+        .job-card-topline { gap: 6px; }
+        .job-card-badge { padding: 5px 9px; font-size: 11px; }
+        .job-card-deadline { font-size: 13px; }
+
+        /* 로고+회사 */
+        .job-card-company { grid-template-columns: 52px 1fr; gap: 12px; }
+        .job-card-logo { width: 52px; height: 52px; border-radius: 14px; font-size: 18px; }
+        .job-card-company-name { font-size: 12px; }
+        .job-card-title { font-size: 15px; word-break: keep-all; overflow-wrap: break-word; }
+
+        /* 긴 내용 숨기고 태그 표시 */
+        .job-card-meta { gap: 8px; }
+        .job-card-role,
+        .job-card-tags,
+        .job-card-preview,
+        .job-card-reasons { display: none; }
+        .job-card-submeta { gap: 6px; }
+        .job-card-subpill { padding: 5px 9px; font-size: 12px; }
+        .job-card-task-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
         }
-        .job-modal-panel {
-            width: 100%;
-            max-height: 92vh;
-            border-radius: 26px 26px 0 0;
-        }
-        .job-modal-head {
-            padding: 16px 18px;
-        }
-        .job-modal-head-actions .nav-link {
-            padding: 10px 12px;
+
+        /* 버튼 */
+        .job-card-actions { gap: 8px; }
+        .job-card-actions .nav-link,
+        .job-card-actions .job-detail-button {
+            flex: 1;
+            text-align: center;
+            justify-content: center;
+            padding: 9px 10px;
             font-size: 13px;
         }
-        .job-modal-body {
-            padding: 20px 18px 22px;
-        }
-        .job-modal-hero {
-            grid-template-columns: 72px 1fr;
+
+        /* 적합도 박스 */
+        .job-match-box {
+            flex-direction: column;
+            align-items: flex-start;
             gap: 14px;
+            padding: 14px 16px;
         }
-        .job-modal-logo {
-            width: 72px;
-            height: 72px;
-            border-radius: 18px;
-        }
-        .job-modal-title {
-            font-size: 30px;
-        }
-        .job-modal-section h3 {
-            font-size: 24px;
-        }
+        .job-match-box h3 { font-size: 20px; margin-bottom: 6px; }
+        .job-match-score { min-width: 80px; min-height: 80px; font-size: 24px; align-self: flex-end; }
+
+        /* 모달 바텀시트 */
+        .job-modal { padding: 0; align-items: end; }
+        .job-modal-panel { width: 100%; max-height: 92vh; border-radius: 26px 26px 0 0; }
+        .job-modal-head { padding: 14px 16px; }
+        .job-modal-head-actions #job-modal-external-link { display: none; }
+        .job-modal-body { padding: 18px 16px 24px; max-height: calc(92vh - 62px); }
+        .job-modal-hero { grid-template-columns: 64px 1fr; gap: 12px; }
+        .job-modal-logo { width: 64px; height: 64px; border-radius: 16px; }
+        .job-modal-title { font-size: clamp(22px, 6vw, 30px); }
+        .job-modal-section h3 { font-size: 20px; }
+        .job-modal-section h4 { font-size: 15px; }
+        .job-modal-grid { gap: 18px; margin-top: 20px; }
+        .job-modal-footer { flex-direction: column; gap: 8px; margin-top: 20px; }
+        .job-modal-footer .nav-link { width: 100%; text-align: center; justify-content: center; }
     }
 </style>
 
@@ -502,6 +539,11 @@
                     <li>{{ task }}</li>
                     {% endfor %}
                 </ul>
+            </div>
+            <div class="job-card-task-tags">
+                {% for task in job.ui_main_tasks|slice:":4" %}
+                <span class="job-card-task-tag">{{ task }}</span>
+                {% endfor %}
             </div>
             {% elif job.summary_text %}
             <div class="job-card-preview">

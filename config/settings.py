@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'planner',
     'seats',
     'dashboard',
+    'quiz',
+    'blog',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -106,6 +108,7 @@ if _mysql_url:
             'HOST': _u.hostname,
             'PORT': str(_u.port or 3306),
             'OPTIONS': {'charset': 'utf8mb4'},
+            'CONN_MAX_AGE': 60,
         }
     }
 else:
@@ -118,6 +121,7 @@ else:
             'HOST': os.getenv('DB_HOST') or os.getenv('MYSQL_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT') or os.getenv('MYSQL_PORT', '3306'),
             'OPTIONS': {'charset': 'utf8mb4'},
+            'CONN_MAX_AGE': 60,
         }
     }
 
@@ -188,5 +192,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 세션 설정 (모바일 브라우저 종료 후에도 로그인 유지)
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30일
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_SAVE_EVERY_REQUEST = True  # 마지막 활동 기준으로 30일 연장
 SESSION_COOKIE_SAMESITE = 'Lax'

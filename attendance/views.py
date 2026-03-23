@@ -6,7 +6,16 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from .models import AttendanceRecord, LocationSetting, AttendanceTimeSetting
+
+
+def _get_time_setting():
+    setting = cache.get("attendance_time_setting")
+    if setting is None:
+        setting = AttendanceTimeSetting.objects.first()
+        cache.set("attendance_time_setting", setting, 300)
+    return setting
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -45,7 +54,7 @@ def index(request):
     )
     
     heatmap_data = {}
-    time_setting = AttendanceTimeSetting.objects.first()
+    time_setting = _get_time_setting()
 
     for record in yearly_records:
         date_str = record.attendance_date.strftime('%Y-%m-%d')
@@ -87,6 +96,7 @@ def attendance_list(request):
     """
     today = timezone.localdate()
     qs = AttendanceRecord.objects.filter(attendance_date=today)\
+        .select_related('user')\
         .exclude(user__is_staff=True)\
         .exclude(user__is_superuser=True)\
         .order_by("-check_in_at")
@@ -128,7 +138,7 @@ def check_in(request):
     now_time = timezone.localtime().time()
     
     # 지각 확인
-    time_setting = AttendanceTimeSetting.objects.first()
+    time_setting = _get_time_setting()
     status = "present"
     if time_setting and now_time > time_setting.check_in_deadline:
         status = "late"
@@ -150,28 +160,8 @@ def check_in(request):
 @require_POST
 def check_out(request):
     """
-    사용자 위치를 기반으로 퇴실 처리
+    위치에 상관 없이 퇴실 처리
     """
-    try:
-        import json
-        data = json.loads(request.body)
-        user_lat = float(data.get("latitude"))
-        user_lon = float(data.get("longitude"))
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return JsonResponse({"status": "error", "message": "잘못된 위치 정보입니다."}, status=400)
-
-    location = LocationSetting.objects.filter(is_active=True).first()
-    if not location:
-        return JsonResponse({"status": "error", "message": "설정된 위치 정보가 없습니다."}, status=400)
-
-    distance = haversine_distance(user_lat, user_lon, location.latitude, location.longitude)
-
-    if distance > location.radius:
-        return JsonResponse({
-            "status": "error", 
-            "message": f"위치 범위를 벗어났습니다. (현재 약 {int(distance)}m 거리)"
-        }, status=403)
-
     # 오늘 출석 기록 찾기
     today = timezone.localdate()
     try:
@@ -180,7 +170,7 @@ def check_out(request):
             return JsonResponse({"status": "info", "message": "이미 퇴실 처리가 완료되었습니다."})
         
         now_time = timezone.localtime().time()
-        time_setting = AttendanceTimeSetting.objects.first()
+        time_setting = _get_time_setting()
         
         # 조퇴 확인 (출석 상태였을 때만 조퇴로 변경, 지각이었으면 지각 유지)
         if time_setting and now_time < time_setting.check_out_minimum:
@@ -264,6 +254,7 @@ def set_attendance_time(request):
     setting.check_in_deadline = check_in_time
     setting.check_out_minimum = check_out_time
     setting.save()
+    cache.delete("attendance_time_setting")
 
     return JsonResponse({
         "status": "success", 

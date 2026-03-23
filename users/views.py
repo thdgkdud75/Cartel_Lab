@@ -225,7 +225,8 @@ def reset_profile_analysis(user):
 @login_required
 def index(request):
     user = request.user
-    market_snapshot = get_or_refresh_market_snapshot()
+    is_analyze_action = request.method == "POST" and request.POST.get("action") == "analyze"
+    market_snapshot = get_or_refresh_market_snapshot() if (is_analyze_action or user.profile_analyzed_at) else None
     role_choices = get_direction_choices(market_snapshot)
     has_profile_sources = bool(user.github_url or user.resume_file)
     original_direction = user.desired_job_direction

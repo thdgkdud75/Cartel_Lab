@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Today Code — 관리자{% endblock %}
+
+{% block content %}
+<style>
+    .adm-page { display: grid; gap: 20px; }
+
+    /* 탭 */
+    .adm-tabs { display: flex; gap: 8px; }
+    .adm-tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 700;
+        text-decoration: none; transition: background .15s, color .15s;
+    }
+    .adm-tab.active   { background: var(--brand); color: #fff; }
+    .adm-tab.inactive { background: #fff; color: var(--muted); border: 1px solid var(--line); }
+    .adm-tab.inactive:hover { color: var(--text); background: #f5f5f7; }
+
+    /* 이번 주 테이블 */
+    .week-table-wrap { overflow-x: auto; }
+    .week-table {
+        width: 100%; border-collapse: collapse; background: #fff;
+        border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 14px;
+    }
+    .week-table th {
+        background: #fafafa; padding: 10px 12px; text-align: center;
+        font-weight: 700; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line);
+    }
+    .week-table th.name-col { text-align: left; }
+    .week-table td { padding: 10px 12px; border-bottom: 1px solid #f4f4f6; text-align: center; }
+    .week-table td.name-col { text-align: left; font-weight: 600; }
+    .week-table tr:last-child td { border-bottom: none; }
+    .week-table td.today-col { background: #fff8f3; }
+    .week-table th.today-col { background: #fff1e8; color: var(--brand); }
+    .dot {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%; font-size: 13px; font-weight: 700;
+    }
+    .dot.correct { background: #e8f5e9; color: #2e7d32; }
+    .dot.wrong   { background: #fce4e4; color: #c2410c; }
+    .dot.none    { background: #f4f4f6; color: #bbb; }
+    .dot.ai      { background: #fff3cd; color: #e96307; }
+    .week-summary { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+    /* 학생 카드 */
+    .student-list { display: grid; gap: 12px; }
+    .student-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+    .student-card-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 16px 20px; cursor: pointer; user-select: none; transition: background .15s;
+    }
+    .student-card-head:hover { background: #fafafa; }
+    .student-card-name { font-size: 15px; font-weight: 700; }
+    .student-card-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .student-card-right { display: flex; align-items: center; gap: 10px; }
+    .student-chevron {
+        width: 18px; height: 18px; color: var(--muted); transition: transform .2s ease; flex-shrink: 0;
+    }
+    .student-card.is-open .student-chevron { transform: rotate(180deg); }
+    .student-card-body { display: none; border-top: 1px solid var(--line); padding: 20px; }
+    .student-card.is-open .student-card-body { display: block; }
+
+    /* AI 플래그 */
+    .ai-flag-tag {
+        display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+        border-radius: 999px; font-size: 11px; font-weight: 700;
+        background: #fff3cd; color: #92400e; border: 1px solid #fde68a; white-space: nowrap;
+    }
+    .attempt-list { display: grid; gap: 8px; margin-top: 16px; }
+    .attempt-row {
+        display: flex; align-items: flex-start; gap: 12px;
+        padding: 10px 14px; border-radius: 10px; background: #fafafa;
+        border: 1px solid #f0f0f2; font-size: 13px;
+    }
+    .attempt-date { color: var(--muted); font-size: 12px; white-space: nowrap; margin-top: 1px; }
+    .attempt-info { flex: 1; }
+    .attempt-quiz-name { font-weight: 700; margin-bottom: 3px; }
+    .attempt-submitted { color: #3a3a3c; }
+    .attempt-tag {
+        display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+        border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .attempt-tag.correct { background: #e8f5e9; color: #2e7d32; }
+    .attempt-tag.wrong   { background: #fce4e4; color: #c2410c; }
+    .no-attempts { color: var(--muted); font-size: 13px; padding: 8px 0; }
+
+    /* GitHub 잔디 — 1년 */
+    .grass-outer { overflow-x: auto; padding-bottom: 6px; }
+    .grass-month-row {
+        display: grid; grid-auto-flow: column; grid-auto-columns: 17px;
+        gap: 0; margin-bottom: 3px;
+    }
+    .grass-month-lbl { font-size: 10px; color: var(--muted); width: 17px; white-space: nowrap; overflow: visible; }
+    .grass-grid-year {
+        display: grid;
+        grid-template-rows: repeat(7, 14px);
+        grid-auto-flow: column;
+        grid-auto-columns: 14px;
+        gap: 3px;
+    }
+    .grass-cell {
+        width: 14px; height: 14px; border-radius: 3px; cursor: default; position: relative;
+    }
+    .grass-cell.correct { background: #22c55e; }
+    .grass-cell.ai      { background: #f97316; }
+    .grass-cell.wrong   { background: #facc15; }
+    .grass-cell.none    { background: #e5e7eb; }
+    .grass-cell.future  { background: #f3f4f6; }
+    .grass-cell.today   { outline: 2px solid var(--brand); outline-offset: 1px; }
+    .grass-cell::after {
+        content: attr(data-tip);
+        position: absolute; bottom: calc(100% + 5px); left: 50%;
+        transform: translateX(-50%);
+        background: #1e1e2e; color: #fff; font-size: 11px; white-space: nowrap;
+        padding: 4px 8px; border-radius: 6px; pointer-events: none;
+        opacity: 0; transition: opacity .15s; z-index: 10;
+    }
+    .grass-cell:hover::after { opacity: 1; }
+    .grass-dow-labels {
+        display: grid; grid-template-rows: repeat(7, 14px);
+        gap: 3px; margin-top: 4px;
+        grid-auto-flow: column; grid-auto-columns: 24px;
+    }
+    .grass-dow-lbl { font-size: 9px; color: var(--muted); display: flex; align-items: center; }
+    .grass-legend {
+        display: flex; align-items: center; gap: 8px; margin-top: 10px;
+        font-size: 12px; color: var(--muted); flex-wrap: wrap;
+    }
+    .grass-legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .grass-legend .sq { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+
+    /* 빈 상태 */
+    .adm-empty {
+        text-align: center; padding: 48px 24px; background: #fff;
+        border: 1px dashed #e2e5e9; border-radius: 16px; color: var(--muted);
+    }
+
+    @media (max-width: 760px) {
+        .student-card-head { padding: 14px 16px; }
+        .student-card-body { padding: 14px 16px; }
+        .week-table th, .week-table td { padding: 8px; }
+    }
+</style>
+
+<div class="adm-page">
+
+    <div>
+        <h1 style="margin:0 0 4px; font-size:clamp(22px,3vw,32px); letter-spacing:-0.03em;">Today Code — 관리자</h1>
+        <p style="margin:0; color:var(--muted); font-size:15px;">1학년 퀴즈 참여 현황을 확인합니다.</p>
+    </div>
+
+    <div class="adm-tabs">
+        <a href="{% url 'quiz-index' %}" class="adm-tab inactive">문제 목록</a>
+        <a href="{% url 'quiz-admin' %}" class="adm-tab active">관리자 현황</a>
+    </div>
+
+    {% if freshman_data %}
+
+    {# ── 이번 주 Overview 테이블 ── #}
+    <div>
+        <p style="margin:0 0 14px; font-size:16px; font-weight:700; letter-spacing:-0.02em;">이번 주 출석 현황</p>
+        <div class="week-table-wrap">
+            <table class="week-table">
+                <thead>
+                    <tr>
+                        <th class="name-col">학생</th>
+                        {% for d in week_dates %}
+                        <th {% if d == today %}class="today-col"{% endif %}>
+                            {{ d|date:"D" }}<br><span style="font-weight:400;">{{ d|date:"m/d" }}</span>
+                        </th>
+                        {% endfor %}
+                        <th>이번주</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in freshman_data %}
+                    <tr>
+                        <td class="name-col">
+                            {{ item.user.name }}
+                            <div style="font-size:11px; color:var(--muted);">{{ item.user.student_id }}</div>
+                        </td>
+                        {% for cell in item.week_cells %}
+                        <td {% if cell.date == today %}class="today-col"{% endif %}>
+                            {% if cell.status == "correct" %}<span class="dot correct">○</span>
+                            {% elif cell.status == "ai" %}<span class="dot ai">○</span>
+                            {% elif cell.status == "wrong" %}<span class="dot wrong">△</span>
+                            {% else %}<span class="dot none">─</span>{% endif %}
+                        </td>
+                        {% endfor %}
+                        <td><span class="week-summary">{{ item.week_solved }}/7</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p style="margin:8px 0 0; font-size:12px; color:var(--muted);">○ 정답 &nbsp;△ 오답 &nbsp;─ 미제출</p>
+    </div>
+
+    {# ── 학생별 상세 카드 ── #}
+    <div>
+        <p style="margin:0 0 14px; font-size:16px; font-weight:700; letter-spacing:-0.02em;">학생별 제출 내역</p>
+        <div class="student-list">
+            {% for item in freshman_data %}
+            <div class="student-card" id="card-{{ item.user.pk }}">
+                <div class="student-card-head" onclick="toggleCard('card-{{ item.user.pk }}')">
+                    <div>
+                        <div class="student-card-name">{{ item.user.name }}</div>
+                        <div class="student-card-meta">{{ item.user.student_id }} &middot; 이번 주 {{ item.week_solved }}일 참여 / {{ item.week_correct }}일 정답</div>
+                    </div>
+                    <div class="student-card-right">
+                        {% if item.week_correct > 0 %}
+                        <span style="padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; background:#e8f5e9; color:#2e7d32;">정답 {{ item.week_correct }}일</span>
+                        {% endif %}
+                        <svg class="student-chevron" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="student-card-body">
+                    {# 1년 잔디 #}
+                    <div class="grass-outer">
+                        <div class="grass-month-row">
+                            {% for lbl in month_labels %}
+                            <div class="grass-month-lbl">{{ lbl }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="grass-grid-year">
+                            {% for cell in item.year_cells %}
+                            <div class="grass-cell {{ cell.status }}{% if cell.date == today %} today{% endif %}"
+                                 data-tip="{{ cell.date|date:'Y.m.d' }} {% if cell.status == 'correct' %}정답{% elif cell.status == 'ai' %}AI의심{% elif cell.status == 'wrong' %}오답{% elif cell.status == 'future' %}─{% else %}미제출{% endif %}{% if cell.count > 0 %} {{ cell.count }}개{% endif %}"></div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="grass-legend">
+                        <span><span class="sq" style="background:#22c55e;"></span> 정답</span>
+                        <span><span class="sq" style="background:#f97316;"></span> AI의심</span>
+                        <span><span class="sq" style="background:#facc15;"></span> 오답</span>
+                        <span><span class="sq" style="background:#e5e7eb;"></span> 미제출</span>
+                    </div>
+
+                    {# 이번 주 제출 내역 #}
+                    <p style="margin:18px 0 10px; font-size:13px; font-weight:700; color:var(--muted);">이번 주 제출 내역</p>
+                    {% if item.week_attempts %}
+                    <div class="attempt-list">
+                        {% for a in item.week_attempts %}
+                        <div class="attempt-row">
+                            <div class="attempt-date">{{ a.attempted_at|date:"m/d H:i" }}</div>
+                            <div class="attempt-info">
+                                <div class="attempt-quiz-name">{{ a.quiz.title }}</div>
+                                <div class="attempt-submitted">제출: <strong>{{ a.submitted_answer }}</strong></div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                                {% if a.is_correct %}
+                                <span class="attempt-tag correct">✓ 정답</span>
+                                {% else %}
+                                <span class="attempt-tag wrong">✗ 오답</span>
+                                {% endif %}
+                                {% if a.is_ai_flagged %}
+                                <span class="ai-flag-tag">⚠ AI 의심</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="no-attempts">이번 주 제출한 답변이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% else %}
+    <div class="adm-empty">
+        <div style="font-size:40px; margin-bottom:12px;">👥</div>
+        <p style="margin:0; font-size:15px;">등록된 1학년 학생이 없습니다.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function toggleCard(id) {
+    document.getElementById(id).classList.toggle('is-open');
+}
+</script>
+{% endblock %}
