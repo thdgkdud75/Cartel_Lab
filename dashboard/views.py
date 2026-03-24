@@ -78,11 +78,12 @@ def dashboard_index(request):
                 week_cells.append({
                     "label": STATUS_LABEL.get(rec.status, rec.status),
                     "color": STATUS_COLOR.get(rec.status, "gray"),
+                    "check_out_at": rec.check_out_at,
                 })
             elif d > today:
-                week_cells.append({"label": "-", "color": "gray"})
+                week_cells.append({"label": "-", "color": "gray", "check_out_at": None})
             else:
-                week_cells.append({"label": "미기록", "color": "gray"})
+                week_cells.append({"label": "미기록", "color": "gray", "check_out_at": None})
 
         td = todo_map.get(student.id, {"total": 0, "done": 0})
         student_rows.append({
