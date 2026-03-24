@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTimetable } from '../api/client';
 
 const DAYS = ['월', '화', '수', '목', '금'];
@@ -72,6 +73,7 @@ async function scheduleNotifications(timetable) {
 }
 
 export default function TimetableScreen() {
+  const insets = useSafeAreaInsets();
   const [timetable, setTimetable] = useState([]);
   const [classGroup, setClassGroup] = useState('');
   const [loading, setLoading] = useState(true);
@@ -162,7 +164,7 @@ export default function TimetableScreen() {
   const todayEntries = timetable.filter(e => e.weekday === todayIdx);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingTop: insets.top + 16 }}>
       <Text style={styles.title}>{classGroup}반 시간표</Text>
 
       {nextClass && (
@@ -209,7 +211,7 @@ export default function TimetableScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24, paddingTop: 60, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24, paddingBottom: 40 },
   nextClassCard: {
     backgroundColor: '#2563eb', borderRadius: 12, padding: 16, marginBottom: 12,
   },

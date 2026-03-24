@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { registerPushToken } from './src/api/client';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -66,32 +67,54 @@ export default function App() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
+      <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
   if (!token) {
-    return <LoginScreen onLogin={(t, n, staff) => {
-      setToken(t); setName(n); setIsStaff(staff);
-      // 로그인 직후 푸시 토큰 등록
-      registerForPushNotifications().then(pushToken => {
-        if (pushToken) registerPushToken(pushToken).catch(() => {});
-      });
-    }} />;
+    return (
+      <SafeAreaProvider>
+        <LoginScreen onLogin={(t, n, staff) => {
+          setToken(t); setName(n); setIsStaff(staff);
+          registerForPushNotifications().then(pushToken => {
+            if (pushToken) registerPushToken(pushToken).catch(() => {});
+          });
+        }} />
+      </SafeAreaProvider>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        {tab === 'attendance' && <AttendanceScreen name={name} onLogout={() => { setToken(null); setName(''); setIsStaff(false); }} />}
+    <SafeAreaProvider>
+      <AppShell
+        tab={tab} setTab={setTab} isStaff={isStaff}
+        name={name}
+        onLogout={() => { setToken(null); setName(''); setIsStaff(false); }}
+      />
+    </SafeAreaProvider>
+  );
+}
+
+function AppShell({ tab, setTab, isStaff, name, onLogout }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1 }}>
+      {/* 상단 safe area 배경 */}
+      <View style={{ height: insets.top, backgroundColor: '#f8fafc' }} />
+
+      <View style={{ flex: 1 }}>
+        {tab === 'attendance' && <AttendanceScreen name={name} onLogout={onLogout} />}
         {tab === 'timetable' && <TimetableScreen />}
-        {tab === 'members' && <MembersScreen />}
+        {tab === 'members'   && <MembersScreen />}
         {tab === 'dashboard' && <DashboardScreen />}
       </View>
 
-      <View style={styles.tabBar}>
+      {/* 탭바 + 하단 홈 인디케이터 */}
+      <View style={[styles.tabBar, { paddingBottom: insets.bottom || 8 }]}>
         <TouchableOpacity style={styles.tab} onPress={() => setTab('attendance')}>
           <Text style={[styles.tabText, tab === 'attendance' && styles.tabActive]}>출결</Text>
         </TouchableOpacity>
@@ -112,14 +135,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { flex: 1 },
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     backgroundColor: '#fff',
-    paddingBottom: 24,
   },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
   tabText: { fontSize: 14, color: '#9ca3af', fontWeight: '500' },

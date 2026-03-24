@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCurrentMembers, getMembers } from '../api/client';
 
 export default function MembersScreen() {
+  const insets = useSafeAreaInsets();
   const [currentMembers, setCurrentMembers] = useState([]);
   const [allMembers, setAllMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function MembersScreen() {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + 16 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
     >
       <Text style={styles.title}>팀원</Text>
@@ -120,7 +123,7 @@ export default function MembersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#111', marginBottom: 20 },
   tabRow: { flexDirection: 'row', marginBottom: 16, gap: 8 },

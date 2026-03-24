@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +30,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [classFilter, setClassFilter] = useState('');
   const [tab, setTab] = useState('weekly'); // 'weekly' | 'monthly'
+  const insets = useSafeAreaInsets();
 
   // 출결 수정 모달
   const [editModal, setEditModal] = useState(false);
@@ -99,6 +101,7 @@ export default function DashboardScreen() {
     <>
       <ScrollView
         style={s.container}
+        contentContainerStyle={{ paddingTop: insets.top + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
       >
         <View style={s.titleRow}>
@@ -223,7 +226,7 @@ export default function DashboardScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 16, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: '#f8fafc', padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   title: { fontSize: 24, fontWeight: 'bold', color: '#111' },

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiLogin } from '../api/client';
 
 export default function LoginScreen({ onLogin }) {
@@ -37,6 +38,7 @@ export default function LoginScreen({ onLogin }) {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -67,6 +69,7 @@ export default function LoginScreen({ onLogin }) {
         <Text style={styles.buttonText}>{loading ? '로그인 중...' : '로그인'}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

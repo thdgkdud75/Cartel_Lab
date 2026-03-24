@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   Modal,
@@ -36,6 +37,7 @@ const TIME_OPTIONS = [
 ];
 
 export default function AttendanceScreen({ name, onLogout }) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   // 'none' | 'checked_in' | 'checked_out'
   const [attendance, setAttendance] = useState('none');
@@ -273,7 +275,7 @@ export default function AttendanceScreen({ name, onLogout }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
       <View style={styles.header}>
         <Text style={styles.greeting}>{name}님, 안녕하세요 👋</Text>
         <TouchableOpacity onPress={handleLogout}>
@@ -429,7 +431,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 24,
-    paddingTop: 60,
     paddingBottom: 40,
   },
   header: {
