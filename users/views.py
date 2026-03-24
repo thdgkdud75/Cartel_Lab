@@ -564,6 +564,7 @@ def api_members(request):
         is_staff=False, deletion_scheduled_at__isnull=True
     ).order_by('class_group', 'name')
 
+    request_host = request.build_absolute_uri('/').rstrip('/')
     data = [
         {
             "name": m.name,
@@ -571,7 +572,80 @@ def api_members(request):
             "grade": m.grade,
             "github_username": m.github_username,
             "desired_job": m.get_selected_job_direction(),
+            "profile_image": m.profile_image.url if m.profile_image else None,
         }
         for m in members
     ]
     return JsonResponse({"members": data})
+
+
+@csrf_exempt
+def api_profile_image(request):
+    """프로필 사진 업로드 / 조회 API"""
+    from django.http import JsonResponse
+    from rest_framework.authtoken.models import Token
+
+    auth_user = None
+    if request.user.is_authenticated:
+        auth_user = request.user
+    else:
+        auth = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth.startswith('Token '):
+            try:
+                auth_user = Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
+            except Token.DoesNotExist:
+                pass
+
+    if not auth_user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            "profile_image": auth_user.profile_image.url if auth_user.profile_image else None,
+        })
+
+    if request.method == 'POST':
+        file = request.FILES.get('image')
+        if not file:
+            return JsonResponse({"error": "이미지 파일이 없습니다."}, status=400)
+        if file.size > 5 * 1024 * 1024:
+            return JsonResponse({"error": "파일 크기는 5MB 이하여야 합니다."}, status=400)
+        if not file.content_type.startswith('image/'):
+            return JsonResponse({"error": "이미지 파일만 업로드 가능합니다."}, status=400)
+
+        # 기존 사진 삭제
+        if auth_user.profile_image:
+            auth_user.profile_image.delete(save=False)
+
+        auth_user.profile_image = file
+        auth_user.save(update_fields=['profile_image'])
+        return JsonResponse({"profile_image": auth_user.profile_image.url})
+
+    return JsonResponse({"error": "허용되지 않는 메서드입니다."}, status=405)
+
+
+@csrf_exempt
+def api_profile_image_web(request):
+    """프로필 사진 업로드 (웹 세션 인증용)"""
+    from django.http import JsonResponse
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "로그인이 필요합니다."}, status=401)
+
+    if request.method == 'POST':
+        file = request.FILES.get('image')
+        if not file:
+            return JsonResponse({"error": "이미지 파일이 없습니다."}, status=400)
+        if file.size > 5 * 1024 * 1024:
+            return JsonResponse({"error": "파일 크기는 5MB 이하여야 합니다."}, status=400)
+        if not file.content_type.startswith('image/'):
+            return JsonResponse({"error": "이미지 파일만 업로드 가능합니다."}, status=400)
+
+        if request.user.profile_image:
+            request.user.profile_image.delete(save=False)
+
+        request.user.profile_image = file
+        request.user.save(update_fields=['profile_image'])
+        return JsonResponse({"profile_image": request.user.profile_image.url})
+
+    return JsonResponse({"error": "허용되지 않는 메서드입니다."}, status=405)

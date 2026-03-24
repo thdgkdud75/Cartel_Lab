@@ -149,3 +149,24 @@ export async function editAttendance(name, date, checkIn, checkOut) {
   });
   return response.json();
 }
+
+export async function getProfileImage() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/users/api/profile-image/`, { headers });
+  return response.json();
+}
+
+export async function uploadProfileImage(imageUri) {
+  const token = await AsyncStorage.getItem('token');
+  const formData = new FormData();
+  const filename = imageUri.split('/').pop();
+  const ext = filename.split('.').pop().toLowerCase();
+  const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+  formData.append('image', { uri: imageUri, name: filename, type: mimeType });
+  const response = await fetch(`${BASE_URL}/users/api/profile-image/`, {
+    method: 'POST',
+    headers: { Authorization: `Token ${token}` },
+    body: formData,
+  });
+  return response.json();
+}

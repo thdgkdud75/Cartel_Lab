@@ -200,6 +200,32 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Cloudflare R2 Storage
+CF_R2_BUCKET_NAME     = os.getenv('CF_R2_BUCKET_NAME', '')
+CF_R2_ACCOUNT_ID      = os.getenv('CF_R2_ACCOUNT_ID', '')
+CF_R2_ACCESS_KEY_ID   = os.getenv('CF_R2_ACCESS_KEY_ID', '')
+CF_R2_SECRET_ACCESS_KEY = os.getenv('CF_R2_SECRET_ACCESS_KEY', '')
+CF_R2_PUBLIC_URL      = os.getenv('CF_R2_PUBLIC_URL', '')  # 퍼블릭 도메인 (예: https://pub-xxx.r2.dev)
+
+if CF_R2_BUCKET_NAME and CF_R2_ACCOUNT_ID:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+            'OPTIONS': {
+                'bucket_name': CF_R2_BUCKET_NAME,
+                'access_key': CF_R2_ACCESS_KEY_ID,
+                'secret_key': CF_R2_SECRET_ACCESS_KEY,
+                'endpoint_url': f'https://{CF_R2_ACCOUNT_ID}.r2.cloudflarestorage.com',
+                'custom_domain': CF_R2_PUBLIC_URL.replace('https://', '') if CF_R2_PUBLIC_URL else None,
+                'file_overwrite': False,
+                'querystring_auth': False,
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+
 # Jobs collection policy
 JOB_ACTIVE_LIMIT_PER_SOURCE = int(os.getenv("JOB_ACTIVE_LIMIT_PER_SOURCE", "300"))
 JOB_ACTIVE_SOURCES = os.getenv("JOB_ACTIVE_SOURCES", "saramin,wanted").split(",")

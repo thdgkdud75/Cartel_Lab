@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -96,7 +97,9 @@ export default function MembersScreen() {
             currentMembers.map((m, i) => (
               <View key={i} style={[styles.card, m.is_me && styles.cardMe]}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{m.name.slice(0, 1)}</Text>
+                  {m.profile_image
+                    ? <Image source={{ uri: m.profile_image }} style={styles.avatarImg} />
+                    : <Text style={styles.avatarText}>{m.name.slice(0, 1)}</Text>}
                 </View>
                 <View style={styles.cardInfo}>
                   <View style={styles.nameRow}>
@@ -133,7 +136,9 @@ export default function MembersScreen() {
                   {members.map((m, i) => (
                     <View key={i} style={styles.card}>
                       <View style={[styles.avatar, styles.avatarAll]}>
-                        <Text style={styles.avatarText}>{m.name.slice(0, 1)}</Text>
+                        {m.profile_image
+                          ? <Image source={{ uri: m.profile_image }} style={styles.avatarImg} />
+                          : <Text style={styles.avatarText}>{m.name.slice(0, 1)}</Text>}
                       </View>
                       <View style={styles.cardInfo}>
                         <Text style={styles.cardName}>{m.name}</Text>
@@ -198,6 +203,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarAll: { backgroundColor: '#f0fdf4' },
+  avatarImg: { width: 42, height: 42, borderRadius: 21 },
   avatarText: { fontSize: 17, fontWeight: '700', color: '#1d4ed8' },
   cardInfo: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },

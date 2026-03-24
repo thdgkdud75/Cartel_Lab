@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -17,10 +19,12 @@ import {
   checkIn,
   checkOut,
   getMyStats,
+  getProfileImage,
   getTodayStatus,
   listCheckoutRequests,
   rejectCheckoutRequest,
   submitCheckoutRequest,
+  uploadProfileImage,
 } from '../api/client';
 
 Notifications.setNotificationHandler({
@@ -54,11 +58,13 @@ export default function AttendanceScreen({ name, onLogout }) {
   // 다른 사람 퇴실 신청 목록
   const [pendingRequests, setPendingRequests] = useState([]);
   const [stats, setStats] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
     loadTodayStatus();
     loadPendingRequests();
     getMyStats().then(res => { if (res.streak !== undefined) setStats(res); }).catch(() => {});
+    getProfileImage().then(res => { if (res.profile_image) setProfileImage(res.profile_image); }).catch(() => {});
     scheduleMorningReminder();
   }, []);
 
@@ -274,10 +280,49 @@ export default function AttendanceScreen({ name, onLogout }) {
     onLogout();
   };
 
+  const handlePickProfileImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '사진 접근 권한이 필요합니다.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    try {
+      const res = await uploadProfileImage(uri);
+      if (res.profile_image) {
+        setProfileImage(res.profile_image);
+        Alert.alert('완료', '프로필 사진이 변경됐어요!');
+      } else {
+        Alert.alert('오류', res.error || '업로드 실패');
+      }
+    } catch (e) {
+      Alert.alert('오류', e.message);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>{name}님, 안녕하세요 👋</Text>
+        <TouchableOpacity style={styles.avatarWrap} onPress={handlePickProfileImage}>
+          {profileImage ? (
+            <Image source={{ uri: profileImage }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>{name ? name.slice(0, 1) : '?'}</Text>
+            </View>
+          )}
+          <View style={styles.avatarEdit}><Text style={styles.avatarEditText}>✎</Text></View>
+        </TouchableOpacity>
+        <View style={styles.headerText}>
+          <Text style={styles.greeting}>{name}님, 안녕하세요 👋</Text>
+        </View>
         <TouchableOpacity onPress={handleLogout}>
           <Text style={styles.logoutText}>로그아웃</Text>
         </TouchableOpacity>
@@ -435,12 +480,13 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
+    gap: 12,
   },
+  headerText: { flex: 1 },
   greeting: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
     fontWeight: '500',
   },
@@ -448,6 +494,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ef4444',
   },
+  avatarWrap: { position: 'relative' },
+  avatarImg: { width: 48, height: 48, borderRadius: 24 },
+  avatarPlaceholder: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center',
+  },
+  avatarInitial: { fontSize: 20, fontWeight: '700', color: '#1d4ed8' },
+  avatarEdit: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center',
+  },
+  avatarEditText: { fontSize: 10, color: '#fff' },
   title: {
     fontSize: 28,
     fontWeight: 'bold',

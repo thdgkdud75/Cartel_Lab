@@ -676,8 +676,70 @@
 <section class="profile-shell">
     <div class="profile-hero">
         <span class="hero-kicker">학생 프로필</span>
-        <h1>{{ request.user.name }}님의 분석 프로필</h1>
-        <p>
+
+        <!-- 프로필 사진 -->
+        <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;flex-wrap:wrap;">
+            <div style="position:relative;flex-shrink:0;">
+                {% if request.user.profile_image %}
+                <img id="profile-img-preview" src="{{ request.user.profile_image.url }}"
+                     style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e2e5e9;cursor:pointer;"
+                     title="클릭해서 변경" onclick="document.getElementById('profile-img-input').click()">
+                {% else %}
+                <div id="profile-img-preview"
+                     style="width:80px;height:80px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#1d4ed8;border:3px solid #e2e5e9;cursor:pointer;"
+                     onclick="document.getElementById('profile-img-input').click()">
+                    {{ request.user.name|slice:":1" }}
+                </div>
+                {% endif %}
+                <div style="position:absolute;bottom:2px;right:2px;width:22px;height:22px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;cursor:pointer;"
+                     onclick="document.getElementById('profile-img-input').click()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <h1 style="margin:0 0 4px;">{{ request.user.name }}님의 분석 프로필</h1>
+                <p style="margin:0;color:#666;font-size:14px;">사진을 클릭하면 변경할 수 있어요.</p>
+            </div>
+        </div>
+        <form id="profile-img-form" method="post" enctype="multipart/form-data" action="/users/api/profile-image-web/" style="display:none;">
+            {% csrf_token %}
+            <input type="file" id="profile-img-input" name="image" accept="image/*" style="display:none;">
+        </form>
+        <script>
+        document.getElementById('profile-img-input').addEventListener('change', function() {
+            if (!this.files.length) return;
+            const formData = new FormData(document.getElementById('profile-img-form'));
+            fetch('/users/api/profile-image-web/', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.profile_image) {
+                    const preview = document.getElementById('profile-img-preview');
+                    if (preview.tagName === 'IMG') {
+                        preview.src = data.profile_image + '?t=' + Date.now();
+                    } else {
+                        const img = document.createElement('img');
+                        img.id = 'profile-img-preview';
+                        img.src = data.profile_image;
+                        img.style = 'width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e2e5e9;cursor:pointer;';
+                        img.title = '클릭해서 변경';
+                        img.onclick = () => document.getElementById('profile-img-input').click();
+                        preview.replaceWith(img);
+                    }
+                } else {
+                    alert(data.error || '업로드 실패');
+                }
+            });
+        });
+        </script>
+
+        <p style="display:none;">
             GitHub 연동과 이력서를 등록하면 나에게 맞는 공고를 추천받을 수 있습니다.
         </p>
         <div class="profile-meta">
