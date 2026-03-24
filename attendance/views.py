@@ -1,6 +1,6 @@
 import json
 import math
-from datetime import timedelta
+from datetime import timedelta, datetime as dt
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
@@ -544,3 +544,77 @@ def reject_checkout_request(request, request_id):
     req.save()
 
     return JsonResponse({"status": "success", "message": "퇴실 신청이 반려됐습니다."})
+
+
+@csrf_exempt
+@require_GET
+def my_stats(request):
+    """내 출결 통계: 연속 출석 스트릭, 이번달 출석률, 지각/조퇴 횟수"""
+    user = _get_user(request)
+    if not user:
+        return JsonResponse({"status": "error", "message": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
+
+    # 이번 달 평일 수
+    weekdays_in_month = sum(
+        1 for i in range((today - month_start).days + 1)
+        if (month_start + timedelta(days=i)).weekday() < 5
+    )
+
+    month_records = AttendanceRecord.objects.filter(
+        user=user, attendance_date__gte=month_start, attendance_date__lte=today
+    )
+    present_count = month_records.filter(status__in=['present', 'late', 'leave']).count()
+    late_count = month_records.filter(status='late').count()
+    leave_count = month_records.filter(status='leave').count()
+    attendance_rate = round(present_count / weekdays_in_month * 100) if weekdays_in_month > 0 else 0
+
+    # 연속 출석 스트릭 (최대 60일 탐색)
+    streak = 0
+    check_date = today
+    for _ in range(60):
+        if check_date.weekday() >= 5:
+            check_date -= timedelta(days=1)
+            continue
+        if AttendanceRecord.objects.filter(user=user, attendance_date=check_date).exists():
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    return JsonResponse({
+        "streak": streak,
+        "attendance_rate": attendance_rate,
+        "present_count": present_count,
+        "late_count": late_count,
+        "leave_count": leave_count,
+        "weekdays_in_month": weekdays_in_month,
+        "month": today.strftime("%m"),
+    })
+
+
+@csrf_exempt
+@require_GET
+def current_members(request):
+    """현재 연구실에 있는 팀원 (오늘 체크인 & 아직 퇴실 전)"""
+    user = _get_user(request)
+    if not user:
+        return JsonResponse({"status": "error", "message": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    records = AttendanceRecord.objects.filter(
+        attendance_date=today, check_out_at__isnull=True
+    ).select_related('user').order_by('check_in_at')
+
+    members = [
+        {
+            "name": rec.user.name,
+            "class_group": rec.user.class_group,
+            "check_in_at": timezone.localtime(rec.check_in_at).strftime("%H:%M") if rec.check_in_at else None,
+            "is_me": rec.user_id == user.id,
+        }
+        for rec in records
+    ]
+    return JsonResponse({"members": members, "count": len(members)})

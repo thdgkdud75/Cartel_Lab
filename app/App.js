@@ -6,6 +6,7 @@ import { registerPushToken } from './src/api/client';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import MembersScreen from './src/screens/MembersScreen';
 import TimetableScreen from './src/screens/TimetableScreen';
 
 async function registerForPushNotifications() {
@@ -86,6 +87,7 @@ export default function App() {
       <View style={styles.content}>
         {tab === 'attendance' && <AttendanceScreen name={name} onLogout={() => { setToken(null); setName(''); setIsStaff(false); }} />}
         {tab === 'timetable' && <TimetableScreen />}
+        {tab === 'members' && <MembersScreen />}
         {tab === 'dashboard' && <DashboardScreen />}
       </View>
 
@@ -95,6 +97,9 @@ export default function App() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.tab} onPress={() => setTab('timetable')}>
           <Text style={[styles.tabText, tab === 'timetable' && styles.tabActive]}>시간표</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tab} onPress={() => setTab('members')}>
+          <Text style={[styles.tabText, tab === 'members' && styles.tabActive]}>팀원</Text>
         </TouchableOpacity>
         {isStaff && (
           <TouchableOpacity style={styles.tab} onPress={() => setTab('dashboard')}>

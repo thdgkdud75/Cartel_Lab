@@ -538,3 +538,40 @@ def api_login(request):
         "is_staff": user.is_staff,
         "class_group": user.class_group,
     })
+
+
+@csrf_exempt
+def api_members(request):
+    """팀원 목록 API (앱용)"""
+    from django.http import JsonResponse
+    from rest_framework.authtoken.models import Token
+
+    auth_user = None
+    if request.user.is_authenticated:
+        auth_user = request.user
+    else:
+        auth = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth.startswith('Token '):
+            try:
+                auth_user = Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
+            except Token.DoesNotExist:
+                pass
+
+    if not auth_user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    members = User.objects.filter(
+        is_staff=False, deletion_scheduled_at__isnull=True
+    ).order_by('class_group', 'name')
+
+    data = [
+        {
+            "name": m.name,
+            "class_group": m.class_group,
+            "grade": m.grade,
+            "github_username": m.github_username,
+            "desired_job": m.get_selected_job_direction(),
+        }
+        for m in members
+    ]
+    return JsonResponse({"members": data})

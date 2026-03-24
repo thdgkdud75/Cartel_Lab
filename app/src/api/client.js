@@ -115,3 +115,37 @@ export async function rejectCheckoutRequest(requestId) {
   });
   return response.json();
 }
+
+export async function getMyStats() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/stats/`, { headers });
+  return response.json();
+}
+
+export async function getCurrentMembers() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/current/`, { headers });
+  return response.json();
+}
+
+export async function getMembers() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/users/api/members/`, { headers });
+  return response.json();
+}
+
+export async function getMonthlyStats() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/auth/admin/api/monthly/`, { headers });
+  return response.json();
+}
+
+export async function editAttendance(name, date, checkIn, checkOut) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/auth/admin/api/edit-attendance/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name, date, check_in: checkIn, check_out: checkOut }),
+  });
+  return response.json();
+}

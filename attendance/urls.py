@@ -5,6 +5,7 @@ from .views import (
     register_push_token,
     submit_checkout_request, list_checkout_requests,
     approve_checkout_request, reject_checkout_request,
+    my_stats, current_members,
 )
 
 app_name = "attendance"
@@ -22,4 +23,6 @@ urlpatterns = [
     path("checkout-requests/", list_checkout_requests, name="checkout-requests"),
     path("checkout-request/<int:request_id>/approve/", approve_checkout_request, name="checkout-approve"),
     path("checkout-request/<int:request_id>/reject/", reject_checkout_request, name="checkout-reject"),
+    path("stats/", my_stats, name="my-stats"),
+    path("current/", current_members, name="current-members"),
 ]

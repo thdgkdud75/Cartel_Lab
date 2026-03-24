@@ -433,3 +433,91 @@ def api_auto_checkout(request):
         "message": f"{target_date.strftime('%m/%d')} 미퇴실 {count}명을 오후 5시로 처리했습니다.",
         "count": count,
     })
+
+
+@csrf_exempt
+@require_GET
+def api_monthly_stats(request):
+    """최근 6개월 출결 통계 (관리자 앱용)"""
+    user = _get_token_user(request)
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    today = date.today()
+    result = []
+    for i in range(5, -1, -1):
+        month_start = (today.replace(day=1) - timedelta(days=i * 28)).replace(day=1)
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+        month_end = min(month_end, today)
+
+        records = AttendanceRecord.objects.filter(
+            attendance_date__gte=month_start,
+            attendance_date__lte=month_end,
+            user__is_staff=False,
+        )
+        result.append({
+            "month": month_start.strftime("%m월"),
+            "present": records.filter(status='present').count(),
+            "late": records.filter(status='late').count(),
+            "leave": records.filter(status='leave').count(),
+            "total": records.count(),
+        })
+
+    return JsonResponse({"stats": result})
+
+
+@csrf_exempt
+@require_POST
+def api_edit_attendance(request):
+    """출결 수동 수정 (관리자 앱용)"""
+    import json as _json
+    from datetime import datetime as dt
+
+    user = _get_token_user(request)
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    try:
+        data = _json.loads(request.body)
+        student_name = data.get("name", "").strip()
+        att_date_str = data.get("date", "")
+        check_in_str = data.get("check_in")
+        check_out_str = data.get("check_out")
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
+
+    try:
+        att_date = dt.strptime(att_date_str, "%Y-%m-%d").date()
+    except Exception:
+        return JsonResponse({"error": "날짜 형식 오류 (YYYY-MM-DD)"}, status=400)
+
+    try:
+        student = User.objects.get(name=student_name, is_staff=False)
+    except User.DoesNotExist:
+        return JsonResponse({"error": f"{student_name} 학생을 찾을 수 없습니다."}, status=404)
+    except User.MultipleObjectsReturned:
+        return JsonResponse({"error": f"동명이인이 있습니다."}, status=400)
+
+    record = AttendanceRecord.objects.filter(user=student, attendance_date=att_date).first()
+    if not record:
+        return JsonResponse({"error": "해당 날짜 출결 기록이 없습니다."}, status=404)
+
+    tz = timezone.get_current_timezone()
+    if check_in_str:
+        try:
+            ci = dt.strptime(check_in_str, "%H:%M").time()
+            record.check_in_at = timezone.make_aware(dt.combine(att_date, ci), tz)
+        except Exception:
+            return JsonResponse({"error": "체크인 시간 형식 오류 (HH:MM)"}, status=400)
+    if check_out_str:
+        try:
+            co = dt.strptime(check_out_str, "%H:%M").time()
+            record.check_out_at = timezone.make_aware(dt.combine(att_date, co), tz)
+        except Exception:
+            return JsonResponse({"error": "체크아웃 시간 형식 오류 (HH:MM)"}, status=400)
+    record.save()
+
+    return JsonResponse({"status": "ok", "message": f"{student_name} {att_date} 출결 수정 완료"})

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import api_login, edit_basic_info, github_callback, github_connect, github_disconnect, index, login_view, logout_view, signup
+from .views import api_login, api_members, edit_basic_info, github_callback, github_connect, github_disconnect, index, login_view, logout_view, signup
 
 urlpatterns = [
     path("", index, name="users-index"),
@@ -12,4 +12,5 @@ urlpatterns = [
     path("login/", login_view, name="users-login"),
     path("logout/", logout_view, name="users-logout"),
     path("api/login/", api_login, name="users-api-login"),
+    path("api/members/", api_members, name="users-api-members"),
 ]

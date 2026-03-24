@@ -15,6 +15,7 @@ import {
   approveCheckoutRequest,
   checkIn,
   checkOut,
+  getMyStats,
   getTodayStatus,
   listCheckoutRequests,
   rejectCheckoutRequest,
@@ -50,10 +51,13 @@ export default function AttendanceScreen({ name, onLogout }) {
 
   // 다른 사람 퇴실 신청 목록
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     loadTodayStatus();
     loadPendingRequests();
+    getMyStats().then(res => { if (res.streak !== undefined) setStats(res); }).catch(() => {});
+    scheduleMorningReminder();
   }, []);
 
   const loadTodayStatus = () => {
@@ -243,6 +247,26 @@ export default function AttendanceScreen({ name, onLogout }) {
     }
   };
 
+  const scheduleMorningReminder = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of scheduled) {
+      if (n.content.data?.type === 'morning_reminder') {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      }
+    }
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '출석 체크 잊지 마세요! 📋',
+        body: '오늘도 연구실 출석 체크 해주세요.',
+        sound: 'default',
+        data: { type: 'morning_reminder' },
+      },
+      trigger: { type: 'weekly', weekday: 2, hour: 9, minute: 30, repeats: true },
+    });
+  };
+
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['token', 'name']);
     onLogout();
@@ -258,6 +282,27 @@ export default function AttendanceScreen({ name, onLogout }) {
       </View>
 
       <Text style={styles.title}>출결 체크</Text>
+
+      {stats && (
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>🔥 {stats.streak}일</Text>
+            <Text style={styles.statLabel}>연속 출석</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.attendance_rate}%</Text>
+            <Text style={styles.statLabel}>{stats.month}월 출석률</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.late_count}회</Text>
+            <Text style={styles.statLabel}>지각</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.leave_count}회</Text>
+            <Text style={styles.statLabel}>조퇴</Text>
+          </View>
+        </View>
+      )}
 
       {attendance === 'none' && (
         <TouchableOpacity
@@ -406,7 +451,34 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#111',
-    marginBottom: 32,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    gap: 8,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 10,
+    color: '#888',
   },
   button: {
     padding: 18,
