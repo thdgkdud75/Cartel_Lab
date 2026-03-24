@@ -51,3 +51,32 @@ class AttendanceTimeSetting(models.Model):
 
     def __str__(self):
         return f"출결 시간 설정 (지각: {self.check_in_deadline} 이후 / 조퇴: {self.check_out_minimum} 이전)"
+
+
+class CheckoutRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', '대기중'),
+        ('approved', '승인됨'),
+        ('rejected', '반려됨'),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='checkout_requests',
+    )
+    attendance_date = models.DateField()
+    requested_time = models.TimeField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='approved_checkouts',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'attendance_date')
+
+    def __str__(self):
+        return f"{self.user} - {self.attendance_date} {self.requested_time} ({self.status})"

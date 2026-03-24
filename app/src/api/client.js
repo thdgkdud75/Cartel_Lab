@@ -49,6 +49,15 @@ export async function getTodayStatus() {
   return response.json();
 }
 
+export async function triggerAutoCheckout() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/auth/admin/api/auto-checkout/`, {
+    method: 'POST',
+    headers,
+  });
+  return response.json();
+}
+
 export async function getWeeklyAttendance(grade = '2', classGroup = '') {
   const headers = await getAuthHeaders();
   const params = new URLSearchParams({ grade });
@@ -60,5 +69,49 @@ export async function getWeeklyAttendance(grade = '2', classGroup = '') {
 export async function getTimetable() {
   const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/timetable/api/`, { headers });
+  return response.json();
+}
+
+export async function registerPushToken(token) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/register-push-token/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ token }),
+  });
+  return response.json();
+}
+
+export async function submitCheckoutRequest(requestedTime) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/checkout-request/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ requested_time: requestedTime }),
+  });
+  return response.json();
+}
+
+export async function listCheckoutRequests() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/checkout-requests/`, { headers });
+  return response.json();
+}
+
+export async function approveCheckoutRequest(requestId) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/checkout-request/${requestId}/approve/`, {
+    method: 'POST',
+    headers,
+  });
+  return response.json();
+}
+
+export async function rejectCheckoutRequest(requestId) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/attendance/checkout-request/${requestId}/reject/`, {
+    method: 'POST',
+    headers,
+  });
   return response.json();
 }
