@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
@@ -18,8 +18,9 @@ export default function TodoScreen() {
   const [todos, setTodos] = useState([]);
   const [labGoals, setLabGoals] = useState([]);
   const [weekly, setWeekly] = useState(null);
-  const [input, setInput] = useState('');
+  const [inputs, setInputs] = useState(['']);
   const [adding, setAdding] = useState(false);
+  const inputRefs = useRef([]);
 
   useEffect(() => {
     loadAll();
@@ -31,16 +32,37 @@ export default function TodoScreen() {
     getWeeklyAchievement().then(r => { if (r.days) setWeekly(r); }).catch(() => {});
   };
 
-  const handleAdd = async () => {
-    const content = input.trim();
-    if (!content) return;
+  const changeInput = (index, value) => {
+    setInputs(prev => prev.map((v, i) => i === index ? value : v));
+  };
+
+  const addInputRow = () => {
+    setInputs(prev => [...prev, '']);
+    setTimeout(() => {
+      const next = inputRefs.current[inputs.length];
+      if (next) next.focus();
+    }, 50);
+  };
+
+  const removeInputRow = (index) => {
+    if (inputs.length === 1) {
+      setInputs(['']);
+      return;
+    }
+    setInputs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddAll = async () => {
+    const trimmed = inputs.map(v => v.trim()).filter(Boolean);
+    if (!trimmed.length) return;
     setAdding(true);
     try {
-      const res = await addDailyTodo(content);
-      if (res.id) {
-        setTodos(prev => [...prev, res]);
-        setInput('');
-      }
+      const results = await Promise.allSettled(trimmed.map(content => addDailyTodo(content)));
+      const newTodos = results
+        .filter(r => r.status === 'fulfilled' && r.value?.id)
+        .map(r => r.value);
+      if (newTodos.length) setTodos(prev => [...prev, ...newTodos]);
+      setInputs(['']);
     } catch (e) {}
     setAdding(false);
   };
@@ -113,24 +135,39 @@ export default function TodoScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📋 오늘의 할 일 <Text style={styles.dateLabel}>{dateStr}</Text></Text>
 
-        {/* 입력 */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="할 일 추가..."
-            maxLength={255}
-            onSubmitEditing={handleAdd}
-            returnKeyType="done"
-          />
-          <TouchableOpacity
-            style={[styles.addBtn, adding && styles.disabled]}
-            onPress={handleAdd}
-            disabled={adding}
-          >
-            <Text style={styles.addBtnText}>+</Text>
-          </TouchableOpacity>
+        {/* 여러 줄 입력 */}
+        <View style={styles.inputArea}>
+          {inputs.map((val, i) => (
+            <View key={i} style={styles.inputRow}>
+              <TextInput
+                ref={ref => { inputRefs.current[i] = ref; }}
+                style={styles.input}
+                value={val}
+                onChangeText={text => changeInput(i, text)}
+                placeholder={i === 0 ? '할 일을 입력하세요...' : '할 일 추가...'}
+                placeholderTextColor="#9ca3af"
+                maxLength={255}
+                returnKeyType="next"
+                onSubmitEditing={addInputRow}
+              />
+              <TouchableOpacity onPress={() => removeInputRow(i)} style={styles.removeBtn}>
+                <Text style={styles.removeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity onPress={addInputRow} style={styles.addMoreBtn}>
+              <Text style={styles.addMoreText}>+ 항목 추가</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitBtn, adding && styles.disabled]}
+              onPress={handleAddAll}
+              disabled={adding}
+            >
+              <Text style={styles.submitBtnText}>{adding ? '추가 중...' : '추가'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 목록 */}
@@ -198,17 +235,29 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 14 },
   dateLabel: { fontSize: 13, fontWeight: '400', color: '#6b7280' },
-  inputRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+
+  // 입력 영역
+  inputArea: { marginBottom: 16 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   input: {
     flex: 1, borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 10,
     padding: 10, fontSize: 14, color: '#111',
   },
-  addBtn: {
-    width: 42, height: 42, backgroundColor: '#2563eb', borderRadius: 10,
+  removeBtn: {
+    width: 32, height: 32, borderRadius: 8, backgroundColor: '#f1f5f9',
     alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 22, fontWeight: '600', lineHeight: 26 },
+  removeBtnText: { fontSize: 13, color: '#9ca3af' },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  addMoreBtn: { paddingVertical: 6, paddingHorizontal: 2 },
+  addMoreText: { fontSize: 14, color: '#2563eb', fontWeight: '600' },
+  submitBtn: {
+    paddingVertical: 9, paddingHorizontal: 22, backgroundColor: '#2563eb',
+    borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+  },
+  submitBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   disabled: { opacity: 0.5 },
+
   empty: { fontSize: 14, color: '#9ca3af', textAlign: 'center', paddingVertical: 16 },
   todoItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
   checkBtn: { padding: 2 },

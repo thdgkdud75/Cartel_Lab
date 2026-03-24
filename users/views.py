@@ -564,7 +564,6 @@ def api_members(request):
         is_staff=False, deletion_scheduled_at__isnull=True
     ).order_by('class_group', 'name')
 
-    request_host = request.build_absolute_uri('/').rstrip('/')
     data = [
         {
             "name": m.name,
@@ -572,7 +571,7 @@ def api_members(request):
             "grade": m.grade,
             "github_username": m.github_username,
             "desired_job": m.get_selected_job_direction(),
-            "profile_image": m.profile_image.url if m.profile_image else None,
+            "profile_image": request.build_absolute_uri(m.profile_image.url) if m.profile_image else None,
         }
         for m in members
     ]
@@ -601,7 +600,7 @@ def api_profile_image(request):
 
     if request.method == 'GET':
         return JsonResponse({
-            "profile_image": auth_user.profile_image.url if auth_user.profile_image else None,
+            "profile_image": request.build_absolute_uri(auth_user.profile_image.url) if auth_user.profile_image else None,
         })
 
     if request.method == 'POST':
@@ -619,7 +618,7 @@ def api_profile_image(request):
 
         auth_user.profile_image = file
         auth_user.save(update_fields=['profile_image'])
-        return JsonResponse({"profile_image": auth_user.profile_image.url})
+        return JsonResponse({"profile_image": request.build_absolute_uri(auth_user.profile_image.url)})
 
     return JsonResponse({"error": "허용되지 않는 메서드입니다."}, status=405)
 
@@ -646,6 +645,6 @@ def api_profile_image_web(request):
 
         request.user.profile_image = file
         request.user.save(update_fields=['profile_image'])
-        return JsonResponse({"profile_image": request.user.profile_image.url})
+        return JsonResponse({"profile_image": request.build_absolute_uri(request.user.profile_image.url)})
 
     return JsonResponse({"error": "허용되지 않는 메서드입니다."}, status=405)
