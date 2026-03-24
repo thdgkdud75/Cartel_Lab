@@ -7,7 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -515,36 +517,42 @@ export default function AttendanceScreen({ name, onLogout }) {
 
       {/* 하루 목표 입력 모달 */}
       <Modal visible={showGoalModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
-            <Text style={styles.modalTitle}>오늘의 목표 🎯</Text>
-            <Text style={styles.modalSub}>오늘 이루고 싶은 목표를 적어보세요.</Text>
-            <TextInput
-              style={styles.goalModalInput}
-              value={goalInput}
-              onChangeText={setGoalInput}
-              placeholder="예) 논문 3페이지 읽기"
-              maxLength={255}
-              autoFocus
-              onSubmitEditing={handleSaveGoal}
-            />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => { setShowGoalModal(false); setGoalInput(''); }}
-              >
-                <Text style={styles.modalCancelText}>건너뛰기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }, savingGoal && styles.disabled]}
-                onPress={handleSaveGoal}
-                disabled={savingGoal}
-              >
-                <Text style={styles.modalSubmitText}>{savingGoal ? '저장 중...' : '등록하기'}</Text>
-              </TouchableOpacity>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+              <Text style={styles.modalTitle}>오늘의 목표 🎯</Text>
+              <Text style={styles.modalSub}>오늘 이루고 싶은 목표를 적어보세요.</Text>
+              <TextInput
+                style={styles.goalModalInput}
+                value={goalInput}
+                onChangeText={setGoalInput}
+                placeholder="예) 논문 3페이지 읽기"
+                maxLength={255}
+                autoFocus
+                onSubmitEditing={handleSaveGoal}
+                returnKeyType="done"
+              />
+              <View style={styles.modalBtns}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => { setShowGoalModal(false); setGoalInput(''); }}
+                >
+                  <Text style={styles.modalCancelText}>건너뛰기</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }, savingGoal && styles.disabled]}
+                  onPress={handleSaveGoal}
+                  disabled={savingGoal}
+                >
+                  <Text style={styles.modalSubmitText}>{savingGoal ? '저장 중...' : '등록하기'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 시간 선택 모달 */}

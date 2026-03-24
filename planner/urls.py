@@ -7,6 +7,9 @@ from .views import (
     api_daily_goal,
     api_daily_goal_achieve,
     api_weekly_achievement,
+    daily_goal_achieve,
+    daily_goal_delete,
+    daily_goal_save,
     delete_lab_goal,
     delete_daily_todos,
     delete_daily_todo,
@@ -44,4 +47,7 @@ urlpatterns = [
     path("api/daily-goal/", api_daily_goal, name="planner-api-daily-goal"),
     path("api/daily-goal/achieve/", api_daily_goal_achieve, name="planner-api-daily-goal-achieve"),
     path("api/weekly-achievement/", api_weekly_achievement, name="planner-api-weekly-achievement"),
+    path("daily-goal/save/", daily_goal_save, name="planner-daily-goal-save"),
+    path("daily-goal/<int:goal_id>/achieve/", daily_goal_achieve, name="planner-daily-goal-achieve"),
+    path("daily-goal/<int:goal_id>/delete/", daily_goal_delete, name="planner-daily-goal-delete"),
 ]

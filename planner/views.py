@@ -504,6 +504,11 @@ def index(request):
         if request.user.is_authenticated
         else DailyTodo.objects.none()
     )
+    daily_goal = (
+        DailyGoal.objects.filter(user=request.user, date=selected_date).first()
+        if request.user.is_authenticated
+        else None
+    )
     current_lab_week_start = _monday_week_start(today)
     current_lab_week_end = current_lab_week_start + timedelta(days=6)
     current_lab_week_goals = list(
@@ -541,6 +546,7 @@ def index(request):
         if request.user.is_authenticated
         else 0,
         "daily_todos_total_count": daily_todos.count() if request.user.is_authenticated else 0,
+        "daily_goal": daily_goal,
         "daily_todos_all_checked": (
             request.user.is_authenticated
             and daily_todos.exists()
@@ -1052,6 +1058,54 @@ def google_calendar_disconnect(request):
     GoogleCalendarCredential.objects.filter(user=request.user).delete()
     messages.success(request, "Google Calendar ?곌껐???댁젣?덉뒿?덈떎.")
     return _planner_plan_redirect_for_date(timezone.localdate())
+
+
+@login_required
+def daily_goal_save(request):
+    """웹에서 하루 목표 등록/수정 (form POST)"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    content = request.POST.get("content", "").strip()
+    selected_date_raw = request.POST.get("date")
+    month_raw = request.POST.get("month")
+    try:
+        goal_date = date.fromisoformat(selected_date_raw) if selected_date_raw else timezone.localdate()
+    except ValueError:
+        goal_date = timezone.localdate()
+    if content:
+        DailyGoal.objects.update_or_create(
+            user=request.user,
+            date=goal_date,
+            defaults={"content": content},
+        )
+    month = month_raw or goal_date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal_date.isoformat()}")
+
+
+@login_required
+def daily_goal_delete(request, goal_id):
+    """웹에서 하루 목표 삭제"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    goal = get_object_or_404(DailyGoal, id=goal_id, user=request.user)
+    goal_date = goal.date
+    goal.delete()
+    month_raw = request.POST.get("month")
+    month = month_raw or goal_date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal_date.isoformat()}")
+
+
+@login_required
+def daily_goal_achieve(request, goal_id):
+    """웹에서 하루 목표 달성 토글 (form POST)"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    goal = get_object_or_404(DailyGoal, id=goal_id, user=request.user)
+    goal.is_achieved = not goal.is_achieved
+    goal.save(update_fields=["is_achieved"])
+    month_raw = request.POST.get("month")
+    month = month_raw or goal.date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal.date.isoformat()}")
 
 
 def _get_planner_user(request):
