@@ -2,18 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AttendanceScreen from './src/screens/AttendanceScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import TimetableScreen from './src/screens/TimetableScreen';
 
 export default function App() {
   const [token, setToken] = useState(null);
   const [name, setName] = useState('');
+  const [isStaff, setIsStaff] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('attendance'); // 'attendance' | 'timetable'
+  const [tab, setTab] = useState('attendance');
 
   useEffect(() => {
-    AsyncStorage.multiGet(['token', 'name']).then(([[, t], [, n]]) => {
-      if (t) { setToken(t); setName(n || ''); }
+    AsyncStorage.multiGet(['token', 'name', 'is_staff']).then(([[, t], [, n], [, s]]) => {
+      if (t) { setToken(t); setName(n || ''); setIsStaff(s === 'true'); }
       setLoading(false);
     });
   }, []);
@@ -27,16 +29,17 @@ export default function App() {
   }
 
   if (!token) {
-    return <LoginScreen onLogin={(t, n) => { setToken(t); setName(n); }} />;
+    return <LoginScreen onLogin={(t, n, staff) => {
+      setToken(t); setName(n); setIsStaff(staff);
+    }} />;
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {tab === 'attendance'
-          ? <AttendanceScreen name={name} onLogout={() => { setToken(null); setName(''); }} />
-          : <TimetableScreen />
-        }
+        {tab === 'attendance' && <AttendanceScreen name={name} onLogout={() => { setToken(null); setName(''); setIsStaff(false); }} />}
+        {tab === 'timetable' && <TimetableScreen />}
+        {tab === 'dashboard' && <DashboardScreen />}
       </View>
 
       <View style={styles.tabBar}>
@@ -46,6 +49,11 @@ export default function App() {
         <TouchableOpacity style={styles.tab} onPress={() => setTab('timetable')}>
           <Text style={[styles.tabText, tab === 'timetable' && styles.tabActive]}>시간표</Text>
         </TouchableOpacity>
+        {isStaff && (
+          <TouchableOpacity style={styles.tab} onPress={() => setTab('dashboard')}>
+            <Text style={[styles.tabText, tab === 'dashboard' && styles.tabActive]}>대시보드</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

@@ -4,7 +4,8 @@ from functools import wraps
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_GET
 
 import math
 
@@ -320,3 +321,74 @@ def dashboard_confirm_delete(request, student_id):
     name = student.name
     student.delete()
     return JsonResponse({"status": "success", "message": f"{name} 계정이 삭제되었습니다."})
+
+
+def _get_token_user(request):
+    auth = request.META.get('HTTP_AUTHORIZATION', '')
+    if auth.startswith('Token '):
+        from rest_framework.authtoken.models import Token
+        try:
+            return Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
+        except Token.DoesNotExist:
+            pass
+    return None
+
+
+@csrf_exempt
+@require_GET
+def api_weekly_attendance(request):
+    """이번 주 학생별 출결 요약 (앱 관리자용)"""
+    user = _get_token_user(request)
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    grade_filter = request.GET.get("grade", "2")
+    class_filter = request.GET.get("class", "")
+
+    students_qs = User.objects.filter(
+        is_staff=False, deletion_scheduled_at__isnull=True
+    ).order_by("class_group", "name")
+    if grade_filter in ("1", "2"):
+        students_qs = students_qs.filter(grade=grade_filter)
+    if class_filter in ("A", "B"):
+        students_qs = students_qs.filter(class_group=class_filter)
+
+    week_start, week_end = _week_range()
+    today = date.today()
+    WEEKDAYS = ["월", "화", "수", "목", "금"]
+    week_dates = [week_start + timedelta(days=i) for i in range(5)]
+
+    attendance_this_week = AttendanceRecord.objects.filter(
+        attendance_date__range=(week_start, week_end)
+    ).select_related("user")
+    att_map = {}
+    for rec in attendance_this_week:
+        att_map.setdefault(rec.user_id, {})[rec.attendance_date] = rec
+
+    STATUS_LABEL = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
+
+    result = []
+    for student in students_qs:
+        records = att_map.get(student.id, {})
+        week_cells = []
+        for d in week_dates:
+            rec = records.get(d)
+            if rec:
+                week_cells.append({"label": STATUS_LABEL.get(rec.status, rec.status), "status": rec.status})
+            elif d > today:
+                week_cells.append({"label": "-", "status": "future"})
+            else:
+                week_cells.append({"label": "미기록", "status": "none"})
+
+        result.append({
+            "name": student.name,
+            "class_group": student.class_group,
+            "grade": student.grade,
+            "week": [{"day": WEEKDAYS[i], "label": c["label"], "status": c["status"]} for i, c in enumerate(week_cells)],
+        })
+
+    return JsonResponse({
+        "week_start": week_start.strftime("%m/%d"),
+        "week_end": week_end.strftime("%m/%d"),
+        "students": result,
+    })

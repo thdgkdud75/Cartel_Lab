@@ -27,7 +27,8 @@ export default function LoginScreen({ onLogin }) {
       const data = await apiLogin(studentId.trim(), password);
       await AsyncStorage.setItem('token', data.token);
       await AsyncStorage.setItem('name', data.name || '');
-      onLogin(data.token, data.name);
+      await AsyncStorage.setItem('is_staff', data.is_staff ? 'true' : 'false');
+      onLogin(data.token, data.name, data.is_staff);
     } catch (e) {
       Alert.alert('로그인 실패', e.message);
     } finally {

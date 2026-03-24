@@ -49,6 +49,14 @@ export async function getTodayStatus() {
   return response.json();
 }
 
+export async function getWeeklyAttendance(grade = '2', classGroup = '') {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ grade });
+  if (classGroup) params.append('class', classGroup);
+  const response = await fetch(`${BASE_URL}/auth/admin/api/weekly/?${params}`, { headers });
+  return response.json();
+}
+
 export async function getTimetable() {
   const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/timetable/api/`, { headers });

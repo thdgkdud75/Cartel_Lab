@@ -532,4 +532,9 @@ def api_login(request):
         return JsonResponse({"error": "학번 또는 비밀번호가 올바르지 않습니다."}, status=401)
 
     token, _ = Token.objects.get_or_create(user=user)
-    return JsonResponse({"token": token.key, "name": user.name})
+    return JsonResponse({
+        "token": token.key,
+        "name": user.name,
+        "is_staff": user.is_staff,
+        "class_group": user.class_group,
+    })
