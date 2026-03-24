@@ -342,7 +342,7 @@ function handleCheckOutAction(btn, url, originalText, loadingText) {
                 if (data.status === 'success') {
                     showMessage(data.status, data.message);
                     if (typeof htmx !== 'undefined') htmx.trigger('#attendanceList', 'load');
-                    setTimeout(() => window.location.reload(), 1500);
+                    showTodoCheckModal(() => setTimeout(() => window.location.reload(), 1500));
                 } else if (data.status === 'outside_geofence') {
                     showOutsideGeofenceModal(data.message);
                 } else {
@@ -363,6 +363,56 @@ function handleCheckOutAction(btn, url, originalText, loadingText) {
             btn.textContent = originalText;
         }
     );
+}
+
+function showTodoCheckModal(onDone) {
+    if (typeof dailyTodosUrl === 'undefined') { onDone(); return; }
+    fetch(dailyTodosUrl)
+        .then(r => r.json())
+        .then(data => {
+            const todos = data.todos || [];
+            if (todos.length === 0) { onDone(); return; }
+
+            const modal = document.getElementById('todoCheckModal');
+            const list = document.getElementById('todoCheckList');
+            if (!modal || !list) { onDone(); return; }
+
+            let todosState = todos.map(t => ({ ...t }));
+
+            function renderList() {
+                list.innerHTML = todosState.map(t => `
+                    <div onclick="window._toggleCheckoutTodo(${t.id})" style="display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;border-bottom:1px solid #f1f5f9;">
+                        <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${t.is_checked ? '#2563eb' : '#d1d5db'};background:${t.is_checked ? '#2563eb' : '#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            ${t.is_checked ? '<span style="color:#fff;font-size:13px;font-weight:700;">✓</span>' : ''}
+                        </div>
+                        <span style="font-size:14px;color:${t.is_checked ? '#9ca3af' : '#111'};text-decoration:${t.is_checked ? 'line-through' : 'none'};flex:1;">${t.content}</span>
+                    </div>
+                `).join('');
+            }
+
+            window._toggleCheckoutTodo = function(id) {
+                const todo = todosState.find(t => t.id === id);
+                if (!todo) return;
+                todo.is_checked = !todo.is_checked;
+                fetch(dailyTodoToggleUrl.replace('0', id), {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                }).catch(() => {});
+                renderList();
+            };
+
+            renderList();
+            modal.style.display = 'flex';
+
+            function close() {
+                modal.style.display = 'none';
+                onDone();
+            }
+
+            document.getElementById('todoCheckSkip').onclick = close;
+            document.getElementById('todoCheckConfirm').onclick = close;
+        })
+        .catch(() => onDone());
 }
 
 function showOutsideGeofenceModal(message) {

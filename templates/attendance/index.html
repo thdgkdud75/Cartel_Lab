@@ -131,6 +131,19 @@
     </div>
 </div>
 
+<!-- 퇴실 시 할 일 체크 모달 -->
+<div id="todoCheckModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,.18);">
+        <h3 style="margin:0 0 6px;font-size:18px;color:#1e293b;">오늘 한 일 체크 ✅</h3>
+        <p style="margin:0 0 16px;font-size:13px;color:#64748b;">오늘 완료한 항목을 체크해주세요!</p>
+        <div id="todoCheckList"></div>
+        <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+            <button id="todoCheckSkip" style="padding:9px 18px;border:1.5px solid #e2e8f0;background:#fff;border-radius:8px;font-size:14px;cursor:pointer;color:#64748b;">건너뛰기</button>
+            <button id="todoCheckConfirm" style="padding:9px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">확인</button>
+        </div>
+    </div>
+</div>
+
 <!-- 서버 데이터를 자바스크립트로 안전하게 전달 -->
 <script id="heatmap-data" type="application/json">
     {{ heatmap_data|safe|default:"{}" }}
@@ -148,6 +161,8 @@
     const checkoutRequestsUrl = "{% url 'attendance:checkout-requests' %}";
     const approveRequestUrl = "{% url 'attendance:checkout-approve' 0 %}";
     const rejectRequestUrl = "{% url 'attendance:checkout-reject' 0 %}";
+    const dailyTodosUrl = "{% url 'planner-api-daily-todos' %}";
+    const dailyTodoToggleUrl = "{% url 'planner-api-daily-todo-toggle' 0 %}";
 
     // JSON 데이터를 안전하게 파싱
     let heatmapRawData = {};
