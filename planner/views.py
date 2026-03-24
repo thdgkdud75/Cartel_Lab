@@ -22,7 +22,10 @@ from .google_calendar import (
     token_expiry_from_seconds,
     update_goal_event,
 )
-from .models import DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from .models import DailyGoal, DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
 
 
 def _week_start_from_input(raw_date):
@@ -175,7 +178,7 @@ def _sync_daily_todo_create(todo):
 
     event_id = create_todo_event(credential, todo)
     if not event_id:
-        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉???대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
+        raise GoogleCalendarError("Google Calendar에서 이벤트 ID를 받지 못했습니다.")
 
     todo.google_event_id = event_id
     todo.save(update_fields=["google_event_id", "updated_at"])
@@ -189,7 +192,7 @@ def _sync_weekly_goal_create(goal, goal_date):
 
     event_id = create_goal_event(credential, goal, goal_date)
     if not event_id:
-        raise GoogleCalendarError("援ш? 罹섎┛?붿뿉??紐⑺몴 ?대깽??ID瑜?諛쏆? 紐삵뻽?듬땲??")
+        raise GoogleCalendarError("Google Calendar에서 목표 이벤트 ID를 받지 못했습니다.")
 
     goal.google_event_id = event_id
     goal.save(update_fields=["google_event_id", "updated_at"])
@@ -235,7 +238,7 @@ def _create_weekly_goal_from_todo(todo, request=None):
             if request is not None:
                 messages.warning(
                     request,
-                    f"泥댄겕???щ몢????λ릱吏留?Google Calendar ?숆린?붿뿉???ㅽ뙣?덉뒿?덈떎: {exc}",
+                    f"체크된 투두는 등록됐지만 Google Calendar 동기화에는 실패했습니다: {exc}",
                 )
 
     return goal
@@ -253,7 +256,7 @@ def _delete_google_event_for_user(user, event_id, request=None):
         delete_event(credential, event_id)
     except GoogleCalendarError as exc:
         if request is not None:
-            messages.warning(request, f"Google Calendar ?쇱젙 ??젣???ㅽ뙣?덉뒿?덈떎: {exc}")
+            messages.warning(request, f"Google Calendar 일정 삭제에 실패했습니다: {exc}")
 
 
 def _parse_google_datetime(raw_value):
@@ -501,6 +504,11 @@ def index(request):
         if request.user.is_authenticated
         else DailyTodo.objects.none()
     )
+    daily_goal = (
+        DailyGoal.objects.filter(user=request.user, date=selected_date).first()
+        if request.user.is_authenticated
+        else None
+    )
     current_lab_week_start = _monday_week_start(today)
     current_lab_week_end = current_lab_week_start + timedelta(days=6)
     current_lab_week_goals = list(
@@ -538,6 +546,7 @@ def index(request):
         if request.user.is_authenticated
         else 0,
         "daily_todos_total_count": daily_todos.count() if request.user.is_authenticated else 0,
+        "daily_goal": daily_goal,
         "daily_todos_all_checked": (
             request.user.is_authenticated
             and daily_todos.exists()
@@ -681,7 +690,7 @@ def update_goal(request, goal_id):
                     try:
                         _sync_weekly_goal_update(sibling_goal, _goal_date(sibling_goal))
                     except GoogleCalendarError as exc:
-                        messages.warning(request, f"Google Calendar ?쇱젙 ?됱긽 ?숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
+                        messages.warning(request, f"Google Calendar 일정 색상 동기화에 실패했습니다: {exc}")
                         break
 
         first_week_start = _week_start_from_input(goal_date.isoformat())
@@ -696,7 +705,7 @@ def update_goal(request, goal_id):
             try:
                 _sync_weekly_goal_update(goal, goal_date)
             except GoogleCalendarError as exc:
-                messages.warning(request, f"Google Calendar ?쇱젙 ?섏젙???ㅽ뙣?덉뒿?덈떎: {exc}")
+                messages.warning(request, f"Google Calendar 일정 수정에 실패했습니다: {exc}")
 
         for offset in range(1, duration_days):
             target_date = goal_date + timedelta(days=offset)
@@ -794,7 +803,7 @@ def add_daily_todo(request):
             try:
                 pass
             except GoogleCalendarError as exc:
-                messages.warning(request, f"?щ몢????λ릱吏留?援ш? 罹섎┛???숆린?붿뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
+                messages.warning(request, f"투두는 추가됐지만 Google Calendar 동기화에 실패했습니다: {exc}")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -873,7 +882,7 @@ def register_daily_todos(request):
         DailyTodo.objects.filter(id__in=todo_ids).delete()
 
     if todo_count == 0:
-        messages.info(request, "?깅줉??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
+        messages.info(request, "등록할 체크된 투두가 없습니다.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -907,7 +916,7 @@ def delete_daily_todos(request):
         DailyTodo.objects.filter(id__in=[todo.id for todo in todos]).delete()
 
     if deleted_count == 0:
-        messages.info(request, "??젣??泥댄겕???щ몢媛 ?놁뒿?덈떎.")
+        messages.info(request, "삭제할 체크된 투두가 없습니다.")
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -933,7 +942,7 @@ def google_calendar_import(request):
         return redirect("planner-index")
 
     if not hasattr(request.user, "google_calendar_credential"):
-        messages.error(request, "Google Calendar ?곌껐 ??媛?몄삤湲곕? ?ъ슜?????덉뒿?덈떎.")
+        messages.error(request, "Google Calendar 연결 후에만 가져오기를 사용할 수 있습니다.")
         return _planner_plan_redirect_for_date(timezone.localdate())
 
     target_raw = request.POST.get("target_date", "")
@@ -962,7 +971,7 @@ def google_calendar_import(request):
             f"구글 일정 가져오기 완료: 생성 {result['created']}건, 업데이트 {result['updated']}건, 삭제 {result['deleted']}건",
         )
     except GoogleCalendarError as exc:
-        messages.error(request, f"援ш? ?쇱젙 媛?몄삤湲곗뿉 ?ㅽ뙣?덉뒿?덈떎: {exc}")
+        messages.error(request, f"Google 일정 가져오기에 실패했습니다: {exc}")
 
     return _planner_plan_redirect_for_date(target_date)
 
@@ -970,7 +979,7 @@ def google_calendar_import(request):
 @login_required
 def google_calendar_connect(request):
     if not is_configured():
-        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎. .env 媛믪쓣 癒쇱? ?낅젰?섏꽭??")
+        messages.error(request, "Google Calendar 설정이 비어 있습니다. .env 값을 먼저 입력해 주세요.")
         return redirect("planner-index")
 
     state = secrets.token_urlsafe(24)
@@ -981,30 +990,30 @@ def google_calendar_connect(request):
 @login_required
 def google_calendar_callback(request):
     if not is_configured():
-        messages.error(request, "Google Calendar ?ㅼ젙??鍮꾩뼱 ?덉뒿?덈떎.")
+        messages.error(request, "Google Calendar 설정이 비어 있습니다.")
         return redirect("planner-index")
 
     expected_state = request.session.pop("google_oauth_state", "")
     received_state = request.GET.get("state", "")
     if not expected_state or expected_state != received_state:
-        messages.error(request, "援ш? 濡쒓렇??寃利?state)???ㅽ뙣?덉뒿?덈떎. ?ㅼ떆 ?쒕룄?섏꽭??")
+        messages.error(request, "Google 로그인 검증(state)에 실패했습니다. 다시 시도해 주세요.")
         return redirect("planner-index")
 
     oauth_error = request.GET.get("error")
     if oauth_error:
-        messages.error(request, f"援ш? ?곌껐??痍⑥냼?섏뿀嫄곕굹 ?ㅽ뙣?덉뒿?덈떎: {oauth_error}")
+        messages.error(request, f"Google 연결이 취소되었거나 실패했습니다: {oauth_error}")
         return redirect("planner-index")
 
     code = request.GET.get("code", "")
     if not code:
-        messages.error(request, "援ш? ?몄쬆 肄붾뱶媛 ?놁뼱 ?곌껐?????놁뒿?덈떎.")
+        messages.error(request, "Google 인증 코드가 없어 연결을 완료할 수 없습니다.")
         return redirect("planner-index")
 
     try:
         token_data = exchange_code_for_token(request, code)
         google_email = fetch_google_email(token_data["access_token"])
     except GoogleCalendarError as exc:
-        messages.error(request, f"援ш? 怨꾩젙 ?곌껐???ㅽ뙣?덉뒿?덈떎: {exc}")
+        messages.error(request, f"Google 계정 연결에 실패했습니다: {exc}")
         return redirect("planner-index")
 
     credential, created = GoogleCalendarCredential.objects.get_or_create(
@@ -1047,7 +1056,171 @@ def google_calendar_disconnect(request):
         return redirect("planner-index")
 
     GoogleCalendarCredential.objects.filter(user=request.user).delete()
-    messages.success(request, "Google Calendar ?곌껐???댁젣?덉뒿?덈떎.")
+    messages.success(request, "Google Calendar 연결이 해제되었습니다.")
     return _planner_plan_redirect_for_date(timezone.localdate())
+
+
+@login_required
+def daily_goal_save(request):
+    """웹에서 하루 목표 등록/수정 (form POST)"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    content = request.POST.get("content", "").strip()
+    selected_date_raw = request.POST.get("date")
+    month_raw = request.POST.get("month")
+    try:
+        goal_date = date.fromisoformat(selected_date_raw) if selected_date_raw else timezone.localdate()
+    except ValueError:
+        goal_date = timezone.localdate()
+    if content:
+        DailyGoal.objects.update_or_create(
+            user=request.user,
+            date=goal_date,
+            defaults={"content": content},
+        )
+    month = month_raw or goal_date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal_date.isoformat()}")
+
+
+@login_required
+def daily_goal_delete(request, goal_id):
+    """웹에서 하루 목표 삭제"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    goal = get_object_or_404(DailyGoal, id=goal_id, user=request.user)
+    goal_date = goal.date
+    goal.delete()
+    month_raw = request.POST.get("month")
+    month = month_raw or goal_date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal_date.isoformat()}")
+
+
+@login_required
+def daily_goal_achieve(request, goal_id):
+    """웹에서 하루 목표 달성 토글 (form POST)"""
+    if request.method != "POST":
+        return redirect("planner-index")
+    goal = get_object_or_404(DailyGoal, id=goal_id, user=request.user)
+    goal.is_achieved = not goal.is_achieved
+    goal.save(update_fields=["is_achieved"])
+    month_raw = request.POST.get("month")
+    month = month_raw or goal.date.strftime("%Y-%m")
+    return redirect(f"{reverse('planner-index')}?view=plan&month={month}&date={goal.date.isoformat()}")
+
+
+def _get_planner_user(request):
+    """세션 또는 Token 인증 모두 지원"""
+    if request.user.is_authenticated:
+        return request.user
+    auth = request.META.get('HTTP_AUTHORIZATION', '')
+    if auth.startswith('Token '):
+        from rest_framework.authtoken.models import Token
+        try:
+            return Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
+        except Token.DoesNotExist:
+            pass
+    return None
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def api_daily_goal(request):
+    """오늘 하루 목표 조회/등록 (앱+웹 공용)"""
+    import json as _json
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+
+    if request.method == "GET":
+        goal = DailyGoal.objects.filter(user=user, date=today).first()
+        if goal:
+            return JsonResponse({
+                "id": goal.id,
+                "date": goal.date.isoformat(),
+                "content": goal.content,
+                "is_achieved": goal.is_achieved,
+            })
+        return JsonResponse({"id": None, "date": today.isoformat(), "content": None, "is_achieved": False})
+
+    # POST
+    try:
+        data = _json.loads(request.body)
+        content = (data.get("content") or "").strip()
+    except Exception:
+        content = (request.POST.get("content") or "").strip()
+
+    if not content:
+        return JsonResponse({"error": "목표 내용을 입력해주세요."}, status=400)
+
+    goal, created = DailyGoal.objects.update_or_create(
+        user=user,
+        date=today,
+        defaults={"content": content},
+    )
+    return JsonResponse({
+        "id": goal.id,
+        "date": goal.date.isoformat(),
+        "content": goal.content,
+        "is_achieved": goal.is_achieved,
+        "created": created,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_daily_goal_achieve(request):
+    """하루 목표 달성 토글 (앱+웹 공용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    goal = DailyGoal.objects.filter(user=user, date=today).first()
+    if not goal:
+        return JsonResponse({"error": "오늘 목표가 없습니다."}, status=404)
+
+    goal.is_achieved = not goal.is_achieved
+    goal.save(update_fields=["is_achieved"])
+    return JsonResponse({"is_achieved": goal.is_achieved})
+
+
+@csrf_exempt
+def api_weekly_achievement(request):
+    """주간 달성률 조회 (앱+웹 공용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    # 이번 주 월요일
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    goals = DailyGoal.objects.filter(user=user, date__range=(week_start, week_end))
+    total = goals.count()
+    achieved = goals.filter(is_achieved=True).count()
+
+    days = []
+    for i in range(7):
+        d = week_start + timedelta(days=i)
+        g = goals.filter(date=d).first()
+        days.append({
+            "date": d.isoformat(),
+            "weekday": ["월", "화", "수", "목", "금", "토", "일"][i],
+            "content": g.content if g else None,
+            "is_achieved": g.is_achieved if g else False,
+            "has_goal": g is not None,
+        })
+
+    return JsonResponse({
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "total": total,
+        "achieved": achieved,
+        "rate": round(achieved / total * 100) if total else 0,
+        "days": days,
+    })
 
 

@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     api_auto_checkout,
     api_edit_attendance,
+    api_monthly_attendance_goals,
     api_monthly_stats,
     api_weekly_attendance,
     dashboard_cancel_delete,
@@ -22,4 +23,5 @@ urlpatterns = [
     path("api/auto-checkout/", api_auto_checkout, name="dashboard-api-auto-checkout"),
     path("api/monthly/", api_monthly_stats, name="dashboard-api-monthly"),
     path("api/edit-attendance/", api_edit_attendance, name="dashboard-api-edit-attendance"),
+    path("api/monthly-goals/", api_monthly_attendance_goals, name="dashboard-api-monthly-goals"),
 ]

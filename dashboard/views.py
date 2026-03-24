@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST, require_GET
 import math
 
 from attendance.models import AttendanceRecord, AttendanceTimeSetting, LocationSetting
-from planner.models import DailyTodo, WeeklyGoal
+from planner.models import DailyGoal, DailyTodo, WeeklyGoal
 from quiz.models import QuizAttempt
 from users.models import User
 
@@ -521,3 +521,105 @@ def api_edit_attendance(request):
     record.save()
 
     return JsonResponse({"status": "ok", "message": f"{student_name} {att_date} 출결 수정 완료"})
+
+
+@csrf_exempt
+@require_GET
+def api_monthly_attendance_goals(request):
+    """월간 출결 + 하루 목표 현황 (관리자용)"""
+    user = _get_token_user(request)
+    if not user:
+        if request.user.is_authenticated:
+            user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    import calendar as cal_module
+    from datetime import datetime as _dt
+
+    # 월 파라미터: ?month=2026-03 (기본: 이번 달)
+    month_raw = request.GET.get("month", "")
+    today = date.today()
+    try:
+        month_start = _dt.strptime(month_raw + "-01", "%Y-%m-%d").date() if month_raw else today.replace(day=1)
+    except ValueError:
+        month_start = today.replace(day=1)
+    _, last_day = cal_module.monthrange(month_start.year, month_start.month)
+    month_end = month_start.replace(day=last_day)
+
+    grade_filter = request.GET.get("grade", "2")
+    class_filter = request.GET.get("class", "")
+
+    students_qs = User.objects.filter(
+        is_staff=False, deletion_scheduled_at__isnull=True
+    ).order_by("class_group", "name")
+    if grade_filter in ("1", "2"):
+        students_qs = students_qs.filter(grade=grade_filter)
+    if class_filter in ("A", "B"):
+        students_qs = students_qs.filter(class_group=class_filter)
+
+    # 출결 기록 일괄 조회
+    att_records = AttendanceRecord.objects.filter(
+        attendance_date__range=(month_start, month_end),
+        user__in=students_qs,
+    ).select_related("user")
+    att_map = {}
+    for rec in att_records:
+        att_map.setdefault(rec.user_id, {})[rec.attendance_date] = rec
+
+    # 하루 목표 일괄 조회
+    goals_qs = DailyGoal.objects.filter(
+        date__range=(month_start, month_end),
+        user__in=students_qs,
+    ).select_related("user")
+    goal_map = {}
+    for g in goals_qs:
+        goal_map.setdefault(g.user_id, {})[g.date] = g
+
+    STATUS_LABEL = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
+    dates = [month_start + timedelta(days=i) for i in range((month_end - month_start).days + 1)]
+
+    result = []
+    for student in students_qs:
+        student_att = att_map.get(student.id, {})
+        student_goals = goal_map.get(student.id, {})
+
+        att_count = {"present": 0, "late": 0, "leave": 0, "absent": 0}
+        goal_total = 0
+        goal_achieved = 0
+        daily = []
+
+        for d in dates:
+            rec = student_att.get(d)
+            goal = student_goals.get(d)
+
+            if goal:
+                goal_total += 1
+                if goal.is_achieved:
+                    goal_achieved += 1
+
+            if rec:
+                att_count[rec.status] = att_count.get(rec.status, 0) + 1
+                daily.append({
+                    "date": d.isoformat(),
+                    "att_status": rec.status,
+                    "att_label": STATUS_LABEL.get(rec.status, rec.status),
+                    "goal_content": goal.content if goal else None,
+                    "goal_achieved": goal.is_achieved if goal else False,
+                })
+
+        result.append({
+            "name": student.name,
+            "class_group": student.class_group,
+            "grade": student.grade,
+            "att_summary": att_count,
+            "goal_total": goal_total,
+            "goal_achieved": goal_achieved,
+            "goal_rate": round(goal_achieved / goal_total * 100) if goal_total else 0,
+            "daily": daily,
+        })
+
+    return JsonResponse({
+        "month": month_start.strftime("%Y-%m"),
+        "students": result,
+    })

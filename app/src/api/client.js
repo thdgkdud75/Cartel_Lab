@@ -170,3 +170,35 @@ export async function uploadProfileImage(imageUri) {
   });
   return response.json();
 }
+
+
+export async function getDailyGoal() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-goal/`, { headers });
+  return response.json();
+}
+
+export async function saveDailyGoal(content) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-goal/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ content }),
+  });
+  return response.json();
+}
+
+export async function achieveDailyGoal() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-goal/achieve/`, {
+    method: 'POST',
+    headers,
+  });
+  return response.json();
+}
+
+export async function getWeeklyAchievement() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/weekly-achievement/`, { headers });
+  return response.json();
+}

@@ -99,6 +99,26 @@ class DailyTodo(models.Model):
         return f"{self.user} {self.target_date} {self.content}"
 
 
+class DailyGoal(models.Model):
+    """출석 체크인 시 등록하는 하루 목표."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="daily_goals",
+    )
+    date = models.DateField()
+    content = models.CharField(max_length=255)
+    is_achieved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'date')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.user.name} {self.date} {'✓' if self.is_achieved else '○'} {self.content}"
+
+
 class GoogleCalendarCredential(models.Model):
     """Per-user Google Calendar OAuth credentials."""
 
