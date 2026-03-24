@@ -1224,3 +1224,85 @@ def api_weekly_achievement(request):
     })
 
 
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def api_daily_todos(request):
+    """오늘 할 일 목록 조회/추가 (앱용)"""
+    import json as _json
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+
+    if request.method == "GET":
+        todos = DailyTodo.objects.filter(
+            user=user, target_date=today, is_completed=False
+        ).order_by("planned_time", "created_at")
+        return JsonResponse({
+            "todos": [
+                {"id": t.id, "content": t.content, "is_checked": t.is_checked}
+                for t in todos
+            ]
+        })
+
+    try:
+        data = _json.loads(request.body)
+        content = (data.get("content") or "").strip()
+    except Exception:
+        content = (request.POST.get("content") or "").strip()
+
+    if not content:
+        return JsonResponse({"error": "내용을 입력해주세요."}, status=400)
+
+    todo = DailyTodo.objects.create(user=user, target_date=today, content=content)
+    return JsonResponse({"id": todo.id, "content": todo.content, "is_checked": todo.is_checked})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_daily_todo_toggle(request, todo_id):
+    """할 일 체크 토글 (앱용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    todo = get_object_or_404(DailyTodo, id=todo_id, user=user)
+    todo.is_checked = not todo.is_checked
+    todo.save(update_fields=["is_checked", "updated_at"])
+    return JsonResponse({"id": todo.id, "is_checked": todo.is_checked})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_daily_todo_delete(request, todo_id):
+    """할 일 삭제 (앱용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    todo = get_object_or_404(DailyTodo, id=todo_id, user=user)
+    todo.delete()
+    return JsonResponse({"status": "ok"})
+
+
+@csrf_exempt
+def api_lab_goals(request):
+    """이번 주 랩실 전체목표 조회 (앱용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    week_start = _monday_week_start(today)
+
+    goals = LabWideGoal.objects.filter(week_start=week_start).select_related("created_by").order_by("created_at")
+    return JsonResponse({
+        "week_start": week_start.isoformat(),
+        "goals": [
+            {"id": g.id, "content": g.content, "created_by": g.created_by.name}
+            for g in goals
+        ],
+    })
+
+

@@ -9,6 +9,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import MembersScreen from './src/screens/MembersScreen';
 import TimetableScreen from './src/screens/TimetableScreen';
+import TodoScreen from './src/screens/TodoScreen';
 
 async function registerForPushNotifications() {
   if (Platform.OS === 'android') {
@@ -108,6 +109,7 @@ function AppShell({ tab, setTab, isStaff, name, onLogout }) {
 
       <View style={{ flex: 1 }}>
         {tab === 'attendance' && <AttendanceScreen name={name} onLogout={onLogout} />}
+        {tab === 'todo'      && <TodoScreen />}
         {tab === 'timetable' && <TimetableScreen />}
         {tab === 'members'   && <MembersScreen />}
         {tab === 'dashboard' && <DashboardScreen />}
@@ -117,6 +119,9 @@ function AppShell({ tab, setTab, isStaff, name, onLogout }) {
       <View style={[styles.tabBar, { paddingBottom: insets.bottom || 8 }]}>
         <TouchableOpacity style={styles.tab} onPress={() => setTab('attendance')}>
           <Text style={[styles.tabText, tab === 'attendance' && styles.tabActive]}>출결</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tab} onPress={() => setTab('todo')}>
+          <Text style={[styles.tabText, tab === 'todo' && styles.tabActive]}>할 일</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tab} onPress={() => setTab('timetable')}>
           <Text style={[styles.tabText, tab === 'timetable' && styles.tabActive]}>시간표</Text>

@@ -202,3 +202,43 @@ export async function getWeeklyAchievement() {
   const response = await fetch(`${BASE_URL}/planner/api/weekly-achievement/`, { headers });
   return response.json();
 }
+
+export async function getDailyTodos() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-todos/`, { headers });
+  return response.json();
+}
+
+export async function addDailyTodo(content) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-todos/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ content }),
+  });
+  return response.json();
+}
+
+export async function toggleDailyTodo(todoId) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-todos/${todoId}/toggle/`, {
+    method: 'POST',
+    headers,
+  });
+  return response.json();
+}
+
+export async function deleteDailyTodo(todoId) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-todos/${todoId}/delete/`, {
+    method: 'POST',
+    headers,
+  });
+  return response.json();
+}
+
+export async function getLabGoals() {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/lab-goals/`, { headers });
+  return response.json();
+}

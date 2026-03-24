@@ -277,10 +277,14 @@ function handleCheckOutAction(btn, url, originalText, loadingText) {
             })
             .then(response => response.json())
             .then(data => {
-                showMessage(data.status, data.message);
                 if (data.status === 'success') {
+                    showMessage(data.status, data.message);
                     if (typeof htmx !== 'undefined') htmx.trigger('#attendanceList', 'load');
                     setTimeout(() => window.location.reload(), 1500);
+                } else if (data.status === 'outside_geofence') {
+                    showOutsideGeofenceModal(data.message);
+                } else {
+                    showMessage(data.status, data.message);
                 }
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -297,6 +301,40 @@ function handleCheckOutAction(btn, url, originalText, loadingText) {
             btn.textContent = originalText;
         }
     );
+}
+
+function showOutsideGeofenceModal(message) {
+    const modal = document.getElementById('outsideGeofenceModal');
+    if (!modal) return;
+    document.getElementById('outsideGeofenceMsg').textContent = message || '범위 밖입니다. 몇 시에 퇴실했나요?';
+    modal.style.display = 'flex';
+
+    const input = document.getElementById('outsideGeofenceTime');
+    const submitBtn = document.getElementById('outsideGeofenceSubmit');
+    const cancelBtn = document.getElementById('outsideGeofenceCancel');
+
+    // 현재 시각 기본값
+    const now = new Date();
+    input.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    function close() { modal.style.display = 'none'; }
+
+    cancelBtn.onclick = close;
+    submitBtn.onclick = function() {
+        const time = input.value;
+        if (!time) return;
+        fetch(checkOutRequestUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ requested_time: time }),
+        })
+        .then(r => r.json())
+        .then(d => {
+            showMessage(d.status === 'success' ? 'success' : 'error', d.message);
+            close();
+        })
+        .catch(() => { showMessage('error', '신청 중 오류가 발생했습니다.'); close(); });
+    };
 }
 
 function handleAdminLocation(btn) {

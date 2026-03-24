@@ -18,11 +18,13 @@ import {
   View,
 } from 'react-native';
 import {
-  approveCheckoutRequest,
   achieveDailyGoal,
+  addDailyTodo,
+  approveCheckoutRequest,
   checkIn,
   checkOut,
   getDailyGoal,
+  getDailyTodos,
   getMyStats,
   getProfileImage,
   getTodayStatus,
@@ -31,6 +33,7 @@ import {
   rejectCheckoutRequest,
   saveDailyGoal,
   submitCheckoutRequest,
+  toggleDailyTodo,
   uploadProfileImage,
 } from '../api/client';
 
@@ -71,8 +74,20 @@ export default function AttendanceScreen({ name, onLogout }) {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
   const [savingGoal, setSavingGoal] = useState(false);
-  const [todayGoal, setTodayGoal] = useState(null); // { id, content, is_achieved }
+  const [todayGoal, setTodayGoal] = useState(null);
   const [weeklyAchievement, setWeeklyAchievement] = useState(null);
+
+  // 출첵 시 할 일 등록 모달
+  const [showTodoRegisterModal, setShowTodoRegisterModal] = useState(false);
+  const [todoRegisterInput, setTodoRegisterInput] = useState('');
+  const [todoRegisterList, setTodoRegisterList] = useState([]);
+
+  // 퇴실 시 할 일 체크 모달
+  const [showTodoCheckModal, setShowTodoCheckModal] = useState(false);
+  const [checkoutTodos, setCheckoutTodos] = useState([]);
+
+  // 퇴실 시 목표 달성 모달
+  const [showGoalAchieveModal, setShowGoalAchieveModal] = useState(false);
 
   useEffect(() => {
     loadTodayStatus();
@@ -158,7 +173,11 @@ export default function AttendanceScreen({ name, onLogout }) {
         const now = new Date();
         setCheckInAt(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
         scheduleCheckoutReminder();
-        if (!todayGoal) setShowGoalModal(true);
+        if (!todayGoal) {
+          setShowGoalModal(true);
+        } else {
+          setShowTodoRegisterModal(true);
+        }
       }
     } catch (e) {
       setMessage('오류: ' + e.message);
@@ -192,6 +211,17 @@ export default function AttendanceScreen({ name, onLogout }) {
         const now = new Date();
         setCheckOutAt(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
         cancelCheckoutReminder();
+        // 퇴실 후 할 일 체크 → 목표 달성 순서로 모달
+        getDailyTodos().then(r => {
+          if (r.todos && r.todos.length > 0) {
+            setCheckoutTodos(r.todos);
+            setShowTodoCheckModal(true);
+          } else if (todayGoal && !todayGoal.is_achieved) {
+            setShowGoalAchieveModal(true);
+          }
+        }).catch(() => {
+          if (todayGoal && !todayGoal.is_achieved) setShowGoalAchieveModal(true);
+        });
       }
     } catch (e) {
       setMessage('오류: ' + e.message);
@@ -295,6 +325,35 @@ export default function AttendanceScreen({ name, onLogout }) {
     }
   };
 
+  const handleAddTodoToRegister = () => {
+    const content = todoRegisterInput.trim();
+    if (!content) return;
+    setTodoRegisterList(prev => [...prev, content]);
+    setTodoRegisterInput('');
+  };
+
+  const handleSubmitTodoRegister = async () => {
+    for (const content of todoRegisterList) {
+      await addDailyTodo(content).catch(() => {});
+    }
+    setTodoRegisterList([]);
+    setShowTodoRegisterModal(false);
+  };
+
+  const handleToggleCheckoutTodo = (id) => {
+    setCheckoutTodos(prev => prev.map(t => t.id === id ? { ...t, is_checked: !t.is_checked } : t));
+  };
+
+  const handleSubmitCheckoutTodos = async () => {
+    for (const todo of checkoutTodos) {
+      await toggleDailyTodo(todo.id).catch(() => {});
+    }
+    setShowTodoCheckModal(false);
+    if (todayGoal && !todayGoal.is_achieved) {
+      setShowGoalAchieveModal(true);
+    }
+  };
+
   const handleSaveGoal = async () => {
     const content = goalInput.trim();
     if (!content) { setShowGoalModal(false); return; }
@@ -311,6 +370,7 @@ export default function AttendanceScreen({ name, onLogout }) {
       setSavingGoal(false);
       setGoalInput('');
       setShowGoalModal(false);
+      setShowTodoRegisterModal(true);
     }
   };
 
@@ -553,6 +613,117 @@ export default function AttendanceScreen({ name, onLogout }) {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 출첵 시 할 일 등록 모달 */}
+      <Modal visible={showTodoRegisterModal} transparent animationType="fade">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+              <Text style={styles.modalTitle}>오늘 할 일 등록 📋</Text>
+              <Text style={styles.modalSub}>오늘 해야 할 일을 미리 등록해두세요.</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                <TextInput
+                  style={[styles.goalModalInput, { flex: 1, marginBottom: 0 }]}
+                  value={todoRegisterInput}
+                  onChangeText={setTodoRegisterInput}
+                  placeholder="할 일 입력"
+                  maxLength={255}
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddTodoToRegister}
+                />
+                <TouchableOpacity
+                  style={{ backgroundColor: '#2563eb', borderRadius: 10, padding: 12, justifyContent: 'center' }}
+                  onPress={handleAddTodoToRegister}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>+</Text>
+                </TouchableOpacity>
+              </View>
+              {todoRegisterList.map((item, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{ flex: 1, fontSize: 13, color: '#374151' }}>• {item}</Text>
+                  <TouchableOpacity onPress={() => setTodoRegisterList(prev => prev.filter((_, j) => j !== i))}>
+                    <Text style={{ color: '#9ca3af', fontSize: 14 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <View style={[styles.modalBtns, { marginTop: 14 }]}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowTodoRegisterModal(false)}>
+                  <Text style={styles.modalCancelText}>건너뛰기</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }]}
+                  onPress={handleSubmitTodoRegister}
+                >
+                  <Text style={styles.modalSubmitText}>등록하기</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 퇴실 시 할 일 체크 모달 */}
+      <Modal visible={showTodoCheckModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+            <Text style={styles.modalTitle}>오늘 한 일 체크 ✅</Text>
+            <Text style={styles.modalSub}>오늘 완료한 항목을 체크해주세요!</Text>
+            {checkoutTodos.map(todo => (
+              <TouchableOpacity
+                key={todo.id}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}
+                onPress={() => handleToggleCheckoutTodo(todo.id)}
+              >
+                <View style={[styles.checkBox, todo.is_checked && styles.checkBoxDone]}>
+                  {todo.is_checked && <Text style={styles.checkMark}>✓</Text>}
+                </View>
+                <Text style={[{ fontSize: 14, color: '#111', flex: 1 }, todo.is_checked && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                  {todo.content}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={[styles.modalBtns, { marginTop: 16 }]}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowTodoCheckModal(false); if (todayGoal && !todayGoal.is_achieved) setShowGoalAchieveModal(true); }}>
+                <Text style={styles.modalCancelText}>건너뛰기</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }]} onPress={handleSubmitCheckoutTodos}>
+                <Text style={styles.modalSubmitText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 퇴실 시 목표 달성 여부 모달 */}
+      <Modal visible={showGoalAchieveModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20, alignItems: 'center' }]}>
+            <Text style={styles.modalTitle}>오늘 목표 달성했나요? 🎯</Text>
+            {todayGoal && <Text style={{ fontSize: 14, color: '#374151', marginBottom: 20, textAlign: 'center' }}>{todayGoal.content}</Text>}
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { flex: 1 }]}
+                onPress={() => setShowGoalAchieveModal(false)}
+              >
+                <Text style={styles.modalCancelText}>아직이요 😅</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { flex: 1, backgroundColor: '#16a34a' }]}
+                onPress={async () => {
+                  try {
+                    const res = await achieveDailyGoal();
+                    setTodayGoal(prev => ({ ...prev, is_achieved: res.is_achieved }));
+                    getWeeklyAchievement().then(r => { if (r.days) setWeeklyAchievement(r); }).catch(() => {});
+                  } catch (e) {}
+                  setShowGoalAchieveModal(false);
+                }}
+              >
+                <Text style={styles.modalSubmitText}>달성했어요! 🎉</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* 시간 선택 모달 */}
@@ -930,6 +1101,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#111',
   },
+  checkBox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#d1d5db',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkBoxDone: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  checkMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
   // 모달
   modalOverlay: {
     flex: 1,

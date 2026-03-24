@@ -97,6 +97,20 @@
     </div>
 </div>
 
+<!-- 범위 밖 퇴실 신청 모달 -->
+<div id="outsideGeofenceModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;width:min(400px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.18);">
+        <h3 style="margin:0 0 6px;font-size:17px;color:#1e293b;">퇴실을 까먹었나봐요 ㅎ</h3>
+        <p id="outsideGeofenceMsg" style="margin:0 0 16px;font-size:13px;color:#64748b;"></p>
+        <label style="font-size:13px;color:#374151;font-weight:600;">몇 시에 퇴실했어요?</label>
+        <input id="outsideGeofenceTime" type="time" style="width:100%;box-sizing:border-box;margin:8px 0 16px;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:16px;">
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button id="outsideGeofenceCancel" style="padding:9px 18px;border:1.5px solid #e2e8f0;background:#fff;border-radius:8px;font-size:14px;cursor:pointer;color:#64748b;">취소</button>
+            <button id="outsideGeofenceSubmit" style="padding:9px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">신청하기</button>
+        </div>
+    </div>
+</div>
+
 <!-- 하루 목표 입력 모달 -->
 <div id="dailyGoalModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:#fff;border-radius:16px;padding:28px 24px;width:min(420px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.18);">
@@ -124,6 +138,7 @@
     const setLocationUrl = "{% url 'attendance:set-location' %}";
     const setTimeUrl = "{% url 'attendance:set-time' %}";
     const dailyGoalUrl = "{% url 'planner-api-daily-goal' %}";
+    const checkOutRequestUrl = "{% url 'attendance:checkout-request' %}";
 
     // JSON 데이터를 안전하게 파싱
     let heatmapRawData = {};
