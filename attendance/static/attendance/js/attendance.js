@@ -221,29 +221,48 @@ function handleCheckOutAction(btn, url, originalText, loadingText) {
     btn.textContent = loadingText;
     statusDiv.style.display = 'none';
 
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
+    if (!navigator.geolocation) {
+        showMessage('error', '이 브라우저는 위치 서비스를 지원하지 않습니다.');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showMessage(data.status, data.message);
+                if (data.status === 'success') {
+                    if (typeof htmx !== 'undefined') htmx.trigger('#attendanceList', 'load');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+                btn.disabled = false;
+                btn.textContent = originalText;
+            })
+            .catch(() => {
+                showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
         },
-        body: JSON.stringify({}) // 위치 정보 필요 없음
-    })
-    .then(response => response.json())
-    .then(data => {
-        showMessage(data.status, data.message);
-        if (data.status === 'success') {
-            if (typeof htmx !== 'undefined') htmx.trigger('#attendanceList', 'load');
-            setTimeout(() => window.location.reload(), 1500);
+        () => {
+            showMessage('error', '위치 정보를 가져올 수 없습니다.');
+            btn.disabled = false;
+            btn.textContent = originalText;
         }
-        btn.disabled = false;
-        btn.textContent = originalText;
-    })
-    .catch(() => {
-        showMessage('error', '서버 통신 중 오류가 발생했습니다.');
-        btn.disabled = false;
-        btn.textContent = originalText;
-    });
+    );
 }
 
 function handleAdminLocation(btn) {

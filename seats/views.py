@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -6,6 +6,20 @@ from django.http import JsonResponse
 from django.utils import timezone
 from .models import Seat
 from attendance.models import AttendanceRecord
+
+
+def _attendance_labels_for_user(user, today):
+    if not user:
+        return []
+
+    if not user.last_login:
+        return ["미출첵"]
+
+    last_login = timezone.localtime(user.last_login)
+    if last_login.date() != today:
+        return ["미출첵"]
+
+    return ["출첵하세요"]
 
 def index(request):
     # 10자리 고정 보장 (DB에 없으면 생성)
@@ -34,9 +48,11 @@ def index(request):
             if record:
                 seat.attendance_entry_time = record.check_in_at
                 seat.attendance_exit_time = record.check_out_at
+                seat.attendance_labels = []
             else:
                 seat.attendance_entry_time = None
                 seat.attendance_exit_time = None
+                seat.attendance_labels = _attendance_labels_for_user(seat.user, today)
 
     return render(request, "seats/index.html", {
         "seats": seats,
@@ -57,12 +73,20 @@ def seat_status_api(request):
     for seat in seats:
         entry_time = None
         exit_time = None
+        attendance_status = "none"
         
         if seat.user:
             record = attendance_records.get(seat.user.id)
             if record:
                 entry_time = timezone.localtime(record.check_in_at).strftime("%p %I:%M") if record.check_in_at else None
                 exit_time = timezone.localtime(record.check_out_at).strftime("%p %I:%M") if record.check_out_at else None
+                attendance_status = "checked_out" if exit_time else "present"
+                attendance_labels = []
+            else:
+                attendance_status = "absent"
+                attendance_labels = _attendance_labels_for_user(seat.user, today)
+        else:
+            attendance_labels = []
 
         seat_data = {
             "number": seat.number,
@@ -71,6 +95,8 @@ def seat_status_api(request):
             "is_mine": seat.user == request.user if request.user.is_authenticated else False,
             "entry_time": entry_time,
             "exit_time": exit_time,
+            "attendance_status": attendance_status,
+            "attendance_labels": attendance_labels,
         }
         data.append(seat_data)
     return JsonResponse({"seats": data})

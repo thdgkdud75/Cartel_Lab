@@ -4,91 +4,117 @@
 {% block title %}실시간 좌석 현황{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="text-center mb-5 position-relative">
-        <h2 class="display-6 fw-bold">실시간 좌석 현황 
-            {% if user.is_superuser %}<span class="badge bg-danger ms-2" style="font-size: 1rem;">ADMIN MODE</span>{% endif %}
-        </h2>
-        <p class="text-muted small">좌석을 클릭하면 <strong>이름</strong>과 <strong>시간</strong> 정보를 전환할 수 있습니다.</p>
-        
-        <div class="position-absolute top-50 end-0 translate-middle-y">
-            <button class="btn btn-outline-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#timetableModal">
-                <i class="bi bi-calendar3"></i> 시간표 확인
-            </button>
-        </div>
+<div class="seats-page-shell">
+    <div class="seats-page-canvas">
+        <div class="container mt-5">
+            <div class="text-center mb-5 position-relative">
+                <h2 class="display-6 fw-bold">
+                    실시간 좌석 현황
+                    {% if user.is_superuser %}<span class="badge bg-danger ms-2" style="font-size: 1rem;">ADMIN MODE</span>{% endif %}
+                </h2>
+                <p class="text-muted small">좌석을 클릭하면 <strong>이름</strong>과 <strong>출결 시간</strong> 정보를 전환해서 볼 수 있습니다.</p>
 
-        <div id="user-status-msg">
-            {% if user.is_authenticated %}
-                <div class="alert {% if user_seat %}alert-warning border-warning{% else %}alert-info{% endif %} d-inline-block px-4 py-2 shadow-sm rounded-pill">
-                    {% if user_seat %}
-                        <strong>{{ user.name|default:user.student_id }}</strong>님 배정 좌석: <strong>{{ user_seat.number }}번</strong>
-                    {% else %}
-                        아직 배정된 좌석이 없습니다. 빈 좌석을 클릭하여 등록하세요.
-                    {% endif %}
+                <div class="position-absolute top-50 end-0 translate-middle-y">
+                    <button class="btn btn-outline-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#timetableModal">
+                        <i class="bi bi-calendar3"></i> 시간표 확인
+                    </button>
                 </div>
-            {% endif %}
-        </div>
-    </div>
 
-    <!-- 좌석 배치 구역 -->
-    <div class="card shadow-lg border-0 rounded-5 overflow-hidden mb-5 bg-light">
-        <div class="card-body p-0">
-            <div class="seat-layout py-5" id="seat-container">
-                <div class="entrance">문 (입구)</div>
-                
-                {% for seat in seats %}
-                    <div id="seat-wrapper-{{ seat.number }}" class="seat-wrapper seat-pos-{{ seat.number }}">
-                        <div class="seat {% if seat.user == user %}my-seat{% elif seat.user %}occupied{% else %}empty{% endif %}" 
-                             {% if seat.user %}onclick="toggleSeatView(this)"{% elif not user_seat or user.is_superuser %}onclick="registerSeat({{ seat.number }})"{% endif %}>
-                            
-                            <span class="seat-number">{{ seat.number }}</span>
-                            
-                            <div class="seat-info">
-                                {% if seat.user %}
-                                    <div class="display-name">{{ seat.user.name|default:seat.user.student_id }}</div>
-                                    <div class="display-times" style="display: none;">
-                                        <div class="d-block">입: {{ seat.attendance_entry_time|date:"A g:i"|default:"--" }}</div>
-                                        <div class="d-block">퇴: {{ seat.attendance_exit_time|date:"A g:i"|default:"--" }}</div>
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                            {% if user.is_superuser and seat.user %}
-                                <button class="admin-clear-btn" onclick="event.stopPropagation(); if(confirm('{{ seat.user.username }}의 좌석을 비우시겠습니까?')) location.href='{% url 'seats-admin-clear' seat.number %}'">×</button>
+                <div id="user-status-msg">
+                    {% if user.is_authenticated %}
+                        <div class="alert {% if user_seat %}alert-warning border-warning{% else %}alert-info{% endif %} d-inline-block px-4 py-2 shadow-sm rounded-pill">
+                            {% if user_seat %}
+                                <strong>{{ user.name|default:user.student_id }}</strong>님의 배정 좌석: <strong>{{ user_seat.number }}번</strong>
+                            {% else %}
+                                아직 배정된 좌석이 없습니다. 빈 좌석을 클릭해서 등록하세요.
                             {% endif %}
                         </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-lg border-0 rounded-5 mb-5 bg-light seat-board-card">
+                <div class="card-body p-0">
+                    <div class="seat-layout-stage py-5">
+                        <div class="seat-layout" id="seat-container">
+                            <div class="entrance">문 (입구)</div>
+
+                            {% for seat in seats %}
+                                <div id="seat-wrapper-{{ seat.number }}" class="seat-wrapper seat-pos-{{ seat.number }}">
+                                    <div class="seat {% if not seat.user %}empty{% elif seat.attendance_entry_time and seat.attendance_exit_time %}status-checked-out{% elif seat.attendance_entry_time %}status-present{% else %}status-absent{% endif %}{% if seat.user == user %} my-seat{% endif %}"
+                                         data-seat-number="{{ seat.number }}"
+                                         {% if seat.user %}onclick="toggleSeatView(this)"{% elif not user_seat or user.is_superuser %}onclick="registerSeat({{ seat.number }})"{% endif %}>
+
+                                        {% if not seat.user %}
+                                            <span class="seat-number">{{ seat.number }}</span>
+                                        {% endif %}
+
+                                        <div class="seat-info">
+                                            {% if seat.user %}
+                                                <div class="display-name">{{ seat.user.name|default:seat.user.student_id }}</div>
+                                                {% if not seat.attendance_entry_time %}
+                                                    <div class="attendance-badge-stack">
+                                                        {% for label in seat.attendance_labels %}
+                                                            <div class="attendance-badge">{{ label }}</div>
+                                                        {% empty %}
+                                                            <div class="attendance-badge">미출첵</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                                <div class="display-times" style="display: none;">
+                                                    <div class="d-block">입실 {{ seat.attendance_entry_time|date:"A g:i"|default:"--" }}</div>
+                                                    <div class="d-block">퇴실 {{ seat.attendance_exit_time|date:"A g:i"|default:"--" }}</div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+
+                                        {% if user.is_superuser and seat.user %}
+                                            <button class="admin-clear-btn" onclick="event.stopPropagation(); if(confirm('{{ seat.user.username }}의 좌석을 비우시겠습니까?')) location.href='{% url 'seats-admin-clear' seat.number %}'">×</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
                     </div>
-                {% endfor %}
+                </div>
+            </div>
+
+            <div class="seat-legend-wrap pb-5">
+                <div class="d-flex justify-content-center gap-4 text-muted small flex-wrap">
+                    <div class="d-flex align-items-center"><div class="legend-box empty-box me-2"></div>빈 좌석</div>
+                    <div class="d-flex align-items-center"><div class="legend-box present-box me-2"></div>출석 중</div>
+                    <div class="d-flex align-items-center"><div class="legend-box checked-out-box me-2"></div>퇴실 완료</div>
+                    <div class="d-flex align-items-center"><div class="legend-box absent-box me-2"></div>미출석</div>
+                    <div class="d-flex align-items-center"><div class="legend-box my-box me-2"></div>내 좌석</div>
+                </div>
             </div>
         </div>
-    </div>
-
-    <!-- 범례 -->
-    <div class="d-flex justify-content-center gap-4 text-muted small pb-5">
-        <div class="d-flex align-items-center"><div class="legend-box empty-box me-2"></div> 빈 좌석</div>
-        <div class="d-flex align-items-center"><div class="legend-box occupied-box me-2"></div> 사용 중</div>
-        <div class="d-flex align-items-center"><div class="legend-box my-box me-2"></div> 내 좌석</div>
     </div>
 </div>
 
-<!-- 시간표 모달 -->
 <div class="modal fade" id="timetableModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 rounded-4 shadow">
-            <div class="modal-header border-0 pb-0 bg-primary text-white p-4">
-                <h5 class="modal-title fw-bold">컴퓨터정보과 강의시간표 (2026학년 1학기)</h5>
+            <div class="modal-header border-0 pb-0 {% if user.class_group == 'B' %}bg-success{% else %}bg-primary{% endif %} text-white p-4">
+                <h5 class="modal-title fw-bold">
+                    {% if user.class_group == 'A' %}
+                        2학년 A반 강의시간표 (2026학년 1학기)
+                    {% elif user.class_group == 'B' %}
+                        2학년 B반 강의시간표 (2026학년 1학기)
+                    {% else %}
+                        강의시간표
+                    {% endif %}
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 bg-light">
-                
-                <!-- A반 시간표 -->
-                <div class="mb-5">
-                    <h5 class="fw-bold mb-3 border-start border-4 border-primary ps-3 text-primary">2학년 A반 시간표 (10:00 시작)</h5>
+                {% if user.class_group == 'A' %}
+                    <h5 class="fw-bold mb-3 border-start border-4 border-primary ps-3 text-primary">A반 시간표</h5>
                     <div class="table-responsive rounded-3 shadow-sm bg-white">
                         <table class="table table-bordered text-center mb-0 timetable-table">
                             <thead class="table-primary small">
                                 <tr>
-                                    <th style="width: 100px;">교시 (시간)</th>
+                                    <th style="width: 110px;">교시</th>
                                     <th>월</th>
                                     <th>화</th>
                                     <th>수</th>
@@ -97,56 +123,24 @@
                                 </tr>
                             </thead>
                             <tbody class="small">
-                                <tr><td>1 (09:00)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
-                                <tr>
-                                    <td>2 (10:00)</td>
-                                    <td rowspan="3" class="bg-blue-subtle">데이터베이스<br><small>(한종진/2411)</small></td>
-                                    <td rowspan="3" class="bg-blue-subtle">데이터베이스<br><small>(한종진/2411)</small></td>
-                                    <td rowspan="3" class="bg-green-subtle">객체지향프로그래밍<br><small>(이훈주/2411)</small></td>
-                                    <td rowspan="4" class="bg-purple-subtle">AI프롬프트엔지니어링<br><small>(최미란/2411)</small></td>
-                                    <td rowspan="3" class="bg-green-subtle">객체지향프로그래밍<br><small>(이훈주/2411)</small></td>
-                                </tr>
-                                <tr><td>3 (11:00)</td></tr>
-                                <tr><td>4 (12:00)</td></tr>
-                                <tr>
-                                    <td>5 (13:00)</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td rowspan="2" class="bg-yellow-subtle">캡스톤디자인<br><small>(장진수/2409)</small></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>6 (14:00)</td>
-                                    <td rowspan="3" class="bg-orange-subtle">디지털포렌식<br><small>(이성원/2408)</small></td>
-                                    <td rowspan="3" class="bg-red-subtle">해킹 및 침해대응<br><small>(이성원/2412)</small></td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>7 (15:00)</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td rowspan="2" class="bg-teal-subtle">취업과창업<br><small>(최미란/2412)</small></td>
-                                </tr>
-                                <tr>
-                                    <td>8 (16:00)</td>
-                                    <td></td>
-                                    <td class="bg-light-subtle">함께하는 여행<br><small>(박민식/2410)</small></td>
-                                    <td></td>
-                                </tr>
+                                <tr><td>1 (09:00 ~ 09:50)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+                                <tr><td>2 (10:00 ~ 10:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td></tr>
+                                <tr><td>3 (11:00 ~ 11:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td></tr>
+                                <tr><td>4 (12:00 ~ 12:50)</td><td>-</td><td>-</td><td>-</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>-</td></tr>
+                                <tr><td>5 (13:00 ~ 13:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>캡스톤디자인<br><small>장진수 / 2412</small></td><td>-</td><td>-</td></tr>
+                                <tr><td>6 (14:00 ~ 14:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>캡스톤디자인<br><small>장진수 / 2412</small></td><td>-</td><td>-</td></tr>
+                                <tr><td>7 (15:00 ~ 15:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                                <tr><td>8 (16:00 ~ 16:50)</td><td>-</td><td>함께하는 여행<br><small>박한규 / 2409</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                <!-- B반 시간표 -->
-                <div>
-                    <h5 class="fw-bold mb-3 border-start border-4 border-success ps-3 text-success">2학년 B반 시간표 (10:00 시작)</h5>
+                {% elif user.class_group == 'B' %}
+                    <h5 class="fw-bold mb-3 border-start border-4 border-success ps-3 text-success">B반 시간표</h5>
                     <div class="table-responsive rounded-3 shadow-sm bg-white">
                         <table class="table table-bordered text-center mb-0 timetable-table">
                             <thead class="table-success small">
                                 <tr>
-                                    <th style="width: 100px;">교시 (시간)</th>
+                                    <th style="width: 110px;">교시</th>
                                     <th>월</th>
                                     <th>화</th>
                                     <th>수</th>
@@ -155,48 +149,72 @@
                                 </tr>
                             </thead>
                             <tbody class="small">
-                                <tr><td>1 (09:00)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
-                                <tr>
-                                    <td>2 (10:00)</td>
-                                    <td rowspan="3" class="bg-purple-subtle">AI프롬프트엔지니어링<br><small>(최미란/2408)</small></td>
-                                    <td rowspan="3" class="bg-cyan-subtle">모바일프로그래밍<br><small>(최대림/2408)</small></td>
-                                    <td rowspan="3" class="bg-pink-subtle">JAVA프로그래밍 실무<br><small>(권숙연/2408)</small></td>
-                                    <td></td>
-                                    <td rowspan="3" class="bg-indigo-subtle">웹프로그래밍 실무<br><small>(김석진/2408)</small></td>
-                                </tr>
-                                <tr><td>3 (11:00)</td></tr>
-                                <tr><td>4 (12:00)</td></tr>
-                                <tr>
-                                    <td>5 (13:00)</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td rowspan="2" class="bg-yellow-subtle">캡스톤디자인<br><small>(권숙연/2412)</small></td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>6 (14:00)</td>
-                                    <td rowspan="3" class="bg-blue-subtle">데이터베이스<br><small>(한종진/2411)</small></td>
-                                    <td rowspan="3" class="bg-blue-subtle">데이터베이스<br><small>(한종진/2411)</small></td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>7 (15:00)</td>
-                                    <td rowspan="2" class="bg-pink-subtle">JAVA프로그래밍 실무<br><small>(권숙연/2408)</small></td>
-                                    <td class="bg-teal-subtle">취업과창업<br><small>(최미란/2412)</small></td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>8 (16:00)</td>
-                                    <td class="bg-light-subtle">함께하는 여행<br><small>(박민식/2410)</small></td>
-                                    <td></td>
-                                </tr>
+                                <tr><td>1 (09:00 ~ 09:50)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+                                <tr><td>2 (10:00 ~ 10:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>3 (11:00 ~ 11:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>4 (12:00 ~ 12:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>-</td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>5 (13:00 ~ 13:50)</td><td>-</td><td>-</td><td>캡스톤디자인<br><small>권숙연 / 2412</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td></tr>
+                                <tr><td>6 (14:00 ~ 14:50)</td><td>-</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>캡스톤디자인<br><small>권숙연 / 2412</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td></tr>
+                                <tr><td>7 (15:00 ~ 15:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                                <tr><td>8 (16:00 ~ 16:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>함께하는 여행<br><small>박한규 / 2409</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-
+                {% else %}
+                    <div class="alert alert-secondary mb-4">
+                        반 정보가 없어도 전체 시간표는 볼 수 있습니다. 반을 설정하면 해당 반 시간표를 먼저 보여드립니다.
+                    </div>
+                    <h5 class="fw-bold mb-3 border-start border-4 border-primary ps-3 text-primary">A반 시간표</h5>
+                    <div class="table-responsive rounded-3 shadow-sm bg-white mb-4">
+                        <table class="table table-bordered text-center mb-0 timetable-table">
+                            <thead class="table-primary small">
+                                <tr>
+                                    <th style="width: 110px;">교시</th>
+                                    <th>월</th>
+                                    <th>화</th>
+                                    <th>수</th>
+                                    <th>목</th>
+                                    <th>금</th>
+                                </tr>
+                            </thead>
+                            <tbody class="small">
+                                <tr><td>1 (09:00 ~ 09:50)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+                                <tr><td>2 (10:00 ~ 10:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td></tr>
+                                <tr><td>3 (11:00 ~ 11:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>객체지향프로그래밍<br><small>이훈주 / 2411</small></td></tr>
+                                <tr><td>4 (12:00 ~ 12:50)</td><td>-</td><td>-</td><td>-</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2411</small></td><td>-</td></tr>
+                                <tr><td>5 (13:00 ~ 13:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>캡스톤디자인<br><small>장진수 / 2412</small></td><td>-</td><td>-</td></tr>
+                                <tr><td>6 (14:00 ~ 14:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>캡스톤디자인<br><small>장진수 / 2412</small></td><td>-</td><td>-</td></tr>
+                                <tr><td>7 (15:00 ~ 15:50)</td><td>디지털포렌식<br><small>이성원 / 2408</small></td><td>해킹 및 침해대응<br><small>이성원 / 2412</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                                <tr><td>8 (16:00 ~ 16:50)</td><td>-</td><td>함께하는 여행<br><small>박한규 / 2409</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h5 class="fw-bold mb-3 border-start border-4 border-success ps-3 text-success">B반 시간표</h5>
+                    <div class="table-responsive rounded-3 shadow-sm bg-white">
+                        <table class="table table-bordered text-center mb-0 timetable-table">
+                            <thead class="table-success small">
+                                <tr>
+                                    <th style="width: 110px;">교시</th>
+                                    <th>월</th>
+                                    <th>화</th>
+                                    <th>수</th>
+                                    <th>목</th>
+                                    <th>금</th>
+                                </tr>
+                            </thead>
+                            <tbody class="small">
+                                <tr><td>1 (09:00 ~ 09:50)</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+                                <tr><td>2 (10:00 ~ 10:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>3 (11:00 ~ 11:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>4 (12:00 ~ 12:50)</td><td>AI프롬프트엔지니어링<br><small>최미란 / 2408</small></td><td>모바일프로그래밍<br><small>최대림 / 2408</small></td><td>-</td><td>-</td><td>웹프로그래밍 실무<br><small>김석진 / 2408</small></td></tr>
+                                <tr><td>5 (13:00 ~ 13:50)</td><td>-</td><td>-</td><td>캡스톤디자인<br><small>권숙연 / 2412</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td></tr>
+                                <tr><td>6 (14:00 ~ 14:50)</td><td>-</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>캡스톤디자인<br><small>권숙연 / 2412</small></td><td>JAVA프로그래밍 실무<br><small>권숙연 / 2408</small></td><td>-</td></tr>
+                                <tr><td>7 (15:00 ~ 15:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                                <tr><td>8 (16:00 ~ 16:50)</td><td>데이터베이스<br><small>한종진 / 2411</small></td><td>함께하는 여행<br><small>박한규 / 2409</small></td><td>-</td><td>취업과창업<br><small>최미란 / 2408</small></td><td>-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
             </div>
             <div class="modal-footer border-0 justify-content-center pb-4">
                 <button type="button" class="btn btn-secondary rounded-pill px-5" data-bs-dismiss="modal">닫기</button>
@@ -206,7 +224,59 @@
 </div>
 
 <style>
-    /* 색상 테마 */
+    body {
+        overflow-x: auto;
+    }
+
+    .site-main {
+        overflow-x: auto;
+    }
+
+    .content-card {
+        overflow-x: auto;
+    }
+
+    .seats-page-shell {
+        display: block;
+        width: 100%;
+        overflow-x: visible;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+    }
+
+    .seats-page-canvas {
+        width: min(1160px, 100%);
+        max-width: 100%;
+        margin: 0 auto;
+        font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+    }
+
+    .seat-board-card {
+        overflow: visible;
+    }
+
+    .seat-layout-stage {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    :root {
+        --seat-accent-orange: #ff6f0f;
+        --seat-accent-orange-soft: #fff2e8;
+        --seat-accent-blue: #2f6fda;
+        --seat-accent-blue-soft: #eef5ff;
+        --seat-accent-green: #1f8f4d;
+        --seat-accent-green-soft: #eaf7ef;
+        --seat-accent-pink: #d14e8f;
+        --seat-accent-pink-soft: #fff1f7;
+        --seat-accent-amber: #d97706;
+        --seat-accent-amber-soft: #fff4df;
+        --seat-accent-slate: #64748b;
+        --seat-accent-slate-soft: #f5f7fb;
+    }
+
     .bg-blue-subtle { background-color: #e7f5ff !important; }
     .bg-green-subtle { background-color: #ebfbee !important; }
     .bg-purple-subtle { background-color: #f3f0ff !important; }
@@ -219,14 +289,86 @@
     .bg-indigo-subtle { background-color: #edf2ff !important; }
     .bg-light-subtle { background-color: #f8f9fa !important; }
 
-    .timetable-table th, .timetable-table td {
+    .seat-legend-wrap {
+        min-width: fit-content;
+    }
+
+    .timetable-table {
+        --bs-table-bg: #fff;
+        table-layout: fixed;
+    }
+
+    .timetable-table th,
+    .timetable-table td {
         vertical-align: middle;
         height: 65px;
         border: 1px solid #dee2e6 !important;
+        padding: 10px 8px;
     }
 
-    /* 시간 보기 모드일 때 (JS로 클래스 부여) */
+    .timetable-table thead th {
+        background: linear-gradient(180deg, #fff7f1 0%, #fff 100%) !important;
+        color: #9a3412;
+        font-weight: 800;
+    }
+
+    .timetable-table tbody td:first-child {
+        background: #fbfcfe;
+        color: #64748b;
+        font-weight: 800;
+    }
+
+    .timetable-table td.timetable-course {
+        font-weight: 800;
+        border-color: #d9e2ef !important;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .timetable-table td.timetable-course small {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        opacity: 0.8;
+    }
+
+    .timetable-table td.timetable-empty {
+        background: #f8fafc;
+        color: #94a3b8;
+    }
+
+    .timetable-table td.tt-color-0 {
+        background: var(--seat-accent-orange-soft) !important;
+        color: #9a3412;
+    }
+
+    .timetable-table td.tt-color-1 {
+        background: var(--seat-accent-blue-soft) !important;
+        color: #1d4ed8;
+    }
+
+    .timetable-table td.tt-color-2 {
+        background: var(--seat-accent-green-soft) !important;
+        color: #166534;
+    }
+
+    .timetable-table td.tt-color-3 {
+        background: var(--seat-accent-pink-soft) !important;
+        color: #9d174d;
+    }
+
+    .timetable-table td.tt-color-4 {
+        background: var(--seat-accent-amber-soft) !important;
+        color: #92400e;
+    }
+
+    .timetable-table td.tt-color-5 {
+        background: var(--seat-accent-slate-soft) !important;
+        color: #334155;
+    }
+
     .view-time-mode .display-name { display: none !important; }
+    .view-time-mode .attendance-badge { display: none !important; }
     .view-time-mode .display-times { display: block !important; }
 
     .seat-layout {
@@ -235,11 +377,20 @@
         grid-template-rows: repeat(4, 115px);
         gap: 25px;
         justify-content: center;
+        width: 535px;
+        min-width: 535px;
     }
 
-    .seat-pos-1  { grid-area: 1 / 1; } .seat-pos-2  { grid-area: 2 / 1; } .seat-pos-3  { grid-area: 3 / 1; }
-    .seat-pos-4  { grid-area: 4 / 1; } .seat-pos-5  { grid-area: 4 / 2; } .seat-pos-6  { grid-area: 4 / 3; }
-    .seat-pos-7  { grid-area: 4 / 4; } .seat-pos-8  { grid-area: 3 / 4; } .seat-pos-9  { grid-area: 2 / 4; } .seat-pos-10 { grid-area: 1 / 4; }
+    .seat-pos-1  { grid-area: 1 / 1; }
+    .seat-pos-2  { grid-area: 2 / 1; }
+    .seat-pos-3  { grid-area: 3 / 1; }
+    .seat-pos-4  { grid-area: 4 / 1; }
+    .seat-pos-5  { grid-area: 4 / 2; }
+    .seat-pos-6  { grid-area: 4 / 3; }
+    .seat-pos-7  { grid-area: 4 / 4; }
+    .seat-pos-8  { grid-area: 3 / 4; }
+    .seat-pos-9  { grid-area: 2 / 4; }
+    .seat-pos-10 { grid-area: 1 / 4; }
 
     .entrance {
         grid-area: 1 / 2 / 2 / 4;
@@ -251,6 +402,11 @@
         border-radius: 12px;
         font-weight: bold;
         color: #adb5bd;
+    }
+
+    .seat-wrapper {
+        width: 115px;
+        height: 115px;
     }
 
     .seat {
@@ -268,18 +424,69 @@
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
+        text-align: center;
     }
 
-    .seat:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .seat-number { font-size: 1.5rem; color: #495057; line-height: 1; margin-bottom: 5px; }
-    .display-name { font-size: 0.9rem; font-weight: 600; animation: fadeIn 0.3s; }
-    .display-times { font-size: 0.9rem; line-height: 1.2; color: inherit; animation: fadeIn 0.3s; font-weight: 600; }
+    .seat:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    .seat-number {
+        font-size: 1.5rem;
+        color: #495057;
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+
+    .seat-info {
+        width: 100%;
+        padding: 0 8px;
+    }
+
+    .display-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        animation: fadeIn 0.3s;
+        word-break: keep-all;
+    }
+
+    .display-times {
+        font-size: 0.9rem;
+        line-height: 1.2;
+        color: inherit;
+        animation: fadeIn 0.3s;
+        font-weight: 600;
+    }
+
+    .attendance-badge-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        margin-top: 4px;
+    }
+
+    .attendance-badge {
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        background-color: rgba(255, 255, 255, 0.14);
+        color: inherit;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(3px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
     .empty { color: #dee2e6; border-color: #f8f9fa; }
-    .occupied { background-color: #e7f5ff; border-color: #339af0; color: #1c7ed6; }
-    .my-seat { background-color: #fff9db; border-color: #fab005; color: #e67700; box-shadow: 0 0 15px rgba(250, 176, 5, 0.3); animation: pulse-gold 2s infinite; }
+    .status-present { background-color: #dcff9f; border-color: #78c43b; color: #356b0f; }
+    .status-checked-out { background-color: #edf7ed; border-color: #51cf66; color: #2b8a3e; }
+    .status-absent { background-color: #343a40; border-color: #495057; color: #f8f9fa; }
+    .my-seat { box-shadow: 0 0 15px rgba(250, 176, 5, 0.35); animation: pulse-gold 2s infinite; }
 
     .admin-clear-btn {
         position: absolute;
@@ -300,7 +507,9 @@
 
     .legend-box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #dee2e6; }
     .empty-box { background-color: #ffffff; }
-    .occupied-box { background-color: #e7f5ff; border-color: #339af0; }
+    .present-box { background-color: #dcff9f; border-color: #78c43b; }
+    .checked-out-box { background-color: #edf7ed; border-color: #51cf66; }
+    .absent-box { background-color: #343a40; border-color: #495057; }
     .my-box { background-color: #fff9db; border-color: #fab005; }
 
     @keyframes pulse-gold {
@@ -308,9 +517,206 @@
         50% { box-shadow: 0 0 25px rgba(250, 176, 5, 0.5); }
         100% { box-shadow: 0 0 10px rgba(250, 176, 5, 0.3); }
     }
+
+    @media (max-width: 760px) {
+        .site-main {
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .content-card {
+            padding-left: 0;
+            padding-right: 0;
+            border-left: none;
+            border-right: none;
+            border-radius: 0;
+        }
+
+        .container.mt-5 {
+            margin-top: 1.5rem !important;
+        }
+
+        .text-center.mb-5.position-relative {
+            margin-bottom: 1.75rem !important;
+        }
+
+        .text-center.mb-5.position-relative .position-absolute {
+            position: static !important;
+            transform: none !important;
+            margin-top: 14px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .text-center.mb-5.position-relative .btn {
+            width: 100%;
+            max-width: 220px;
+        }
+
+        .seats-page-shell {
+            padding: 0 12px 20px;
+        }
+
+        .seats-page-canvas {
+            width: 100%;
+        }
+
+        .seat-board-card .card-body {
+            padding: 18px 10px 12px !important;
+        }
+
+        .seat-layout-stage {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        .seat-layout {
+            width: 100%;
+            min-width: 0;
+            max-width: 420px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-rows: repeat(4, auto);
+            gap: 10px;
+        }
+
+        .seat-wrapper {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+        }
+
+        .entrance {
+            min-height: 72px;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            padding: 0 8px;
+        }
+
+        .seat {
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            border-width: 2px;
+        }
+
+        .seat-number {
+            font-size: 1.2rem;
+        }
+
+        .seat-info {
+            padding: 0 6px;
+        }
+
+        .display-name {
+            font-size: 0.76rem;
+            line-height: 1.2;
+        }
+
+        .display-times {
+            font-size: 0.68rem;
+            line-height: 1.2;
+        }
+
+        .attendance-badge-stack {
+            gap: 3px;
+            margin-top: 3px;
+        }
+
+        .attendance-badge {
+            padding: 2px 6px;
+            font-size: 0.6rem;
+        }
+
+        .seat-legend-wrap .d-flex {
+            gap: 10px !important;
+            justify-content: center;
+        }
+    }
 </style>
 
 <script>
+    function applyTimetableStyles() {
+        document.querySelectorAll(".timetable-table").forEach(function (table) {
+            var rows = Array.from(table.querySelectorAll("tbody tr"));
+            if (!rows.length) return;
+
+            var colorMap = {};
+            var nextColorIndex = 0;
+            var colorClassCount = 6;
+
+            function getSubjectKey(cell) {
+                return (cell.innerHTML || "").trim();
+            }
+
+            function getDisplayKey(cell) {
+                return (cell.textContent || "").replace(/\s+/g, " ").trim();
+            }
+
+            function getColorClass(displayKey) {
+                if (!displayKey || displayKey === "-") return "";
+                if (!colorMap[displayKey]) {
+                    colorMap[displayKey] = "tt-color-" + (nextColorIndex % colorClassCount);
+                    nextColorIndex += 1;
+                }
+                return colorMap[displayKey];
+            }
+
+            rows.forEach(function (row) {
+                Array.from(row.cells).forEach(function (cell, index) {
+                    if (index === 0) return;
+                    var displayKey = getDisplayKey(cell);
+                    if (!displayKey || displayKey === "-") {
+                        cell.classList.add("timetable-empty");
+                        return;
+                    }
+                    cell.classList.add("timetable-course");
+                    var colorClass = getColorClass(displayKey);
+                    if (colorClass) cell.classList.add(colorClass);
+                });
+            });
+
+            for (var columnIndex = 1; columnIndex <= 5; columnIndex += 1) {
+                var anchorCell = null;
+                var anchorKey = "";
+                var spanCount = 1;
+
+                rows.forEach(function (row, rowIndex) {
+                    var cell = row.cells[columnIndex];
+                    if (!cell) return;
+
+                    var currentKey = getSubjectKey(cell);
+                    var currentDisplay = getDisplayKey(cell);
+                    var shouldMerge = currentDisplay && currentDisplay !== "-" && currentKey === anchorKey;
+
+                    if (shouldMerge) {
+                        spanCount += 1;
+                        anchorCell.rowSpan = spanCount;
+                        cell.style.display = "none";
+                    } else {
+                        anchorCell = cell;
+                        anchorKey = currentKey;
+                        spanCount = 1;
+                    }
+
+                    if (rowIndex === rows.length - 1 && anchorCell && spanCount > 1) {
+                        anchorCell.classList.add("timetable-merged");
+                    }
+                });
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        applyTimetableStyles();
+
+        var timetableModal = document.getElementById("timetableModal");
+        if (timetableModal) {
+            timetableModal.addEventListener("shown.bs.modal", function () {
+                window.setTimeout(applyTimetableStyles, 0);
+            });
+        }
+    });
+
     const API_STATUS_URL = "{% url 'seat-status-api' %}";
     const API_VERSION_URL = "{% url 'seat-version-api' %}";
     const IS_SUPERUSER = {{ user.is_superuser|yesno:"true,false" }};
@@ -322,15 +728,14 @@
     let seatViewStates = {};
 
     function toggleSeatView(element) {
-        // 목표/계획 페이지 이동 제거 및 이름/시간 토글 기능만 유지
-        const seatNum = element.querySelector('.seat-number').textContent;
-        const isTimeMode = element.classList.toggle('view-time-mode');
-        seatViewStates[seatNum] = isTimeMode ? 'time' : 'name';
+        const seatNum = element.dataset.seatNumber;
+        const isTimeMode = element.classList.toggle("view-time-mode");
+        seatViewStates[seatNum] = isTimeMode ? "time" : "name";
     }
 
     function registerSeat(num) {
-        if(confirm(num + '번 좌석으로 이동/등록하시겠습니까?')) {
-            location.href = REGISTER_BASE_URL + num + '/';
+        if (confirm(num + "번 좌석으로 이동/등록하시겠습니까?")) {
+            location.href = REGISTER_BASE_URL + num + "/";
         }
     }
 
@@ -340,41 +745,58 @@
         try {
             const response = await fetch(API_STATUS_URL);
             const data = await response.json();
-            data.seats.forEach(seat => {
+            data.seats.forEach((seat) => {
                 const wrapper = document.getElementById(`seat-wrapper-${seat.number}`);
                 if (!wrapper) return;
-                const currentModeClass = (seatViewStates[seat.number] === 'time') ? 'view-time-mode' : '';
+                const currentModeClass = seatViewStates[seat.number] === "time" ? "view-time-mode" : "";
                 let classes = `seat ${currentModeClass}`;
-                let innerHTML = `<span class="seat-number">${seat.number}</span>`;
+                let innerHTML = "";
                 let clickAction = "";
-                if (seat.is_mine) {
-                    classes += " my-seat";
-                    clickAction = `onclick="toggleSeatView(this)"`;
-                } else if (seat.is_occupied) {
-                    classes += " occupied";
-                    clickAction = `onclick="toggleSeatView(this)"`;
+                if (seat.is_occupied) {
+                    if (seat.attendance_status === "checked_out") {
+                        classes += " status-checked-out";
+                    } else if (seat.attendance_status === "present") {
+                        classes += " status-present";
+                    } else {
+                        classes += " status-absent";
+                    }
+                    if (seat.is_mine) {
+                        classes += " my-seat";
+                    }
+                    clickAction = 'onclick="toggleSeatView(this)"';
                 } else {
                     classes += " empty";
+                    innerHTML = `<span class="seat-number">${seat.number}</span>`;
                     {% if not user_seat or user.is_superuser %}
                         clickAction = `onclick="registerSeat(${seat.number})"`;
                     {% endif %}
                 }
-                innerHTML += `<div class="seat-info">`;
+                innerHTML += '<div class="seat-info">';
                 if (seat.user_name) {
                     innerHTML += `<div class="display-name">${seat.user_name}</div>`;
-                    innerHTML += `<div class="display-times" style="display: ${seatViewStates[seat.number] === 'time' ? 'block' : 'none'};">`;
-                    innerHTML += `<div class="d-block">입: ${seat.entry_time || '--'}</div>`;
-                    innerHTML += `<div class="d-block">퇴: ${seat.exit_time || '--'}</div>`;
-                    innerHTML += `</div>`;
+                    if (seat.attendance_status === "absent") {
+                        const labels = Array.isArray(seat.attendance_labels) && seat.attendance_labels.length
+                            ? seat.attendance_labels
+                            : ["미출첵"];
+                        innerHTML += '<div class="attendance-badge-stack">';
+                        labels.forEach((label) => {
+                            innerHTML += `<div class="attendance-badge">${label}</div>`;
+                        });
+                        innerHTML += "</div>";
+                    }
+                    innerHTML += `<div class="display-times" style="display: ${seatViewStates[seat.number] === "time" ? "block" : "none"};">`;
+                    innerHTML += `<div class="d-block">입실 ${seat.entry_time || "--"}</div>`;
+                    innerHTML += `<div class="d-block">퇴실 ${seat.exit_time || "--"}</div>`;
+                    innerHTML += "</div>";
                 }
-                innerHTML += `</div>`;
+                innerHTML += "</div>";
                 if (IS_SUPERUSER && seat.is_occupied) {
                     innerHTML += `<button class="admin-clear-btn" onclick="event.stopPropagation(); if(confirm('${seat.user_name}의 좌석을 비우시겠습니까?')) location.href='${CLEAR_BASE_URL}${seat.number}/'">×</button>`;
                 }
-                wrapper.innerHTML = `<div class="${classes}" ${clickAction}>${innerHTML}</div>`;
+                wrapper.innerHTML = `<div class="${classes}" data-seat-number="${seat.number}" ${clickAction}>${innerHTML}</div>`;
             });
         } catch (error) {
-            console.error("실시간 갱신 오류:", error);
+            console.error("실시간 좌석 갱신 오류:", error);
         } finally {
             isRequesting = false;
         }
@@ -389,11 +811,13 @@
                 await refreshSeatData();
             }
         } catch (error) {
-            console.error("버전 체크 오류:", error);
+            console.error("좌석 버전 체크 오류:", error);
         }
     }
+
     setInterval(checkDataVersion, 10000);
     checkDataVersion();
+
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) checkDataVersion();
     });
