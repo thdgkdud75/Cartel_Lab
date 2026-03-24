@@ -1,10 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { registerPushToken } from './src/api/client';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import TimetableScreen from './src/screens/TimetableScreen';
+
+async function registerForPushNotifications() {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'default',
+    });
+  }
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  let finalStatus = existing;
+  if (existing !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') return null;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    return tokenData.data;
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
   const [token, setToken] = useState(null);
@@ -15,9 +40,27 @@ export default function App() {
 
   useEffect(() => {
     AsyncStorage.multiGet(['token', 'name', 'is_staff']).then(([[, t], [, n], [, s]]) => {
-      if (t) { setToken(t); setName(n || ''); setIsStaff(s === 'true'); }
+      if (t) {
+        setToken(t);
+        setName(n || '');
+        setIsStaff(s === 'true');
+        registerForPushNotifications().then(pushToken => {
+          if (pushToken) registerPushToken(pushToken).catch(() => {});
+        });
+      }
       setLoading(false);
     });
+  }, []);
+
+  // 알림 탭 시 출결 탭으로 이동
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const type = response.notification.request.content.data?.type;
+      if (type === 'checkout_approval_request' || type === 'checkout_reminder') {
+        setTab('attendance');
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   if (loading) {
@@ -31,6 +74,10 @@ export default function App() {
   if (!token) {
     return <LoginScreen onLogin={(t, n, staff) => {
       setToken(t); setName(n); setIsStaff(staff);
+      // 로그인 직후 푸시 토큰 등록
+      registerForPushNotifications().then(pushToken => {
+        if (pushToken) registerPushToken(pushToken).catch(() => {});
+      });
     }} />;
   }
 

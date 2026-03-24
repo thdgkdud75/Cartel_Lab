@@ -68,6 +68,7 @@ class User(AbstractUser):
     daily_analysis_count = models.PositiveSmallIntegerField("일일 분석 횟수", default=0)
     daily_analysis_date = models.DateField("분석 횟수 기준일", null=True, blank=True)
     deletion_scheduled_at = models.DateTimeField("삭제 예정 일시", null=True, blank=True)
+    expo_push_token = models.CharField("Expo 푸시 토큰", max_length=200, blank=True, default="")
 
     objects = UserManager()
 
