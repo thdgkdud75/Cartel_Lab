@@ -196,10 +196,11 @@ function handleCheckInAction(btn, url, originalText, loadingText) {
                 showMessage(data.status, data.message);
                 if (data.status === 'success') {
                     if (typeof htmx !== 'undefined') htmx.trigger('#attendanceList', 'load');
-                    setTimeout(() => window.location.reload(), 1500);
+                    showDailyGoalModal(() => window.location.reload());
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
                 }
-                btn.disabled = false;
-                btn.textContent = originalText;
             })
             .catch(() => {
                 showMessage('error', '서버 통신 중 오류가 발생했습니다.');
@@ -214,6 +215,39 @@ function handleCheckInAction(btn, url, originalText, loadingText) {
             btn.textContent = originalText;
         }
     );
+}
+
+function showDailyGoalModal(onClose) {
+    const modal = document.getElementById('dailyGoalModal');
+    if (!modal) { onClose(); return; }
+    modal.style.display = 'flex';
+
+    const submitBtn = document.getElementById('dailyGoalSubmit');
+    const skipBtn = document.getElementById('dailyGoalSkip');
+    const input = document.getElementById('dailyGoalInput');
+
+    function close() {
+        modal.style.display = 'none';
+        onClose();
+    }
+
+    skipBtn.onclick = close;
+
+    submitBtn.onclick = function() {
+        const content = (input.value || '').trim();
+        if (!content) { close(); return; }
+        fetch(dailyGoalUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ content }),
+        }).finally(close);
+    };
+
+    input.focus();
+    input.onkeydown = function(e) {
+        if (e.key === 'Enter') submitBtn.click();
+        if (e.key === 'Escape') close();
+    };
 }
 
 function handleCheckOutAction(btn, url, originalText, loadingText) {

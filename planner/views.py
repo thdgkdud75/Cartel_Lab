@@ -22,7 +22,10 @@ from .google_calendar import (
     token_expiry_from_seconds,
     update_goal_event,
 )
-from .models import DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from .models import DailyGoal, DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
 
 
 def _week_start_from_input(raw_date):
@@ -1049,5 +1052,121 @@ def google_calendar_disconnect(request):
     GoogleCalendarCredential.objects.filter(user=request.user).delete()
     messages.success(request, "Google Calendar ?곌껐???댁젣?덉뒿?덈떎.")
     return _planner_plan_redirect_for_date(timezone.localdate())
+
+
+def _get_planner_user(request):
+    """세션 또는 Token 인증 모두 지원"""
+    if request.user.is_authenticated:
+        return request.user
+    auth = request.META.get('HTTP_AUTHORIZATION', '')
+    if auth.startswith('Token '):
+        from rest_framework.authtoken.models import Token
+        try:
+            return Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
+        except Token.DoesNotExist:
+            pass
+    return None
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def api_daily_goal(request):
+    """오늘 하루 목표 조회/등록 (앱+웹 공용)"""
+    import json as _json
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+
+    if request.method == "GET":
+        goal = DailyGoal.objects.filter(user=user, date=today).first()
+        if goal:
+            return JsonResponse({
+                "id": goal.id,
+                "date": goal.date.isoformat(),
+                "content": goal.content,
+                "is_achieved": goal.is_achieved,
+            })
+        return JsonResponse({"id": None, "date": today.isoformat(), "content": None, "is_achieved": False})
+
+    # POST
+    try:
+        data = _json.loads(request.body)
+        content = (data.get("content") or "").strip()
+    except Exception:
+        content = (request.POST.get("content") or "").strip()
+
+    if not content:
+        return JsonResponse({"error": "목표 내용을 입력해주세요."}, status=400)
+
+    goal, created = DailyGoal.objects.update_or_create(
+        user=user,
+        date=today,
+        defaults={"content": content},
+    )
+    return JsonResponse({
+        "id": goal.id,
+        "date": goal.date.isoformat(),
+        "content": goal.content,
+        "is_achieved": goal.is_achieved,
+        "created": created,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_daily_goal_achieve(request):
+    """하루 목표 달성 토글 (앱+웹 공용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    goal = DailyGoal.objects.filter(user=user, date=today).first()
+    if not goal:
+        return JsonResponse({"error": "오늘 목표가 없습니다."}, status=404)
+
+    goal.is_achieved = not goal.is_achieved
+    goal.save(update_fields=["is_achieved"])
+    return JsonResponse({"is_achieved": goal.is_achieved})
+
+
+@csrf_exempt
+def api_weekly_achievement(request):
+    """주간 달성률 조회 (앱+웹 공용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    # 이번 주 월요일
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    goals = DailyGoal.objects.filter(user=user, date__range=(week_start, week_end))
+    total = goals.count()
+    achieved = goals.filter(is_achieved=True).count()
+
+    days = []
+    for i in range(7):
+        d = week_start + timedelta(days=i)
+        g = goals.filter(date=d).first()
+        days.append({
+            "date": d.isoformat(),
+            "weekday": ["월", "화", "수", "목", "금", "토", "일"][i],
+            "content": g.content if g else None,
+            "is_achieved": g.is_achieved if g else False,
+            "has_goal": g is not None,
+        })
+
+    return JsonResponse({
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "total": total,
+        "achieved": achieved,
+        "rate": round(achieved / total * 100) if total else 0,
+        "days": days,
+    })
 
 

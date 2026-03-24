@@ -11,18 +11,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import {
   approveCheckoutRequest,
+  achieveDailyGoal,
   checkIn,
   checkOut,
+  getDailyGoal,
   getMyStats,
   getProfileImage,
   getTodayStatus,
+  getWeeklyAchievement,
   listCheckoutRequests,
   rejectCheckoutRequest,
+  saveDailyGoal,
   submitCheckoutRequest,
   uploadProfileImage,
 } from '../api/client';
@@ -60,11 +65,20 @@ export default function AttendanceScreen({ name, onLogout }) {
   const [stats, setStats] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
 
+  // 하루 목표
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [todayGoal, setTodayGoal] = useState(null); // { id, content, is_achieved }
+  const [weeklyAchievement, setWeeklyAchievement] = useState(null);
+
   useEffect(() => {
     loadTodayStatus();
     loadPendingRequests();
     getMyStats().then(res => { if (res.streak !== undefined) setStats(res); }).catch(() => {});
     getProfileImage().then(res => { if (res.profile_image) setProfileImage(res.profile_image); }).catch(() => {});
+    getDailyGoal().then(res => { if (res.id) setTodayGoal(res); }).catch(() => {});
+    getWeeklyAchievement().then(res => { if (res.days) setWeeklyAchievement(res); }).catch(() => {});
     scheduleMorningReminder();
   }, []);
 
@@ -142,6 +156,7 @@ export default function AttendanceScreen({ name, onLogout }) {
         const now = new Date();
         setCheckInAt(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
         scheduleCheckoutReminder();
+        if (!todayGoal) setShowGoalModal(true);
       }
     } catch (e) {
       setMessage('오류: ' + e.message);
@@ -278,6 +293,35 @@ export default function AttendanceScreen({ name, onLogout }) {
     }
   };
 
+  const handleSaveGoal = async () => {
+    const content = goalInput.trim();
+    if (!content) { setShowGoalModal(false); return; }
+    setSavingGoal(true);
+    try {
+      const res = await saveDailyGoal(content);
+      if (res.id) {
+        setTodayGoal(res);
+        getWeeklyAchievement().then(r => { if (r.days) setWeeklyAchievement(r); }).catch(() => {});
+      }
+    } catch (e) {
+      Alert.alert('오류', e.message);
+    } finally {
+      setSavingGoal(false);
+      setGoalInput('');
+      setShowGoalModal(false);
+    }
+  };
+
+  const handleToggleAchieve = async () => {
+    try {
+      const res = await achieveDailyGoal();
+      setTodayGoal(prev => ({ ...prev, is_achieved: res.is_achieved }));
+      getWeeklyAchievement().then(r => { if (r.days) setWeeklyAchievement(r); }).catch(() => {});
+    } catch (e) {
+      Alert.alert('오류', e.message);
+    }
+  };
+
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['token', 'name']);
     onLogout();
@@ -396,6 +440,46 @@ export default function AttendanceScreen({ name, onLogout }) {
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
+      {/* 오늘 하루 목표 */}
+      {todayGoal ? (
+        <View style={styles.goalCard}>
+          <View style={styles.goalCardHeader}>
+            <Text style={styles.goalCardTitle}>🎯 오늘의 목표</Text>
+            <TouchableOpacity onPress={handleToggleAchieve}>
+              <Text style={todayGoal.is_achieved ? styles.achievedBadge : styles.unachievedBadge}>
+                {todayGoal.is_achieved ? '✓ 달성!' : '미달성'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.goalContent}>{todayGoal.content}</Text>
+        </View>
+      ) : attendance === 'checked_in' ? (
+        <TouchableOpacity style={styles.goalSetBtn} onPress={() => setShowGoalModal(true)}>
+          <Text style={styles.goalSetBtnText}>+ 오늘 목표 등록하기</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {/* 주간 달성률 */}
+      {weeklyAchievement && (
+        <View style={styles.weeklyCard}>
+          <Text style={styles.weeklyTitle}>이번 주 목표 달성률</Text>
+          <Text style={styles.weeklyRate}>{weeklyAchievement.rate}%</Text>
+          <Text style={styles.weeklySubText}>{weeklyAchievement.achieved}/{weeklyAchievement.total}개 달성</Text>
+          <View style={styles.weeklyDays}>
+            {weeklyAchievement.days.map(d => (
+              <View key={d.date} style={styles.weeklyDayCell}>
+                <View style={[
+                  styles.weeklyDot,
+                  d.is_achieved && styles.weeklyDotAchieved,
+                  d.has_goal && !d.is_achieved && styles.weeklyDotPending,
+                ]} />
+                <Text style={styles.weeklyDayLabel}>{d.weekday}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* 다른 사람 퇴실 승인 요청 */}
       {pendingRequests.length > 0 && (
         <View style={styles.approvalSection}>
@@ -428,6 +512,40 @@ export default function AttendanceScreen({ name, onLogout }) {
       <TouchableOpacity style={styles.testBtn} onPress={handleTestNotification}>
         <Text style={styles.testBtnText}>알림 테스트</Text>
       </TouchableOpacity>
+
+      {/* 하루 목표 입력 모달 */}
+      <Modal visible={showGoalModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+            <Text style={styles.modalTitle}>오늘의 목표 🎯</Text>
+            <Text style={styles.modalSub}>오늘 이루고 싶은 목표를 적어보세요.</Text>
+            <TextInput
+              style={styles.goalModalInput}
+              value={goalInput}
+              onChangeText={setGoalInput}
+              placeholder="예) 논문 3페이지 읽기"
+              maxLength={255}
+              autoFocus
+              onSubmitEditing={handleSaveGoal}
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => { setShowGoalModal(false); setGoalInput(''); }}
+              >
+                <Text style={styles.modalCancelText}>건너뛰기</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }, savingGoal && styles.disabled]}
+                onPress={handleSaveGoal}
+                disabled={savingGoal}
+              >
+                <Text style={styles.modalSubmitText}>{savingGoal ? '저장 중...' : '등록하기'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* 시간 선택 모달 */}
       <Modal visible={showTimeModal} transparent animationType="slide">
@@ -683,6 +801,126 @@ const styles = StyleSheet.create({
   testBtnText: {
     fontSize: 13,
     color: '#6b7280',
+  },
+  goalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  goalCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  goalCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  achievedBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#16a34a',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  unachievedBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9ca3af',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  goalContent: {
+    fontSize: 15,
+    color: '#111827',
+  },
+  goalSetBtn: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderStyle: 'dashed',
+  },
+  goalSetBtnText: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  weeklyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  weeklyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  weeklyRate: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#2563eb',
+  },
+  weeklySubText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  weeklyDays: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  weeklyDayCell: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  weeklyDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e5e7eb',
+  },
+  weeklyDotAchieved: {
+    backgroundColor: '#2563eb',
+  },
+  weeklyDotPending: {
+    backgroundColor: '#fbbf24',
+  },
+  weeklyDayLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  goalModalInput: {
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    marginBottom: 16,
+    color: '#111',
   },
   // 모달
   modalOverlay: {
