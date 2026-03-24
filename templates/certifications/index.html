@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}자격증 정보{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'certifications/index.css' %}?v=20260323c">
+
+<div
+    class="cert-page"
+    data-certifications-app
+    data-certifications-api-url="{% url 'certifications-important-api' %}"
+>
+    <section class="cert-hero">
+        <h1>중요 자격증 정보</h1>
+        <p>자주 확인하는 자격증 일정을 한곳에서 빠르게 보고, 접수 상태와 시험이 얼마나 가까운지 바로 파악할 수 있게 정리했습니다.</p>
+    </section>
+
+    <section id="certLiveAlert" class="cert-live-alert">
+        <p class="cert-live-alert-title">실시간 일정 알림</p>
+        <div id="certLiveAlertList" class="cert-live-alert-list"></div>
+    </section>
+
+    <section class="cert-control-panel">
+        <div class="cert-toolbar">
+            <input id="certSearchInput" class="cert-search" type="search" placeholder="자격증 이름, 약어, 기관명으로 찾기">
+            <div class="cert-filter-actions">
+                <button type="button" class="cert-filter-btn is-active" data-filter="all">전체</button>
+                <button type="button" class="cert-filter-btn" data-filter="favorites">관심</button>
+                <button type="button" class="cert-filter-btn" data-filter="open">접수중</button>
+                <button type="button" class="cert-filter-btn" data-filter="urgent">임박</button>
+            </div>
+        </div>
+
+        <div class="cert-category-bar">
+            <p class="cert-category-label">카테고리</p>
+            <div class="cert-category-actions">
+                <button type="button" class="cert-category-btn is-active" data-category="all">전체</button>
+                <button type="button" class="cert-category-btn" data-category="development">개발</button>
+                <button type="button" class="cert-category-btn" data-category="db">DB</button>
+                <button type="button" class="cert-category-btn" data-category="design">디자인</button>
+                <button type="button" class="cert-category-btn" data-category="security">보안</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="cert-browser cert-pinned-browser">
+        <div class="cert-browser-head">
+            <div>
+                <h2>-비전대학교 컴정과 필수 자격증-</h2>
+                <p class="cert-panel-copy">정보처리산업기사와 SQLD는 여기에서 항상 먼저 볼 수 있게 고정했습니다.</p>
+            </div>
+        </div>
+        <div id="certPinnedList" class="cert-selector-list"></div>
+    </section>
+
+    <section class="cert-browser">
+        <div class="cert-browser-head">
+            <div>
+                <h2>자격증 빠른 선택</h2>
+                <p class="cert-panel-copy">검색창 아래에서 자격증을 카드처럼 넓게 비교하고, 원하는 항목을 눌러 상세 정보를 바로 볼 수 있습니다.</p>
+            </div>
+            <div class="cert-browser-note">
+                <span class="cert-chip">관심 등록</span>
+                <span class="cert-chip status-open">접수중 강조</span>
+                <span class="cert-chip status-soon">임박 일정 표시</span>
+            </div>
+        </div>
+        <div id="certSelectorList" class="cert-selector-list"></div>
+    </section>
+
+    <section class="cert-panel cert-feature-panel">
+        <h3>현재 기능</h3>
+        <p class="cert-panel-copy">관심 자격증 고정, 접수중 필터, 새 일정 알림을 이 페이지 안에서 바로 활용할 수 있습니다.</p>
+    </section>
+</div>
+
+<div class="cert-modal" id="certModal" aria-hidden="true">
+    <div class="cert-modal-backdrop" data-close-cert-modal></div>
+    <div class="cert-modal-panel" role="dialog" aria-modal="true" aria-labelledby="cert-modal-title">
+        <div class="cert-modal-head">
+            <strong>자격증 상세</strong>
+            <div class="cert-modal-head-actions">
+                <a href="#" target="_blank" rel="noopener noreferrer" class="cert-link" id="certModalExternalLink">공식 일정 보기</a>
+                <button type="button" class="cert-modal-close" data-close-cert-modal aria-label="닫기">×</button>
+            </div>
+        </div>
+        <div class="cert-modal-body" id="certDetailPanel">
+            <p class="cert-loading">공식 자격증 일정을 불러오는 중입니다.</p>
+        </div>
+    </div>
+</div>
+
+<div class="cert-calendar-modal" id="certCalendarModal" aria-hidden="true">
+    <div class="cert-modal-backdrop" data-close-cert-calendar></div>
+    <div class="cert-calendar-panel" role="dialog" aria-modal="true" aria-labelledby="cert-calendar-title">
+        <div class="cert-modal-head">
+            <strong id="cert-calendar-title">캘린더 추가</strong>
+            <div class="cert-modal-head-actions">
+                <button type="button" class="cert-modal-close" data-close-cert-calendar aria-label="닫기">×</button>
+            </div>
+        </div>
+        <div class="cert-calendar-body">
+            <p class="cert-calendar-copy" id="certCalendarCopy">선택한 시험 날짜를 플래너 캘린더에 바로 추가할 수 있습니다.</p>
+            <label class="cert-calendar-label" for="certCalendarSelect">시험 날짜 선택</label>
+            <select id="certCalendarSelect" class="cert-calendar-select"></select>
+            <p class="cert-calendar-feedback" id="certCalendarFeedback" role="status" aria-live="polite"></p>
+            <div class="cert-calendar-actions">
+                <button type="button" class="cert-card-action" data-close-cert-calendar>취소</button>
+                <button type="button" class="cert-card-action is-active" id="certCalendarSubmit">캘린더에 추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'certifications/index.js' %}?v=20260323d"></script>
+{% endblock %}
