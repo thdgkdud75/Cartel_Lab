@@ -39,11 +39,11 @@
             flex: 1;
         }
         .content-card {
-            background: transparent;
-            border: none;
-            border-radius: 0;
-            padding: 0;
-            box-shadow: none;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 26px;
+            box-shadow: 0 4px 20px rgba(33, 33, 36, 0.05);
         }
         .message-stack {
             display: grid;
@@ -62,8 +62,9 @@
             position: sticky;
             top: 0;
             z-index: 20;
-            background: #fff;
-            border-bottom: 1px solid #f0f0f2;
+            border-bottom: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(8px);
         }
         .header-inner {
             max-width: 1380px;
@@ -97,7 +98,7 @@
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 4px;
+            gap: 30px;
         }
         .menu-toggle {
             display: none;
@@ -137,26 +138,25 @@
             transform: translateY(-5px) rotate(-45deg);
         }
         .nav-link {
-            color: #6b7280;
+            color: var(--muted);
             text-decoration: none;
-            padding: 7px 12px;
+            padding: 7px 10px;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            transition: color .15s ease;
+            font-size: 15px;
+            font-weight: 600;
+            transition: color .2s ease, background-color .2s ease;
         }
         .nav-link:hover {
-            color: #111827;
-            background: none;
+            color: var(--text);
+            background: #f1f2f4;
         }
         .nav-link.primary {
-            color: #111827;
-            font-weight: 700;
-            background: none;
+            color: var(--brand);
+            background: var(--brand-soft);
         }
         .nav-link.primary:hover {
-            color: #111827;
-            background: none;
+            background: #ffe5d6;
+            color: #e15900;
         }
         .site-footer {
             margin-top: 20px;
