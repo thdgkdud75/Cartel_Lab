@@ -21,11 +21,13 @@ export default function MembersScreen() {
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
-    try {
-      const [cur, all] = await Promise.all([getCurrentMembers(), getMembers()]);
-      if (cur.members) setCurrentMembers(cur.members);
-      if (all.members) setAllMembers(all.members);
-    } catch (e) {}
+    const [curResult, allResult] = await Promise.allSettled([getCurrentMembers(), getMembers()]);
+    if (curResult.status === 'fulfilled' && curResult.value.members) {
+      setCurrentMembers(curResult.value.members);
+    }
+    if (allResult.status === 'fulfilled' && allResult.value.members) {
+      setAllMembers(allResult.value.members);
+    }
     setLoading(false);
     setRefreshing(false);
   }, []);
