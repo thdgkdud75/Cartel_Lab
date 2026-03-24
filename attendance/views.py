@@ -508,7 +508,6 @@ def approve_checkout_request(request, request_id):
 
     # 퇴실 기록 적용
     from datetime import datetime as dt
-    import pytz
     tz = timezone.get_current_timezone()
     checkout_naive = dt.combine(req.attendance_date, req.requested_time)
     checkout_aware = timezone.make_aware(checkout_naive, tz)
