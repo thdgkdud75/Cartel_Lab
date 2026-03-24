@@ -374,17 +374,24 @@ def api_weekly_attendance(request):
         for d in week_dates:
             rec = records.get(d)
             if rec:
-                week_cells.append({"label": STATUS_LABEL.get(rec.status, rec.status), "status": rec.status})
+                check_in = timezone.localtime(rec.check_in_at).strftime("%H:%M") if rec.check_in_at else None
+                check_out = timezone.localtime(rec.check_out_at).strftime("%H:%M") if rec.check_out_at else None
+                week_cells.append({
+                    "label": STATUS_LABEL.get(rec.status, rec.status),
+                    "status": rec.status,
+                    "check_in_at": check_in,
+                    "check_out_at": check_out,
+                })
             elif d > today:
-                week_cells.append({"label": "-", "status": "future"})
+                week_cells.append({"label": "-", "status": "future", "check_in_at": None, "check_out_at": None})
             else:
-                week_cells.append({"label": "미기록", "status": "none"})
+                week_cells.append({"label": "미기록", "status": "none", "check_in_at": None, "check_out_at": None})
 
         result.append({
             "name": student.name,
             "class_group": student.class_group,
             "grade": student.grade,
-            "week": [{"day": WEEKDAYS[i], "label": c["label"], "status": c["status"]} for i, c in enumerate(week_cells)],
+            "week": [{"day": WEEKDAYS[i], **c} for i, c in enumerate(week_cells)],
         })
 
     return JsonResponse({

@@ -77,6 +77,8 @@ export default function DashboardScreen() {
                 <Text style={[s.statusLabel, { color: STATUS_COLOR[cell.status] || '#9ca3af' }]}>
                   {cell.label}
                 </Text>
+                {cell.check_in_at  && <Text style={s.timeText}>입 {cell.check_in_at}</Text>}
+                {cell.check_out_at && <Text style={s.timeText}>퇴 {cell.check_out_at}</Text>}
               </View>
             ))}
           </View>
@@ -105,4 +107,5 @@ const s = StyleSheet.create({
   dayLabel: { fontSize: 11, color: '#6b7280', marginBottom: 4 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 3 },
   statusLabel: { fontSize: 10 },
+  timeText: { fontSize: 9, color: '#6b7280', marginTop: 1 },
 });

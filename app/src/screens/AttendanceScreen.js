@@ -23,11 +23,15 @@ export default function AttendanceScreen({ name, onLogout }) {
   const [loading, setLoading] = useState(false);
   // 'none' | 'checked_in' | 'checked_out'
   const [attendance, setAttendance] = useState('none');
+  const [checkInAt, setCheckInAt] = useState(null);
+  const [checkOutAt, setCheckOutAt] = useState(null);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     getTodayStatus().then(res => {
       if (res.attendance) setAttendance(res.attendance);
+      if (res.check_in_at) setCheckInAt(res.check_in_at);
+      if (res.check_out_at) setCheckOutAt(res.check_out_at);
     }).catch(() => {});
   }, []);
 
@@ -49,7 +53,11 @@ export default function AttendanceScreen({ name, onLogout }) {
       if (!coords) return;
       const res = await checkIn(coords.latitude, coords.longitude);
       setMessage(res.message || '출석 완료!');
-      if (res.status === 'success' || res.status === 'info') setAttendance('checked_in');
+      if (res.status === 'success' || res.status === 'info') {
+        setAttendance('checked_in');
+        const now = new Date();
+        setCheckInAt(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+      }
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
@@ -65,7 +73,11 @@ export default function AttendanceScreen({ name, onLogout }) {
       if (!coords) return;
       const res = await checkOut(coords.latitude, coords.longitude);
       setMessage(res.message || '퇴실 완료!');
-      if (res.status === 'success' || res.status === 'info') setAttendance('checked_out');
+      if (res.status === 'success' || res.status === 'info') {
+        setAttendance('checked_out');
+        const now = new Date();
+        setCheckOutAt(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+      }
     } catch (e) {
       setMessage('오류: ' + e.message);
     } finally {
@@ -128,6 +140,13 @@ export default function AttendanceScreen({ name, onLogout }) {
         >
           <Text style={styles.btnText}>{loading ? '처리 중...' : '퇴실 체크아웃'}</Text>
         </TouchableOpacity>
+      )}
+
+      {(checkInAt || checkOutAt) && (
+        <View style={styles.timeBox}>
+          {checkInAt  && <Text style={styles.timeText}>입실  {checkInAt}</Text>}
+          {checkOutAt && <Text style={styles.timeText}>퇴실  {checkOutAt}</Text>}
+        </View>
       )}
 
       {attendance === 'checked_out' && (
@@ -203,6 +222,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#16a34a',
+  },
+  timeBox: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    gap: 6,
+  },
+  timeText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500',
   },
   testBtn: {
     marginTop: 32,
