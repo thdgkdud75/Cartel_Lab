@@ -67,6 +67,7 @@ class User(AbstractUser):
     ai_profile_error = models.TextField("AI 프로필 오류", blank=True, default="")
     daily_analysis_count = models.PositiveSmallIntegerField("일일 분석 횟수", default=0)
     daily_analysis_date = models.DateField("분석 횟수 기준일", null=True, blank=True)
+    deletion_scheduled_at = models.DateTimeField("삭제 예정 일시", null=True, blank=True)
 
     objects = UserManager()
 
