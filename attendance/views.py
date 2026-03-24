@@ -472,8 +472,8 @@ def list_checkout_requests(request):
 
     eligible = []
     for r in pending_qs:
-        # 내가 아직 퇴실 안 했거나, 신청자의 요청 시간보다 내가 더 늦게 퇴실한 경우만 승인 가능
-        if my_checkout_time is None or my_checkout_time >= r.requested_time:
+        # 관리자는 조건 없이 모두 승인 가능
+        if user.is_staff or my_checkout_time is None or my_checkout_time >= r.requested_time:
             eligible.append({
                 "id": r.id,
                 "name": r.user.name if hasattr(r.user, 'name') else r.user.get_full_name() or r.user.username,
