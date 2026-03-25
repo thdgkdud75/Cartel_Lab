@@ -777,7 +777,7 @@ def add_daily_todo(request):
     if request.method != "POST":
         return redirect("planner-index")
 
-    content = request.POST.get("content", "").strip()
+    contents = [c.strip() for c in request.POST.getlist("content") if c.strip()]
     start_date_raw = request.POST.get("target_date") or request.POST.get("start_date")
     duration_days = _duration_days_from_input(request.POST.get("duration_days", "1"), default=1)
     planned_time = _planned_time_from_request(request)
@@ -790,20 +790,16 @@ def add_daily_todo(request):
     except ValueError:
         pass
 
-    if content:
+    for content in contents:
         for offset in range(duration_days):
-            DailyTodo.objects.create(
+            todo = DailyTodo.objects.create(
                 user=request.user,
                 target_date=target_date + timedelta(days=offset),
                 planned_time=planned_time,
                 color=color,
                 content=content,
             )
-        if False:  # Sync deferred until the todo is checked.
-            try:
-                pass
-            except GoogleCalendarError as exc:
-                messages.warning(request, f"투두는 추가됐지만 Google Calendar 동기화에 실패했습니다: {exc}")
+            _create_weekly_goal_from_todo(todo)
 
     month = month_raw or target_date.strftime("%Y-%m")
     return redirect(
@@ -1256,6 +1252,7 @@ def api_daily_todos(request):
         return JsonResponse({"error": "내용을 입력해주세요."}, status=400)
 
     todo = DailyTodo.objects.create(user=user, target_date=today, content=content)
+    _create_weekly_goal_from_todo(todo)
     return JsonResponse({"id": todo.id, "content": todo.content, "is_checked": todo.is_checked})
 
 
