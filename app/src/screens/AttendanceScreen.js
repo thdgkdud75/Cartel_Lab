@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
@@ -82,6 +83,9 @@ export default function AttendanceScreen({ name, onLogout }) {
   const [todoRegisterInput, setTodoRegisterInput] = useState('');
   const [todoRegisterList, setTodoRegisterList] = useState([]);
 
+  // 오늘 할일 목록 (메인 화면)
+  const [todayTodos, setTodayTodos] = useState([]);
+
   // 퇴실 시 할 일 체크 모달
   const [showTodoCheckModal, setShowTodoCheckModal] = useState(false);
   const [checkoutTodos, setCheckoutTodos] = useState([]);
@@ -98,6 +102,13 @@ export default function AttendanceScreen({ name, onLogout }) {
     getWeeklyAchievement().then(res => { if (res.days) setWeeklyAchievement(res); }).catch(() => {});
     scheduleMorningReminder();
   }, []);
+
+  // 탭 포커스 시마다 오늘 할일 새로고침 (TodoScreen에서 돌아올 때 반영)
+  useFocusEffect(
+    useCallback(() => {
+      getDailyTodos().then(res => { if (res.todos) setTodayTodos(res.todos); }).catch(() => {});
+    }, [])
+  );
 
   const loadTodayStatus = () => {
     getTodayStatus().then(res => {
@@ -333,9 +344,12 @@ export default function AttendanceScreen({ name, onLogout }) {
   };
 
   const handleSubmitTodoRegister = async () => {
+    const newTodos = [];
     for (const content of todoRegisterList) {
-      await addDailyTodo(content).catch(() => {});
+      const res = await addDailyTodo(content).catch(() => null);
+      if (res?.id) newTodos.push(res);
     }
+    if (newTodos.length) setTodayTodos(prev => [...prev, ...newTodos]);
     setTodoRegisterList([]);
     setShowTodoRegisterModal(false);
   };
@@ -520,6 +534,30 @@ export default function AttendanceScreen({ name, onLogout }) {
           <Text style={styles.goalSetBtnText}>+ 오늘 목표 등록하기</Text>
         </TouchableOpacity>
       ) : null}
+
+      {/* 오늘 할일 목록 */}
+      {todayTodos.length > 0 && (
+        <View style={styles.goalCard}>
+          <Text style={styles.goalCardTitle}>📋 오늘 할 일</Text>
+          {todayTodos.map(todo => (
+            <TouchableOpacity
+              key={todo.id}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}
+              onPress={() => {
+                toggleDailyTodo(todo.id).catch(() => {});
+                setTodayTodos(prev => prev.map(t => t.id === todo.id ? { ...t, is_checked: !t.is_checked } : t));
+              }}
+            >
+              <View style={[styles.checkBox, todo.is_checked && styles.checkBoxDone]}>
+                {todo.is_checked && <Text style={styles.checkMark}>✓</Text>}
+              </View>
+              <Text style={[{ fontSize: 14, color: '#111', flex: 1 }, todo.is_checked && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                {todo.content}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* 주간 달성률 */}
       {weeklyAchievement && (
