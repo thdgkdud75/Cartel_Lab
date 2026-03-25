@@ -1203,8 +1203,22 @@
                             <label for="todo-color-green" class="color-choice color-green"><span class="color-dot dot-green"></span>초록</label>
                         </div>
                     </div>
-                    <input type="text" name="content" class="add-form-content" maxlength="255" placeholder="투두 입력" required>
+                    <div id="todo-content-list">
+                        <input type="text" name="content" class="add-form-content" maxlength="255" placeholder="투두 입력" required style="margin-bottom:6px;">
+                    </div>
+                    <button type="button" id="todo-add-row-btn" style="background:none;border:1px dashed #94a3b8;border-radius:6px;width:100%;padding:7px;font-size:13px;color:#64748b;cursor:pointer;margin-bottom:10px;">+ 항목 추가</button>
                     <button type="submit" class="todo-submit">추가하기</button>
+                    <script>
+                    document.getElementById('todo-add-row-btn').addEventListener('click', function() {
+                        var list = document.getElementById('todo-content-list');
+                        var inp = document.createElement('div');
+                        inp.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+                        inp.innerHTML = '<input type="text" name="content" class="add-form-content" maxlength="255" placeholder="투두 입력" style="flex:1;margin-bottom:0;">' +
+                            '<button type="button" onclick="this.parentNode.remove()" style="border:none;background:#f1f5f9;border-radius:6px;padding:0 10px;cursor:pointer;color:#9ca3af;font-size:16px;">✕</button>';
+                        list.appendChild(inp);
+                        inp.querySelector('input').focus();
+                    });
+                    </script>
                 </form>
             </div>
         </div>

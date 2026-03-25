@@ -91,31 +91,56 @@
     .nav-links > .user-dropdown { order: 99; margin-left: 6px; }
 
     @media (max-width: 760px) {
-        .user-dropdown-menu {
-            position: static;
-            box-shadow: none;
-            border: none;
-            border-radius: 0;
-            padding: 0 0 0 12px;
-            opacity: 1;
-            transform: none;
-            pointer-events: auto;
-            display: none;
-        }
-        .user-dropdown.is-open .user-dropdown-menu {
-            display: block;
-            transform: none;
+        .user-dropdown {
+            width: 100%;
         }
         .user-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             padding: 3px 0;
             border-radius: 0;
             background: transparent !important;
+            font-size: clamp(28px, 7vw, 42px);
+            font-weight: 850;
+            letter-spacing: -0.04em;
+            color: #1f2124;
+            width: 100%;
+            justify-content: flex-start;
+        }
+        .user-dropdown-trigger .chevron {
+            width: 22px;
+            height: 22px;
+        }
+        .user-dropdown-trigger img,
+        .user-dropdown-trigger span:first-child {
+            width: 36px !important;
+            height: 36px !important;
+            font-size: 15px !important;
+        }
+        .user-dropdown-menu {
+            position: static !important;
+            right: auto !important;
+            top: auto !important;
+            box-shadow: none;
+            border: none;
+            border-radius: 0;
+            padding: 8px 0 0 16px;
+            opacity: 1 !important;
+            transform: none !important;
+            pointer-events: auto;
+            display: none;
+            min-width: 0;
+        }
+        .user-dropdown.is-open .user-dropdown-menu {
+            display: block;
         }
         .user-dropdown-item {
-            padding: 8px 0;
+            padding: 10px 0;
             border-radius: 0;
             background: transparent !important;
-            font-size: 15px;
+            font-size: 18px;
+            font-weight: 600;
         }
     }
 </style>
