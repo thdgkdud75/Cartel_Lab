@@ -8,6 +8,7 @@ from .views import (
     api_daily_goal_achieve,
     api_daily_todo_delete,
     api_daily_todo_toggle,
+    api_daily_todo_update,
     api_daily_todos,
     api_lab_goals,
     api_weekly_achievement,
@@ -56,6 +57,7 @@ urlpatterns = [
     path("daily-goal/<int:goal_id>/delete/", daily_goal_delete, name="planner-daily-goal-delete"),
     path("api/daily-todos/", api_daily_todos, name="planner-api-daily-todos"),
     path("api/daily-todos/<int:todo_id>/toggle/", api_daily_todo_toggle, name="planner-api-daily-todo-toggle"),
+    path("api/daily-todos/<int:todo_id>/update/", api_daily_todo_update, name="planner-api-daily-todo-update"),
     path("api/daily-todos/<int:todo_id>/delete/", api_daily_todo_delete, name="planner-api-daily-todo-delete"),
     path("api/lab-goals/", api_lab_goals, name="planner-api-lab-goals"),
 ]

@@ -228,6 +228,16 @@ export async function toggleDailyTodo(todoId) {
   return response.json();
 }
 
+export async function updateDailyTodo(todoId, content) {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/planner/api/daily-todos/${todoId}/update/`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  return response.json();
+}
+
 export async function deleteDailyTodo(todoId) {
   const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/planner/api/daily-todos/${todoId}/delete/`, {
