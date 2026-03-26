@@ -91,56 +91,80 @@
     .nav-links > .user-dropdown { order: 99; margin-left: 6px; }
 
     @media (max-width: 760px) {
+        /* 유저 섹션 - 컴팩트 프로필 카드 */
         .user-dropdown {
             width: 100%;
+            position: static;
+            display: flex;
+            flex-direction: column;
+            margin-top: auto;
+            border-top: 1px solid #e8e9eb;
+            padding-top: 16px;
         }
         .user-dropdown-trigger {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 3px 0;
-            border-radius: 0;
-            background: transparent !important;
-            font-size: clamp(28px, 7vw, 42px);
-            font-weight: 850;
-            letter-spacing: -0.04em;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: #fff !important;
+            font-size: 15px !important;
+            font-weight: 700;
+            letter-spacing: -0.01em;
             color: #1f2124;
             width: 100%;
             justify-content: flex-start;
+            border: 1px solid #e8e9eb;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+        .user-dropdown-trigger:hover,
+        .user-dropdown.is-open .user-dropdown-trigger {
+            background: #f7f8fa !important;
+            color: #1f2124;
         }
         .user-dropdown-trigger .chevron {
-            width: 22px;
-            height: 22px;
+            width: 16px;
+            height: 16px;
+            margin-left: auto;
         }
         .user-dropdown-trigger img,
         .user-dropdown-trigger span:first-child {
-            width: 36px !important;
-            height: 36px !important;
-            font-size: 15px !important;
+            width: 34px !important;
+            height: 34px !important;
+            font-size: 14px !important;
         }
         .user-dropdown-menu {
             position: static !important;
-            right: auto !important;
             top: auto !important;
-            box-shadow: none;
-            border: none;
-            border-radius: 0;
-            padding: 8px 0 0 16px;
+            right: auto !important;
+            left: auto !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 6px 0 0 8px;
             opacity: 1 !important;
             transform: none !important;
-            pointer-events: auto;
-            display: none;
-            min-width: 0;
+            pointer-events: auto !important;
+            display: none !important;
+            min-width: 0 !important;
+            width: 100%;
         }
         .user-dropdown.is-open .user-dropdown-menu {
-            display: block;
+            display: block !important;
         }
         .user-dropdown-item {
-            padding: 10px 0;
-            border-radius: 0;
+            padding: 10px 8px;
+            border-radius: 8px;
             background: transparent !important;
-            font-size: 18px;
+            font-size: 14px;
             font-weight: 600;
+            color: #3a3a3c;
+        }
+        .user-dropdown-item:hover {
+            background: #f5f5f7 !important;
+        }
+        .user-dropdown-divider {
+            margin: 4px 0;
         }
     }
 </style>

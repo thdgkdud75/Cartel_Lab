@@ -90,11 +90,14 @@ def dashboard_index(request):
                     "color": STATUS_COLOR.get(rec.status, "gray"),
                     "check_in_at": rec.check_in_at,
                     "check_out_at": rec.check_out_at,
+                    "rec_id": rec.pk,
+                    "date_str": d.strftime("%Y-%m-%d"),
+                    "editable": True,
                 })
             elif d > today:
-                week_cells.append({"label": "-", "color": "gray", "check_in_at": None, "check_out_at": None})
+                week_cells.append({"label": "-", "color": "gray", "check_in_at": None, "check_out_at": None, "rec_id": None, "date_str": d.strftime("%Y-%m-%d"), "editable": False})
             else:
-                week_cells.append({"label": "미기록", "color": "gray", "check_in_at": None, "check_out_at": None})
+                week_cells.append({"label": "미기록", "color": "gray", "check_in_at": None, "check_out_at": None, "rec_id": None, "date_str": d.strftime("%Y-%m-%d"), "editable": True})
 
         td = todo_map.get(student.id, {"total": 0, "done": 0})
         student_rows.append({
@@ -467,6 +470,63 @@ def api_monthly_stats(request):
         })
 
     return JsonResponse({"stats": result})
+
+
+@staff_required
+@require_POST
+def dashboard_edit_attendance(request):
+    """웹 대시보드에서 출결 시간 수정 (세션 인증)"""
+    import json as _json
+    from datetime import datetime as dt
+
+    try:
+        data = _json.loads(request.body)
+        student_pk = data.get("student_pk")
+        date_str = data.get("date", "")
+        check_in_str = data.get("check_in", "").strip()
+        check_out_str = data.get("check_out", "").strip()
+        status = data.get("status", "").strip()
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청"}, status=400)
+
+    try:
+        att_date = dt.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        return JsonResponse({"error": "날짜 형식 오류"}, status=400)
+
+    student = get_object_or_404(User, pk=student_pk, is_staff=False)
+
+    record, _ = AttendanceRecord.objects.get_or_create(
+        user=student,
+        attendance_date=att_date,
+        defaults={"status": status or "present"},
+    )
+
+    STATUS_LABEL = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
+
+    tz = timezone.get_current_timezone()
+    if status:
+        record.status = status
+    if check_in_str:
+        try:
+            ci = dt.strptime(check_in_str, "%H:%M").time()
+            record.check_in_at = timezone.make_aware(dt.combine(att_date, ci), tz)
+        except Exception:
+            return JsonResponse({"error": "입실 시간 형식 오류 (HH:MM)"}, status=400)
+    if check_out_str:
+        try:
+            co = dt.strptime(check_out_str, "%H:%M").time()
+            record.check_out_at = timezone.make_aware(dt.combine(att_date, co), tz)
+        except Exception:
+            return JsonResponse({"error": "퇴실 시간 형식 오류 (HH:MM)"}, status=400)
+    record.save()
+
+    return JsonResponse({
+        "status": "ok",
+        "label": STATUS_LABEL.get(record.status, record.status),
+        "check_in": record.check_in_at.astimezone(tz).strftime("%H:%M") if record.check_in_at else "",
+        "check_out": record.check_out_at.astimezone(tz).strftime("%H:%M") if record.check_out_at else "",
+    })
 
 
 @csrf_exempt

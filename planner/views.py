@@ -1272,6 +1272,27 @@ def api_daily_todo_toggle(request, todo_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def api_daily_todo_update(request, todo_id):
+    """할 일 내용 수정 (앱용)"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    todo = get_object_or_404(DailyTodo, id=todo_id, user=user)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+    content = data.get("content", "").strip()
+    if not content:
+        return JsonResponse({"error": "내용을 입력해주세요."}, status=400)
+    todo.content = content
+    todo.save(update_fields=["content", "updated_at"])
+    return JsonResponse({"id": todo.id, "content": todo.content})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def api_daily_todo_delete(request, todo_id):
     """할 일 삭제 (앱용)"""
     user = _get_planner_user(request)

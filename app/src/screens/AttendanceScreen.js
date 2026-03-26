@@ -34,6 +34,7 @@ import {
   saveDailyGoal,
   submitCheckoutRequest,
   toggleDailyTodo,
+  updateDailyTodo,
   uploadProfileImage,
 } from '../api/client';
 
@@ -82,6 +83,13 @@ export default function AttendanceScreen({ name, onLogout }) {
   const [todoRegisterInput, setTodoRegisterInput] = useState('');
   const [todoRegisterList, setTodoRegisterList] = useState([]);
 
+  // 오늘 할일 목록 (메인 화면)
+  const [todayTodos, setTodayTodos] = useState([]);
+
+  // 할일 수정 모달
+  const [editingTodo, setEditingTodo] = useState(null); // { id, content }
+  const [editInput, setEditInput] = useState('');
+
   // 퇴실 시 할 일 체크 모달
   const [showTodoCheckModal, setShowTodoCheckModal] = useState(false);
   const [checkoutTodos, setCheckoutTodos] = useState([]);
@@ -96,6 +104,7 @@ export default function AttendanceScreen({ name, onLogout }) {
     getProfileImage().then(res => { if (res.profile_image) setProfileImage(res.profile_image); }).catch(() => {});
     getDailyGoal().then(res => { if (res.id) setTodayGoal(res); }).catch(() => {});
     getWeeklyAchievement().then(res => { if (res.days) setWeeklyAchievement(res); }).catch(() => {});
+    getDailyTodos().then(res => { if (res.todos) setTodayTodos(res.todos); }).catch(() => {});
     scheduleMorningReminder();
   }, []);
 
@@ -333,9 +342,12 @@ export default function AttendanceScreen({ name, onLogout }) {
   };
 
   const handleSubmitTodoRegister = async () => {
+    const newTodos = [];
     for (const content of todoRegisterList) {
-      await addDailyTodo(content).catch(() => {});
+      const res = await addDailyTodo(content).catch(() => null);
+      if (res?.id) newTodos.push(res);
     }
+    if (newTodos.length) setTodayTodos(prev => [...prev, ...newTodos]);
     setTodoRegisterList([]);
     setShowTodoRegisterModal(false);
   };
@@ -372,6 +384,21 @@ export default function AttendanceScreen({ name, onLogout }) {
       setShowGoalModal(false);
       setShowTodoRegisterModal(true);
     }
+  };
+
+  const handleEditTodo = (todo) => {
+    setEditingTodo(todo);
+    setEditInput(todo.content);
+  };
+
+  const handleSaveEditTodo = async () => {
+    if (!editInput.trim() || !editingTodo) return;
+    const res = await updateDailyTodo(editingTodo.id, editInput.trim()).catch(() => null);
+    if (res?.id) {
+      setTodayTodos(prev => prev.map(t => t.id === res.id ? { ...t, content: res.content } : t));
+    }
+    setEditingTodo(null);
+    setEditInput('');
   };
 
   const handleToggleAchieve = async () => {
@@ -521,6 +548,34 @@ export default function AttendanceScreen({ name, onLogout }) {
         </TouchableOpacity>
       ) : null}
 
+      {/* 오늘 할일 목록 */}
+      {todayTodos.length > 0 && (
+        <View style={styles.goalCard}>
+          <Text style={styles.goalCardTitle}>📋 오늘 할 일</Text>
+          {todayTodos.map(todo => (
+            <View key={todo.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  toggleDailyTodo(todo.id).catch(() => {});
+                  setTodayTodos(prev => prev.map(t => t.id === todo.id ? { ...t, is_checked: !t.is_checked } : t));
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}
+              >
+                <View style={[styles.checkBox, todo.is_checked && styles.checkBoxDone]}>
+                  {todo.is_checked && <Text style={styles.checkMark}>✓</Text>}
+                </View>
+                <Text style={[{ fontSize: 14, color: '#111', flex: 1 }, todo.is_checked && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                  {todo.content}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleEditTodo(todo)}>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>수정</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* 주간 달성률 */}
       {weeklyAchievement && (
         <View style={styles.weeklyCard}>
@@ -598,7 +653,7 @@ export default function AttendanceScreen({ name, onLogout }) {
               <View style={styles.modalBtns}>
                 <TouchableOpacity
                   style={styles.modalCancelBtn}
-                  onPress={() => { setShowGoalModal(false); setGoalInput(''); }}
+                  onPress={() => { setShowGoalModal(false); setGoalInput(''); setShowTodoRegisterModal(true); }}
                 >
                   <Text style={styles.modalCancelText}>건너뛰기</Text>
                 </TouchableOpacity>
@@ -656,6 +711,35 @@ export default function AttendanceScreen({ name, onLogout }) {
                   onPress={handleSubmitTodoRegister}
                 >
                   <Text style={styles.modalSubmitText}>등록하기</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 할일 수정 모달 */}
+      <Modal visible={!!editingTodo} transparent animationType="fade">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalBox, { borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+              <Text style={styles.modalTitle}>할 일 수정 ✏️</Text>
+              <TextInput
+                style={styles.goalModalInput}
+                value={editInput}
+                onChangeText={setEditInput}
+                placeholder="할 일 내용"
+                maxLength={255}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSaveEditTodo}
+              />
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setEditingTodo(null); setEditInput(''); }}>
+                  <Text style={styles.modalCancelText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSubmitBtn, { backgroundColor: '#2563eb' }]} onPress={handleSaveEditTodo}>
+                  <Text style={styles.modalSubmitText}>저장</Text>
                 </TouchableOpacity>
               </View>
             </View>

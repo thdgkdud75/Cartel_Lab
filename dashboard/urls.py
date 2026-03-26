@@ -8,6 +8,7 @@ from .views import (
     api_weekly_attendance,
     dashboard_cancel_delete,
     dashboard_confirm_delete,
+    dashboard_edit_attendance,
     dashboard_index,
     dashboard_schedule_delete,
     dashboard_student,
@@ -23,5 +24,6 @@ urlpatterns = [
     path("api/auto-checkout/", api_auto_checkout, name="dashboard-api-auto-checkout"),
     path("api/monthly/", api_monthly_stats, name="dashboard-api-monthly"),
     path("api/edit-attendance/", api_edit_attendance, name="dashboard-api-edit-attendance"),
+    path("api/edit-att/", dashboard_edit_attendance, name="dashboard-api-edit-att"),
     path("api/monthly-goals/", api_monthly_attendance_goals, name="dashboard-api-monthly-goals"),
 ]
