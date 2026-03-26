@@ -472,12 +472,15 @@ def api_monthly_stats(request):
     return JsonResponse({"stats": result})
 
 
-@staff_required
+@csrf_exempt
 @require_POST
 def dashboard_edit_attendance(request):
     """웹 대시보드에서 출결 시간 수정 (세션 인증)"""
     import json as _json
     from datetime import datetime as dt
+
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
 
     try:
         data = _json.loads(request.body)
