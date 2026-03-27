@@ -462,10 +462,12 @@
                     {% if item.quiz.ai_trap_code %}
                     <span class="qc-trap-badge">함정 ON</span>
                     {% endif %}
+                    {% if item.is_mine %}
                     <form method="post" action="{% url 'quiz-delete' item.quiz.pk %}" onsubmit="return confirm('이 문제를 삭제할까요?');" style="display:inline;">
                         {% csrf_token %}
                         <button type="submit" class="qc-del">삭제</button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% if item.quiz.code_snippet %}

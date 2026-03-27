@@ -96,7 +96,8 @@ def index(request):
 
     # 2학년: 전체 퀴즈 목록 + 통계
     quizzes = (
-        Quiz.objects.filter(created_by=request.user)
+        Quiz.objects.all()
+        .select_related("created_by")
         .prefetch_related("attempts")
         .order_by("-scheduled_date", "-created_at")
     )
@@ -110,6 +111,7 @@ def index(request):
             "total": len(attempts),
             "correct": correct,
             "ai_flagged": ai_flagged,
+            "is_mine": q.created_by == request.user,
         })
 
     # 금/토/일이면 다음 주 화살표 표시

@@ -137,9 +137,29 @@
     }
 
     @media (max-width: 760px) {
-        .student-card-head { padding: 14px 16px; }
+        /* 주간 테이블 */
+        .week-table-wrap { -webkit-overflow-scrolling: touch; }
+        .week-table { font-size: 12px; min-width: 480px; }
+        .week-table th, .week-table td { padding: 8px 6px; }
+        .week-table td.name-col, .week-table th.name-col {
+            position: sticky; left: 0; background: #fff; z-index: 1;
+            box-shadow: 2px 0 4px rgba(0,0,0,.06);
+        }
+        .week-table th.name-col { background: #fafafa; }
+        .week-table td.today-col.name-col { background: #fff8f3; }
+        .dot { width: 22px; height: 22px; font-size: 11px; }
+
+        /* 학생 카드 */
+        .student-card-head { padding: 14px 16px; gap: 8px; }
         .student-card-body { padding: 14px 16px; }
-        .week-table th, .week-table td { padding: 8px; }
+        .student-card-right { gap: 6px; flex-shrink: 0; }
+        .student-card-meta { font-size: 12px; }
+
+        /* 제출 내역 행 */
+        .attempt-row { flex-wrap: wrap; gap: 6px; }
+        .attempt-date { width: 100%; margin-bottom: 0; }
+        .attempt-info { flex: 1 1 auto; min-width: 0; }
+        .attempt-row > div:last-child { flex-direction: row; align-items: center; width: 100%; justify-content: flex-end; }
     }
 </style>
 
