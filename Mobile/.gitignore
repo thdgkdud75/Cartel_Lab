@@ -1,0 +1,25 @@
+# 의존성
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# 환경변수
+.env
+.env.local
+
+# 네이티브 빌드
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+android/
+ios/
+
+# 디버그
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
