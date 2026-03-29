@@ -1335,7 +1335,7 @@
                         {% for item in day.preview_goals %}
                         <div class="mini-item color-{{ item.goal.color }}{% if item.continued_prev %} continued-prev{% endif %}{% if item.continued_next %} continued-next{% endif %}">
                             {% if item.goal.planned_time %}<span class="mini-time">{{ item.goal.planned_time|time:"H:i" }}</span>{% endif %}
-                            {{ item.goal.content }}
+                            {{ item.goal.display_content|default:item.goal.content }}
                         </div>
                         {% endfor %}
                         {% if day.more_count > 0 %}
@@ -1408,14 +1408,14 @@
                     class="detail-item"
                     data-edit-url="{% url 'planner-goal-update' goal.id %}"
                     data-delete-url="{% url 'planner-goal-delete' goal.id %}"
-                    data-goal-content="{{ goal.content|escape }}"
+                    data-goal-content="{{ goal.display_content|default:goal.content|escape }}"
                     data-goal-date="{{ selected_date|date:'Y-m-d' }}"
                     data-goal-color="{{ goal.color }}"
                 >
                     <div class="detail-row space-between">
                         <span class="goal-main">
                             {% if goal.planned_time %}<span class="goal-time">{{ goal.planned_time|time:"H:i" }}</span>{% endif %}
-                            <span class="goal-text {% if goal.is_completed %}done{% endif %}">{{ goal.content }}</span>
+                            <span class="goal-text {% if goal.is_completed %}done{% endif %}">{{ goal.display_content|default:goal.content }}</span>
                         </span>
                         <form method="post" action="{% url 'planner-goal-toggle' goal.id %}" class="goal-toggle-form">
                             {% csrf_token %}

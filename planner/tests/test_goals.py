@@ -96,6 +96,91 @@ class WeeklyPlannerTests(TestCase):
         goal = WeeklyGoal.objects.get(content="pm goal")
         self.assertEqual(goal.planned_time.strftime("%H:%M"), "22:00")
 
+    def test_add_goal_from_certification_creates_planner_goal(self):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+
+        response = self.client.post(
+            reverse("planner-goal-add-certification"),
+            {
+                "target_date": date(2026, 3, 18).isoformat(),
+                "certification_name": "SQLD",
+                "schedule_label": "제61회 시험",
+                "color": "yellow",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["created"])
+        goal = WeeklyGoal.objects.get(user=self.user1, content="SQLD | 제61회 시험")
+        self.assertEqual(goal.week_start, date(2026, 3, 15))
+        self.assertEqual(goal.weekday, 3)
+        self.assertEqual(goal.color, "yellow")
+        self.assertIsNone(goal.planned_time)
+
+    def test_add_goal_from_certification_requires_login(self):
+        response = self.client.post(
+            reverse("planner-goal-add-certification"),
+            {
+                "target_date": date(2026, 3, 18).isoformat(),
+                "certification_name": "SQLD",
+                "schedule_label": "제61회 시험",
+            },
+        )
+
+        self.assertEqual(response.status_code, 401)
+        payload = response.json()
+        self.assertIn("login_url", payload)
+        self.assertFalse(WeeklyGoal.objects.filter(content="SQLD | 제61회 시험").exists())
+
+    def test_add_goal_from_certification_deduplicates_existing_goal(self):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+        WeeklyGoal.objects.create(
+            user=self.user1,
+            week_start=date(2026, 3, 15),
+            weekday=3,
+            color="red",
+            content="SQLD | 제61회 시험",
+        )
+
+        response = self.client.post(
+            reverse("planner-goal-add-certification"),
+            {
+                "target_date": date(2026, 3, 18).isoformat(),
+                "certification_name": "SQLD",
+                "schedule_label": "제61회 시험",
+                "color": "yellow",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload["created"])
+        self.assertEqual(
+            WeeklyGoal.objects.filter(user=self.user1, content="SQLD | 제61회 시험").count(),
+            1,
+        )
+        goal = WeeklyGoal.objects.get(user=self.user1, content="SQLD | 제61회 시험")
+        self.assertEqual(goal.color, "yellow")
+
+    def test_add_goal_from_certification_normalizes_broken_korean_label(self):
+        self.client.login(student_id="20260001", password="pass-1234-abcd")
+
+        response = self.client.post(
+            reverse("planner-goal-add-certification"),
+            {
+                "target_date": date(2026, 3, 18).isoformat(),
+                "certification_name": "SQL 개발자",
+                "schedule_label": "제61회 ?쒗뿕",
+                "color": "yellow",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["created"])
+        self.assertTrue(WeeklyGoal.objects.filter(user=self.user1, content="SQLD | 제61회 시험").exists())
+
     def test_toggle_goal_only_for_owner(self):
         goal = WeeklyGoal.objects.create(
             user=self.user1,

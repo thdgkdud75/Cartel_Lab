@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'quiz',
     'jobs',
     'blog',
+    'contests',
     'rest_framework',
     'rest_framework.authtoken',
 ]

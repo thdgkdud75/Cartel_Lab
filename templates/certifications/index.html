@@ -4,12 +4,13 @@
 {% block title %}자격증 정보{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'certifications/index.css' %}?v=20260323c">
+<link rel="stylesheet" href="{% static 'certifications/index.css' %}?v=20260328e">
 
 <div
     class="cert-page"
     data-certifications-app
     data-certifications-api-url="{% url 'certifications-important-api' %}"
+    data-certifications-planner-goal-url="{% url 'planner-goal-add-certification' %}"
 >
     <section class="cert-hero">
         <h1>중요 자격증 정보</h1>
@@ -44,21 +45,35 @@
         </div>
     </section>
 
-    <section class="cert-browser cert-pinned-browser">
+    <section class="cert-browser cert-pinned-browser is-expanded" id="certPinnedBrowser">
         <div class="cert-browser-head">
             <div>
                 <h2>-비전대학교 컴정과 필수 자격증-</h2>
-                <p class="cert-panel-copy">정보처리산업기사와 SQLD는 여기에서 항상 먼저 볼 수 있게 고정했습니다.</p>
+                <p class="cert-panel-copy">정보처리산업기사와 SQLD를 여기에서 더 빨리 확인할 수 있게 고정했습니다.</p>
+            </div>
+            <button
+                type="button"
+                class="cert-accordion-toggle"
+                id="certPinnedToggle"
+                aria-expanded="true"
+                aria-controls="certPinnedBody"
+            >
+                <span class="cert-accordion-toggle-label" data-cert-accordion-label>접기</span>
+                <span class="cert-accordion-toggle-icon" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div id="certPinnedBody" class="cert-accordion-body">
+            <div class="cert-accordion-body-inner">
+                <div id="certPinnedList" class="cert-selector-list"></div>
             </div>
         </div>
-        <div id="certPinnedList" class="cert-selector-list"></div>
     </section>
 
     <section class="cert-browser">
         <div class="cert-browser-head">
             <div>
                 <h2>자격증 빠른 선택</h2>
-                <p class="cert-panel-copy">검색창 아래에서 자격증을 카드처럼 넓게 비교하고, 원하는 항목을 눌러 상세 정보를 바로 볼 수 있습니다.</p>
+                <p class="cert-panel-copy">검색창 아래에서 자격증을 카드처럼 넓게 비교하고, 원하는 항목을 눌러 상세 정보를 바로 볼 수 있습니다. 같은 자격증은 출처를 합쳐 한 카드로 보여주고, 상세에서 출처별 일정과 신청 링크를 구분해 보여줍니다.</p>
             </div>
             <div class="cert-browser-note">
                 <span class="cert-chip">관심 등록</span>
@@ -95,23 +110,23 @@
     <div class="cert-modal-backdrop" data-close-cert-calendar></div>
     <div class="cert-calendar-panel" role="dialog" aria-modal="true" aria-labelledby="cert-calendar-title">
         <div class="cert-modal-head">
-            <strong id="cert-calendar-title">캘린더 추가</strong>
+            <strong id="cert-calendar-title">오늘의 계획 추가</strong>
             <div class="cert-modal-head-actions">
                 <button type="button" class="cert-modal-close" data-close-cert-calendar aria-label="닫기">×</button>
             </div>
         </div>
         <div class="cert-calendar-body">
-            <p class="cert-calendar-copy" id="certCalendarCopy">선택한 시험 날짜를 플래너 캘린더에 바로 추가할 수 있습니다.</p>
-            <label class="cert-calendar-label" for="certCalendarSelect">시험 날짜 선택</label>
+            <p class="cert-calendar-copy" id="certCalendarCopy">선택한 접수 또는 시험 일정을 오늘의 계획에 바로 추가할 수 있습니다.</p>
+            <label class="cert-calendar-label" for="certCalendarSelect">접수/시험 일정 선택</label>
             <select id="certCalendarSelect" class="cert-calendar-select"></select>
             <p class="cert-calendar-feedback" id="certCalendarFeedback" role="status" aria-live="polite"></p>
             <div class="cert-calendar-actions">
                 <button type="button" class="cert-card-action" data-close-cert-calendar>취소</button>
-                <button type="button" class="cert-card-action is-active" id="certCalendarSubmit">캘린더에 추가</button>
+                <button type="button" class="cert-card-action is-active" id="certCalendarSubmit">오늘의 계획에 추가</button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="{% static 'certifications/index.js' %}?v=20260323d"></script>
+<script src="{% static 'certifications/index.js' %}?v=20260328c"></script>
 {% endblock %}

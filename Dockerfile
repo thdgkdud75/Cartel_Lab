@@ -17,7 +17,8 @@ COPY . .
 RUN python manage.py collectstatic --noinput
 
 # 매일 한국시간 오전 6시 (UTC 21:00) 자동 퇴실 처리 cron 등록
-RUN echo "0 21 * * * cd /app && python manage.py auto_check_out >> /var/log/auto_checkout.log 2>&1" | crontab -
+# 매일 한국시간 오전 9시 (UTC 00:00) 공모전 정보 동기화 cron 등록
+RUN echo "0 21 * * * cd /app && python manage.py auto_check_out >> /var/log/auto_checkout.log 2>&1\n0 0 * * * cd /app && python manage.py sync_contests >> /var/log/sync_contests.log 2>&1" | crontab -
 
 # 실행 포트
 EXPOSE 8000

@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     add_daily_todo,
     add_goal,
+    add_goal_from_certification,
     add_lab_goal,
     api_daily_goal,
     api_daily_goal_achieve,
@@ -46,6 +47,7 @@ urlpatterns = [
     path("daily-todos/<int:todo_id>/toggle/", toggle_daily_todo, name="planner-daily-todo-toggle"),
     path("daily-todos/<int:todo_id>/delete/", delete_daily_todo, name="planner-daily-todo-delete"),
     path("goals/add/", add_goal, name="planner-goal-add"),
+    path("goals/add-from-certification/", add_goal_from_certification, name="planner-goal-add-certification"),
     path("goals/<int:goal_id>/delete/", delete_goal, name="planner-goal-delete"),
     path("goals/<int:goal_id>/toggle/", toggle_goal, name="planner-goal-toggle"),
     path("goals/<int:goal_id>/update/", update_goal, name="planner-goal-update"),

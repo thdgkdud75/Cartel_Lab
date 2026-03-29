@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}최신 공모전 - Team Lab{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold m-0"><i class="bi bi-trophy-fill text-warning me-2"></i>최신 공모전</h2>
+    <div class="btn-group shadow-sm">
+        <a href="?category=" class="btn btn-white {% if not current_category %}active fw-bold{% endif %}">전체</a>
+        <a href="?category=생성형 AI" class="btn btn-white {% if current_category == '생성형 AI' %}active fw-bold{% endif %}">생성형 AI</a>
+        <a href="?category=SW 개발" class="btn btn-white {% if current_category == 'SW 개발' %}active fw-bold{% endif %}">SW 개발</a>
+    </div>
+</div>
+
+<style>
+    .btn-white {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        color: #495057;
+    }
+    .btn-white.active {
+        background: #f8f9fa;
+        border-color: #ced4da;
+        color: #212529;
+    }
+    .contest-list-item {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid #f0f0f2 !important;
+    }
+    .contest-list-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.05) !important;
+    }
+</style>
+
+<div class="d-flex flex-column gap-3">
+    {% for contest in contests %}
+    <div class="contest-list-item card border-0 rounded-4 shadow-sm overflow-hidden">
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <!-- 정보 영역 -->
+                <div class="col-md-9 mb-3 mb-md-0">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge rounded-pill {% if contest.category == '생성형 AI' %}bg-primary{% elif contest.category == 'SW 개발' %}bg-success{% else %}bg-secondary{% endif %} px-3">
+                            {{ contest.category }}
+                        </span>
+                        <span class="text-muted small"><i class="bi bi-building me-1"></i>{{ contest.host }}</span>
+                    </div>
+                    <h5 class="fw-bold mb-1 text-dark">{{ contest.title }}</h5>
+                    <div class="d-flex align-items-center gap-3 text-muted small mt-2">
+                        <span><i class="bi bi-calendar-event me-1"></i>마감: {{ contest.deadline_at|date:"Y-m-d"|default:"상시" }}</span>
+                        {% if contest.reward %}
+                        <span><i class="bi bi-gift me-1"></i>{{ contest.reward }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 액션 영역 -->
+                <div class="col-md-3 text-md-end border-start-md">
+                    <div class="d-flex flex-row flex-md-column align-items-center align-items-md-end justify-content-between h-100">
+                        <div class="text-danger fw-bold fs-5 mb-0 mb-md-2">
+                            {% if contest.d_day is not None %}
+                                {% if contest.d_day == 0 %}D-Day
+                                {% elif contest.d_day > 0 %}D-{{ contest.d_day }}
+                                {% else %}마감
+                                {% endif %}
+                            {% else %}
+                                상시
+                            {% endif %}
+                        </div>
+                        <a href="{{ contest.external_url }}" target="_blank" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                            상세보기 <i class="bi bi-arrow-right-short ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-5 bg-light rounded-4 border border-dashed">
+        <i class="bi bi-inbox text-muted display-1"></i>
+        <p class="mt-3 text-muted">등록된 공모전이 없습니다.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    @media (min-width: 768px) {
+        .border-start-md {
+            border-left: 1px solid #f0f0f2;
+            padding-left: 2rem;
+        }
+    }
+</style>
+{% endblock %}

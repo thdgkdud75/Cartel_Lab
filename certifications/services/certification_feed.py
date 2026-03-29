@@ -233,6 +233,62 @@ def parse_qnet_info_processing_schedule(raw_html: str) -> list[dict[str, str]]:
     return schedules
 
 
+def parse_qnet_info_processing_schedule(raw_html: str) -> list[dict[str, str]]:
+    def normalize(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip()
+
+    def extract_first_date_range(value: str) -> str:
+        match = re.search(r"\d{4}\.\d{2}\.\d{2}\s*~\s*\d{4}\.\d{2}\.\d{2}", value)
+        return normalize(match.group(0)) if match else ""
+
+    def extract_first_date(value: str) -> str:
+        match = re.search(r"\d{4}\.\d{2}\.\d{2}", value)
+        return match.group(0) if match else ""
+
+    schedules = []
+    for row_html in re.findall(r"<tr\b[^>]*>(.*?)</tr>", raw_html, flags=re.IGNORECASE | re.DOTALL):
+        cells = [
+            normalize(_strip_tags(cell_html))
+            for cell_html in re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", row_html, flags=re.IGNORECASE | re.DOTALL)
+        ]
+        if len(cells) < 7:
+            continue
+
+        round_label = cells[0]
+        if not re.search(r"20\d{2}.*\d+\s*회", round_label):
+            continue
+
+        written_registration = extract_first_date_range(cells[1])
+        written_exam = extract_first_date_range(cells[2])
+        written_result = extract_first_date(cells[3])
+        practical_registration = extract_first_date_range(cells[4])
+        practical_exam = extract_first_date_range(cells[5])
+        final_result = extract_first_date(cells[6])
+
+        if not all([
+            written_registration,
+            written_exam,
+            written_result,
+            practical_registration,
+            practical_exam,
+            final_result,
+        ]):
+            continue
+
+        schedules.append(
+            {
+                "round": round_label,
+                "written_registration": written_registration,
+                "written_exam": written_exam,
+                "written_result": written_result,
+                "practical_registration": practical_registration,
+                "practical_exam": practical_exam,
+                "final_result": final_result,
+            }
+        )
+    return schedules
+
+
 def parse_dataq_single_schedule(raw_html: str, title: str) -> list[dict[str, str]]:
     text = _strip_tags(raw_html)
     year_match = re.search(r"(20\d{2})년도 일정", text)
@@ -444,7 +500,7 @@ def _build_item(
 
 
 def get_important_certification_feed() -> dict:
-    cache_key = "planner:important-certification-feed:v6"
+    cache_key = "planner:important-certification-feed:v8"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -614,7 +670,7 @@ def get_important_certification_feed() -> dict:
 
     dataq_single_specs = [
         ("adsp", "데이터분석준전문가", "ADsP", "데이터분석 준전문가", "데이터 입문과 분석 기초를 다지기 좋은 자격입니다."),
-        ("sqld", "SQL 개발자", "SQLD", "SQL 개발자", "데이터베이스와 SQL 기본기를 확인하기 좋은 대표 자격입니다."),
+        ("sqld", "SQLD", "SQLD", "SQL 개발자", "데이터베이스와 SQL 기본기를 확인하기 좋은 대표 자격입니다."),
         ("sqlp", "SQL 전문가", "SQLP", "SQL 전문가", "고급 SQL 설계와 튜닝 역량까지 보는 상위 자격입니다."),
         ("dap", "데이터아키텍처전문가", "DAP", "데이터아키텍처 전문가", "데이터 구조와 아키텍처 설계 중심의 상위 자격입니다."),
         ("dasp", "데이터아키텍처준전문가", "DAsP", "데이터아키텍처 준전문가", "데이터 모델링과 아키텍처 기초를 익히는 데 유용합니다."),

@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -165,10 +166,43 @@ def _find_contiguous_goal_ids(user, anchor_date, content, planned_time):
 
 
 def _planner_plan_redirect_for_date(target_date):
+    return redirect(_planner_plan_url_for_date(target_date))
+
+
+def _planner_plan_url_for_date(target_date):
     month = target_date.strftime("%Y-%m")
-    return redirect(
-        f"{reverse('planner-index')}?view=plan&month={month}&date={target_date.isoformat()}"
-    )
+    return f"{reverse('planner-index')}?view=plan&month={month}&date={target_date.isoformat()}"
+
+
+def _normalize_certification_goal_text(value):
+    text = (value or "").strip()
+    if not text:
+        return ""
+
+    replacements = {
+        "?쒗뿕": "시험",
+        "?꾧린": "필기",
+        "?ㅺ린": "실기",
+        "?묒닔": "접수",
+    }
+
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+
+    if text == "SQL 개발자":
+        return "SQLD"
+    if text.startswith("SQL 개발자 |"):
+        return text.replace("SQL 개발자 |", "SQLD |", 1)
+
+    return text
+
+
+def _goal_content_from_certification(name, label):
+    normalized_name = _normalize_certification_goal_text(name)
+    normalized_label = _normalize_certification_goal_text(label)
+    content = " | ".join([value for value in [normalized_name, normalized_label] if value])
+    content = content or "자격증 일정"
+    return content[:255]
 
 
 def _sync_daily_todo_create(todo):
@@ -454,6 +488,7 @@ def index(request):
 
     goals_by_date = {}
     for goal in goals:
+        goal.display_content = _normalize_certification_goal_text(goal.content)
         goal_date = _goal_date(goal)
         if calendar_start <= goal_date <= calendar_end:
             goals_by_date.setdefault(goal_date, []).append(goal)
@@ -619,6 +654,72 @@ def add_goal(request):
         except ValueError:
             pass
     return redirect(f"{reverse('planner-index')}?view=plan")
+
+
+def add_goal_from_certification(request):
+    if request.method != "POST":
+        return JsonResponse({"message": "POST method required."}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {
+                "message": "로그인 후 오늘의 계획에 추가할 수 있습니다.",
+                "login_url": reverse("users-login"),
+            },
+            status=401,
+        )
+
+    target_date_raw = (request.POST.get("target_date") or "").strip()
+    cert_name = (request.POST.get("certification_name") or "").strip()
+    schedule_label = (request.POST.get("schedule_label") or "").strip()
+    color = _color_from_input(request.POST.get("color")) or "yellow"
+
+    if not target_date_raw:
+        return JsonResponse({"message": "추가할 시험 날짜가 필요합니다."}, status=400)
+
+    try:
+        target_date = date.fromisoformat(target_date_raw)
+    except ValueError:
+        return JsonResponse({"message": "시험 날짜 형식이 올바르지 않습니다."}, status=400)
+
+    content = _goal_content_from_certification(cert_name, schedule_label)
+    week_start = _week_start_from_input(target_date.isoformat())
+    weekday = (target_date - week_start).days
+    goal = WeeklyGoal.objects.filter(
+        user=request.user,
+        week_start=week_start,
+        weekday=weekday,
+        content=content,
+    ).order_by("created_at").first()
+    created = goal is None
+
+    if created:
+        goal = WeeklyGoal.objects.create(
+            user=request.user,
+            week_start=week_start,
+            weekday=weekday,
+            planned_time=None,
+            content=content,
+            color=color,
+        )
+
+    if goal.color != color:
+        goal.color = color
+        goal.save(update_fields=["color", "updated_at"])
+
+    return JsonResponse(
+        {
+            "created": created,
+            "message": (
+                "오늘의 계획에 추가되었습니다."
+                if created
+                else "이미 오늘의 계획에 추가된 일정입니다."
+            ),
+            "planner_url": _planner_plan_url_for_date(target_date),
+            "target_date": target_date.isoformat(),
+            "content": goal.content,
+        }
+    )
 
 
 @login_required

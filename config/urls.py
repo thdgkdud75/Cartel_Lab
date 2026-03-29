@@ -34,6 +34,7 @@ urlpatterns = [
     path('seats/', include('seats.urls')),
     path('quiz/', include('quiz.urls')),
     path('blog/', include('blog.urls')),
+    path('contests/', include('contests.urls')),
     path('privacy/', TemplateView.as_view(template_name='privacy.html')),
     path('terms/', TemplateView.as_view(template_name='terms.html')),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),

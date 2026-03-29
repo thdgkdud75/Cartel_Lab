@@ -187,6 +187,7 @@
             <a href="/planner/?view=plan" class="nav-link{% if path|slice:':9' == '/planner/' %} primary{% endif %}">계획/목표</a>
             <a href="/seats/" class="nav-link{% if path|slice:':7' == '/seats/' %} primary{% endif %}">좌석현황</a>
             <a href="/jobs/" class="nav-link{% if path|slice:':6' == '/jobs/' %} primary{% endif %}">최신일자리</a>
+            <a href="/contests/" class="nav-link{% if path|slice:':10' == '/contests/' %} primary{% endif %}">공모전 정보</a>
             <a href="/quiz/" class="nav-link{% if path|slice:':6' == '/quiz/' %} primary{% endif %}">Today Code</a>
             <a href="/blog/" class="nav-link{% if path|slice:':6' == '/blog/' %} primary{% endif %}">기술블로그</a>
             {% if request.user.is_authenticated %}
