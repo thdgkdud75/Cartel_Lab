@@ -13,7 +13,7 @@ const DEFAULT_PROFILE_IMAGES = [
 ];
 
 export default function AuthButton() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -24,6 +24,15 @@ export default function AuthButton() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  if (status === "loading") {
+    return (
+      <div className="inline-flex items-center gap-[5px] px-[10px] py-[7px]">
+        <div className="h-[26px] w-[26px] rounded-lg bg-[#f1f2f4]" />
+        <div className="h-[14px] w-[40px] rounded bg-[#f1f2f4]" />
+      </div>
+    );
+  }
 
   if (!session) {
     return (
@@ -49,7 +58,7 @@ export default function AuthButton() {
       >
         <img
           src={user.image || DEFAULT_PROFILE_IMAGES[Number(user.id) % DEFAULT_PROFILE_IMAGES.length]}
-          className="h-[26px] w-[26px] shrink-0 rounded-full border-[1.5px] border-[#e2e5e9] object-cover"
+          className="h-[26px] w-[26px] shrink-0 rounded-lg border-[1.5px] border-[#e2e5e9] object-cover"
         />
         {user?.name}
         <svg
