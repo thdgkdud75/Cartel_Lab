@@ -13,13 +13,14 @@ ROOT = "/",
     BLOG = "/blog",
     USERS = "/users",
     ADMIN = "/dashboard",
+    AUTH = "/auth",
 }
 
 /*  애플리케이션의 페이지 이름을 정의 
     Routes.ADMIN + / + Pages.USERS → /admin/users
 */
 export enum Pages {
-    LOGIN = "signin",
+    LOGIN = "login",
     REGISTER = "signup",
     EDIT = "edit",
     NEW = "new",
@@ -54,6 +55,7 @@ export enum InputTypes {
 // 인증 관련 메시지 정의
 export enum AuthMessages {
     LOGIN_SUCCESS = "Login successfully",
+    LOGIN_FAILED = "학번 또는 비밀번호가 올바르지 않습니다.",
     LOGOUT_SUCCESS = "Logout successfully",
     REGISTER_SUCCESS = "Register successfully",
     FORGET_PASSWORD_SUCCESS = "Forget password successfully",
@@ -70,6 +72,14 @@ export enum Environments {
 export enum UserRole {
     USER = "USER",
     ADMIN = "ADMIN",
+}
+
+// API 서브 경로를 정의 (Routes와 조합하여 사용)
+export enum ApiPaths {
+    LOGIN = "/login/",
+    LOGOUT = "/logout/",
+    REFRESH = "/refresh/",
+    ME = "/me/",
 }
 
 // API 메서드를 정의
