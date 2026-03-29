@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { Routes, Pages } from "@/constants/enums";
+import { Button } from "@/components/ui/button";
 
 const DEFAULT_PROFILE_IMAGES = [
   "/images/default_01.png",
@@ -13,88 +13,52 @@ const DEFAULT_PROFILE_IMAGES = [
 ];
 
 export default function AuthButton() {
-  const { data: session, status } = useSession();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  if (status === "loading") {
-    return (
-      <div className="inline-flex items-center gap-[5px] px-[10px] py-[7px]">
-        <div className="h-[26px] w-[26px] rounded-lg bg-[#f1f2f4]" />
-        <div className="h-[14px] w-[40px] rounded bg-[#f1f2f4]" />
-      </div>
-    );
-  }
+  const { data: session } = useSession();
 
   if (!session) {
     return (
-      <Link
-        href="/login"
-        className="rounded-lg px-[10px] py-[7px] text-[15px] font-semibold text-[#868b94] transition-colors duration-200 hover:bg-[#f1f2f4] hover:text-[#212124]"
-      >
-        로그인
-      </Link>
+      <Button asChild variant="ghost" className="text-[15px] font-semibold text-[#868b94] hover:bg-[#f1f2f4] hover:text-[#212124]">
+        <Link href={`/${Pages.LOGIN}`}>로그인</Link>
+      </Button>
     );
   }
 
   const user = session.user;
 
   return (
-    <div ref={ref} className="relative ml-[6px]">
-      {/* 트리거 버튼 */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className="inline-flex items-center gap-[5px] rounded-lg border-none bg-transparent px-[10px] py-[7px] text-[15px] font-semibold text-[#868b94] transition-colors duration-200 hover:bg-[#f1f2f4] hover:text-[#212124]"
-      >
+    <div className="group relative ml-[6px]">
+      {/* 트리거 */}
+      <div className="inline-flex cursor-pointer items-center gap-[5px] rounded-lg px-[10px] py-[7px] text-[15px] font-semibold text-[#868b94] transition-colors duration-200 hover:bg-[#f1f2f4] hover:text-[#212124]">
         <img
           src={user.image || DEFAULT_PROFILE_IMAGES[Number(user.id) % DEFAULT_PROFILE_IMAGES.length]}
           className="h-[26px] w-[26px] shrink-0 rounded-lg border-[1.5px] border-[#e2e5e9] object-cover"
         />
         {user?.name}
         <svg
-          className={`h-[14px] w-[14px] shrink-0 transition-transform duration-[220ms] ${open ? "rotate-180" : ""}`}
+          className="h-[14px] w-[14px] shrink-0 transition-transform duration-[220ms] group-hover:rotate-180"
           viewBox="0 0 16 16" fill="none"
         >
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
+      </div>
 
       {/* 드롭다운 메뉴 */}
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-[100] min-w-[180px] origin-top-right rounded-2xl border border-[#e2e5e9] bg-white p-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
-          <Link
-            href={`${Routes.USERS}/${Pages.EDIT}`}
-            onClick={() => setOpen(false)}
-            className="dropdown-item"
-          >
-            <EditIcon /> 내 정보 변경
-          </Link>
-          <Link
-            href={Routes.USERS}
-            onClick={() => setOpen(false)}
-            className="dropdown-item"
-          >
-            <ProfileIcon /> 내 정보 및 이력서 분석
-          </Link>
-          <div className="my-1 h-px bg-[#f0f0f2]" />
-          <button
-            onClick={() => signOut()}
-            className="dropdown-item w-full text-[#c2410c] hover:bg-[#fff5f0]"
-          >
-            <LogoutIcon /> 로그아웃
-          </button>
-        </div>
-      )}
+      <div className="invisible absolute right-0 top-[calc(100%+4px)] z-[100] min-w-[180px] origin-top-right rounded-2xl border border-[#e2e5e9] bg-white p-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.10)] opacity-0 transition-all duration-150 group-hover:visible group-hover:opacity-100">
+        <Link href={`${Routes.USERS}/${Pages.EDIT}`} className="dropdown-item">
+          <EditIcon /> 내 정보 변경
+        </Link>
+        <Link href={Routes.USERS} className="dropdown-item">
+          <ProfileIcon /> 내 프로필
+        </Link>
+        <div className="my-1 h-px bg-[#f0f0f2]" />
+        <Button
+          variant="ghost"
+          onClick={() => signOut()}
+          className="dropdown-item w-full text-[#c2410c] hover:bg-[#fff5f0]"
+        >
+          <LogoutIcon /> 로그아웃
+        </Button>
+      </div>
     </div>
   );
 }
