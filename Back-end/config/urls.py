@@ -1,42 +1,21 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib import admin
 from django.urls import include, path, re_path
-from django.views.generic import TemplateView
 from django.views.static import serve
 
 urlpatterns = [
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
-    path('jobs/', include('jobs.urls')),
-    path('auth/admin/', include('dashboard.urls')),
-    path('django-admin/', admin.site.urls),
-    path('users/', include('users.urls')),
-    path('attendance/', include('attendance.urls')),
-    path('certifications/', include('certifications.urls')),
-    path('timetable/', include('timetable.urls')),
-    path('planner/', include('planner.urls')),
-    path('seats/', include('seats.urls')),
-    path('quiz/', include('quiz.urls')),
-    path('blog/', include('blog.urls')),
-    path('contests/', include('contests.urls')),
-    path('privacy/', TemplateView.as_view(template_name='privacy.html')),
-    path('terms/', TemplateView.as_view(template_name='terms.html')),
+    path('api/auth/', include('users.auth_urls')),
+    path('api/jobs/', include('jobs.urls')),
+    path('api/users/', include('users.urls')),
+    path('api/attendance/', include('attendance.urls')),
+    path('api/certifications/', include('certifications.urls')),
+    path('api/timetable/', include('timetable.urls')),
+    path('api/planner/', include('planner.urls')),
+    path('api/seats/', include('seats.urls')),
+    path('api/quiz/', include('quiz.urls')),
+    path('api/blog/', include('blog.urls')),
+    path('api/contests/', include('contests.urls')),
+    path('api/dashboard/', include('dashboard.urls')),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 
