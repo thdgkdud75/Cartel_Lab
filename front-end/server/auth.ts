@@ -1,10 +1,14 @@
-import NextAuth, { AuthOptions, User } from "next-auth";
+import { AuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { dbFetch } from "@/lib/api-client";
 import { ApiPaths, InputTypes, Methods, Pages, Routes } from "@/constants/enums";
 import { LoginBody, LoginResponse } from "@/types/user";
+import { getDevUser } from "@/server/dev-account";
 
 async function authorizeUser(credentials: Record<string, string> | undefined): Promise<User | null> {
+  const devUser = getDevUser(credentials);
+  if (devUser) return devUser;
+
   try {
     const body: LoginBody = {
       student_id: credentials?.student_id ?? "",
@@ -40,13 +44,14 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.image = user.image;
+        token.image = user.image ?? null;
         token.is_staff = user.is_staff;
         token.class_group = user.class_group;
       }
       return token;
     },
     async session({ session, token }) {
+      session.user.id = token.sub ?? "";
       session.user.image = token.image as string | null;
       session.user.is_staff = token.is_staff;
       session.user.class_group = token.class_group;
@@ -62,4 +67,3 @@ export const authOptions: AuthOptions = {
   },
 };
 
-export const handlers = NextAuth(authOptions);
