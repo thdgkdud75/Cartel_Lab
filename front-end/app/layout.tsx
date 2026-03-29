@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Header from "@/components/header";
+import NextAuthSessionProvider from "@/providers/NextAuthSessionProvider";
+import ReduxProvider from "@/providers/ReduxProvider";
 
 const pretendard = localFont({
   src: "../public/fonts/PretendardVariable.woff2",
@@ -22,8 +24,12 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${pretendard.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-[family-name:var(--font-pretendard)]">
-        <Header />
-        {children}
+        <NextAuthSessionProvider>
+          <ReduxProvider>
+            <Header />
+            {children}
+          </ReduxProvider>
+        </NextAuthSessionProvider>
       </body>
     </html>
   );
