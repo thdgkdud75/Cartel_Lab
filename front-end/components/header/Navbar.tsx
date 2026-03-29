@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { NAV_LINKS } from "@/constants/navigation";
-import { Pages } from "@/constants/enums";
+import { Pages, Routes } from "@/constants/enums";
 
 type Props = {
   isOpen: boolean;
@@ -46,6 +46,23 @@ export default function Navbar({ isOpen, onClose }: Props) {
             </svg>
           </button>
         </div>
+
+        {/* 모바일 전용 유저 메뉴 */}
+        {session && (
+          <div className="xl:hidden mx-6 mt-4 rounded-2xl bg-[#f7f8fa] px-4">
+            <Link href={Routes.USERS} onClick={onClose} className={`flex items-center py-3 text-[15px] font-semibold border-b border-[#eaebee] ${pathname === Routes.USERS ? "text-brand" : "text-[#1a1a1a]"}`}>
+              내 프로필
+            </Link>
+            <Link href={`${Routes.USERS}/${Pages.EDIT}`} onClick={onClose} className={`flex items-center py-3 text-[15px] font-semibold border-b border-[#eaebee] ${pathname === `${Routes.USERS}/${Pages.EDIT}` ? "text-brand" : "text-[#1a1a1a]"}`}>
+              내 정보 변경
+            </Link>
+            {session.user.is_staff && (
+              <Link href={Routes.ADMIN} onClick={onClose} className={`flex items-center py-3 text-[15px] font-semibold ${pathname.startsWith(Routes.ADMIN) ? "text-brand" : "text-[#1a1a1a]"}`}>
+                관리자 대시보드
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* 네비게이션 링크 */}
         <div className="flex flex-col gap-1 px-6 pt-4 xl:flex-row xl:items-center xl:gap-[30px] xl:p-0">
