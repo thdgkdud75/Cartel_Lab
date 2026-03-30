@@ -41,7 +41,7 @@ export default function Navbar({ isOpen, onClose }: Props) {
         {/* 모바일 전용 상단 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 xl:hidden">
           <div className="flex items-center gap-2">
-            <Image src="/images/teamlab-logo.png" alt="Jvision Lab" width={40} height={40} className="object-contain" />
+            <Image src="/images/teamlab-logo.png" alt="Jvision Lab" width={40} height={40} className="object-contain" style={{ width: 40, height: "auto" }} />
             <span className="text-[16px] font-extrabold text-[#1a1a1a] tracking-[-0.01em]">Jvision Lab</span>
           </div>
           <button
@@ -87,7 +87,7 @@ export default function Navbar({ isOpen, onClose }: Props) {
             <Link href={Routes.USERS} onClick={onClose} className={`w-full flex items-center justify-end gap-2 py-3 text-[15px] font-medium ${pathname === Routes.USERS ? "text-brand" : "text-[#868b94]"}`}>
               내 프로필
               {session.user.image ? (
-                <Image src={session.user.image} alt="프로필" width={36} height={36} className="rounded-full object-cover" />
+                <Image src={session.user.image} alt="프로필" width={36} height={36} className="rounded-full object-cover" style={{ width: 36, height: "auto" }} />
               ) : (
                 <UserCircle2 size={36} />
               )}
