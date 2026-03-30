@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-cartel_lab}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root --password=\"${MYSQL_ROOT_PASSWORD:-}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: ./Back-end
+    restart: always
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      ALLOWED_HOSTS: "0.0.0.0,localhost,127.0.0.1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Back-end:/app
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  front:
+    build: ./front-end
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
+
+volumes:
+  mysql_data:
+  media_data:
