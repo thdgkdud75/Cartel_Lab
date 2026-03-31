@@ -3,6 +3,7 @@
 import { LANG_STYLE } from "./_analysis-constants";
 import { parseRecommendationBlocks } from "./_analysis-parser";
 import { useProfileAnalyze } from "./_use-profile-analyze";
+import { Responses } from "@/constants/enums";
 import type { Profile } from "@/types/user";
 
 function LangChip({ name }: { name: string }) {
@@ -21,7 +22,7 @@ type Props = {
 };
 
 export function AnalysisSection({ profile, setProfile }: Props) {
-  const { analyzing, analyzingTip, handleAnalyze } = useProfileAnalyze(setProfile);
+  const { analyzing, analyzingTip, responseType, responseMessage, handleAnalyze } = useProfileAnalyze(setProfile);
   const canAnalyze = !!(profile?.github_username && profile?.resume_file) && !analyzing;
 
   const cardStyle = { padding: 20, borderRadius: 18, background: "#fbfbfc", border: "1px solid #eef0f3" };
@@ -83,6 +84,11 @@ export function AnalysisSection({ profile, setProfile }: Props) {
             {analyzing ? "분석 중..." : canAnalyze ? "AI 분석하기" : "GitHub + 이력서 등록 후 분석 가능"}
           </button>
         </div>
+        {responseType === Responses.ERROR && responseMessage && (
+          <p style={{ margin: "0 0 16px", color: "#dc2626", fontSize: 13, lineHeight: 1.6 }}>
+            {responseMessage}
+          </p>
+        )}
         {profile?.profile_analyzed_at ? (() => {
           const payload = profile.ai_profile_payload ?? {};
           const targetRoles: string[] = (payload.target_roles as string[]) ?? [];

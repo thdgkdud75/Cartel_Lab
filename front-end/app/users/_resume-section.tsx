@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { useAuthFetch } from "@/lib/use-auth-fetch";
-import { Routes, ApiPaths, Methods } from "@/constants/enums";
+import { Routes, ApiPaths, Methods, Responses } from "@/constants/enums";
 import type { Profile } from "@/types/user";
 
 type Props = {
@@ -16,19 +16,37 @@ export function ResumeSection({ profile, setProfile }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [responseType, setResponseType] = useState<Responses | null>(null);
+  const [responseMessage, setResponseMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileChange(file: File | null) {
-    if (!file) return;
+    if (!file) {
+      setResponseType(Responses.ERROR);
+      setResponseMessage("파일이 없습니다.");
+      return;
+    }
     const allowed = ["application/pdf", "text/plain"];
-    if (!allowed.includes(file.type)) return;
-    if (file.size > 10 * 1024 * 1024) return;
+    if (!allowed.includes(file.type)) {
+      setResponseType(Responses.ERROR);
+      setResponseMessage("PDF 또는 TXT 파일만 업로드 가능합니다.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setResponseType(Responses.ERROR);
+      setResponseMessage("파일 크기는 10MB를 넘을 수 없습니다.");
+      return;
+    }
     setSelectedFile(file);
+    setResponseType(null);
+    setResponseMessage("");
   }
 
   async function handleUpload() {
     if (!selectedFile) return;
     setUploading(true);
+    setResponseType(null);
+    setResponseMessage("");
     try {
       const formData = new FormData();
       formData.append("resume_file", selectedFile);
@@ -38,8 +56,9 @@ export function ResumeSection({ profile, setProfile }: Props) {
       });
       setProfile((prev) => prev ? { ...prev, resume_file: updated.resume_file ?? prev.resume_file } : prev);
       setSelectedFile(null);
-    } catch {
-      // 업로드 실패 시 조용히 무시
+    } catch (error) {
+      setResponseType(Responses.ERROR);
+      setResponseMessage(error instanceof Error ? error.message : "업로드에 실패했습니다.");
     } finally {
       setUploading(false);
     }
@@ -51,6 +70,8 @@ export function ResumeSection({ profile, setProfile }: Props) {
     }).catch(() => null);
     setProfile((prev) => prev ? { ...prev, resume_file: null } : prev);
     setSelectedFile(null);
+    setResponseType(null);
+    setResponseMessage("");
   }
 
   return (
@@ -144,6 +165,11 @@ export function ResumeSection({ profile, setProfile }: Props) {
             </button>
           )}
         </>
+      )}
+      {responseType === Responses.ERROR && responseMessage && (
+        <p style={{ margin: "10px 2px 0", color: "#dc2626", fontSize: 13, lineHeight: 1.5 }}>
+          {responseMessage}
+        </p>
       )}
       <input
         ref={fileInputRef}

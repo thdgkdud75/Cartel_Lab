@@ -1,64 +1,66 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { API_BASE_URL } from "./api-client";
 
 export function useAuthFetch() {
-  const { data: session } = useSession();
-  // 갱신된 access_token을 캐싱 (NextAuth 세션은 30분 만료 후 갱신 안 됨)
-  const tokenRef = useRef<string | null>(null);
+  const { data: session, update } = useSession();
 
   const authFetch = useCallback(
     async (endpoint: string, options: RequestInit = {}) => {
-      const token = tokenRef.current ?? session?.user?.access_token;
-
-      const buildHeaders = (tok?: string | null): Record<string, string> => {
+      const buildHeaders = (token?: string | null): Record<string, string> => {
         const base = options.headers as Record<string, string> | undefined;
         const h: Record<string, string> = { ...(base ?? {}) };
-        // FormData는 브라우저가 Content-Type(boundary 포함)을 자동 설정하므로 수동 지정 금지
         if (!(options.body instanceof FormData)) {
           h["Content-Type"] = "application/json";
         }
-        if (tok) {
-          h["Authorization"] = `Bearer ${tok}`;
+        if (token) {
+          h["Authorization"] = `Bearer ${token}`;
         }
         return h;
       };
 
-      const doFetch = (tok?: string | null) =>
+      const doFetch = (token?: string | null) =>
         fetch(`${API_BASE_URL}${endpoint}`, {
           ...options,
-          headers: buildHeaders(tok),
+          headers: buildHeaders(token),
           credentials: "include",
         });
 
-      let response = await doFetch(token);
+      let response = await doFetch(session?.user?.access_token);
 
-      // 401이면 refresh_token 쿠키로 토큰 갱신 후 재시도
+      // 401이면 NextAuth 세션 갱신 (jwt 콜백에서 refresh_token으로 서버사이드 재발급)
       if (response.status === 401) {
-        try {
-          const refreshResp = await fetch(`${API_BASE_URL}/auth/refresh/`, {
-            method: "POST",
-            credentials: "include",
-          });
-          if (refreshResp.ok) {
-            const data = await refreshResp.json();
-            tokenRef.current = data.access_token;
-            response = await doFetch(tokenRef.current);
-          }
-        } catch {
-          // refresh 자체 실패 시 원본 401 에러로 처리
+        const newSession = await update();
+        const newToken = newSession?.user?.access_token;
+        if (newToken) {
+          response = await doFetch(newToken);
         }
       }
 
       if (!response.ok) {
-        throw new Error(`API 오류: ${response.status}`);
+        let errorMessage = `API 오류: ${response.status}`;
+
+        try {
+          const data = await response.json();
+          if (typeof data?.error === "string" && data.error.trim()) {
+            errorMessage = data.error;
+          } else if (typeof data?.detail === "string" && data.detail.trim()) {
+            errorMessage = data.detail;
+          } else if (typeof data?.message === "string" && data.message.trim()) {
+            errorMessage = data.message;
+          }
+        } catch {
+          // JSON 파싱 실패 시 기본 메시지 사용
+        }
+
+        throw new Error(errorMessage);
       }
 
       return response.json();
     },
-    [session]
+    [session, update]
   );
 
   return authFetch;
