@@ -140,7 +140,7 @@ class ProfileGithubView(APIView):
 
 
 class ProfileResumeView(APIView):
-    """이력서 파일 업로드"""
+    """이력서 파일 업로드/삭제"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -156,6 +156,14 @@ class ProfileResumeView(APIView):
         user.resume_file = file
         user.save(update_fields=['resume_file'])
         return Response({'resume_file': user.resume_file.name.replace('resumes/', '')})
+
+    def delete(self, request):
+        user = request.user
+        if user.resume_file:
+            user.resume_file.delete(save=False)
+            user.resume_file = None
+            user.save(update_fields=['resume_file'])
+        return Response({'resume_file': None})
 
 
 class GitHubConnectView(APIView):
