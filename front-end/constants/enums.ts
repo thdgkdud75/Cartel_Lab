@@ -12,6 +12,7 @@ ROOT = "/",
     QUIZ = "/quiz",
     BLOG = "/blog",
     USERS = "/users",
+    MYPAGE = "/mypage",
     ADMIN = "/dashboard",
     AUTH = "/auth",
 }
