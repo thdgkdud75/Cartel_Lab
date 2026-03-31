@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from .services import build_profile_analysis
+from jobs.services.market_analysis import get_market_role_context, get_or_refresh_market_snapshot
 
 
 def set_auth_cookies(response, access_token, refresh_token):
@@ -39,14 +41,16 @@ class LoginView(APIView):
             return Response({'error': '학번 또는 비밀번호가 올바르지 않습니다.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
         response = Response({
             'id': user.id,
             'name': user.name,
             'image': user.profile_image_url,
             'is_staff': user.is_staff,
             'class_group': user.class_group,
+            'access_token': access_token,
         })
-        set_auth_cookies(response, str(refresh.access_token), str(refresh))
+        set_auth_cookies(response, access_token, str(refresh))
         return response
 
 
@@ -93,3 +97,109 @@ class MeView(APIView):
             'grade': user.grade,
             'profile_image': request.build_absolute_uri(user.profile_image.url) if user.profile_image else None,
         })
+
+
+class ProfileView(APIView):
+    """프로필 전체 조회 (GitHub, 이력서, 분석 결과 포함)"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'github_url': user.github_url,
+            'github_username': user.github_username,
+            'github_profile_summary': user.github_profile_summary,
+            'github_top_languages': user.github_top_languages,
+            'resume_file': user.resume_file.name.replace('resumes/', '') if user.resume_file else None,
+            'desired_job_direction': user.get_selected_job_direction(),
+            'profile_analyzed_at': user.profile_analyzed_at,
+            'ai_profile_summary': user.ai_profile_summary,
+            'ai_profile_payload': user.ai_profile_payload,
+            'resume_analysis_summary': user.resume_analysis_summary,
+            'analysis_recommendation': user.analysis_recommendation,
+            'remaining_analysis_count': user.get_remaining_analysis_count(),
+        })
+
+
+class ProfileGithubView(APIView):
+    """GitHub URL 저장"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        github_url = (request.data.get('github_url') or '').strip()
+        user = request.user
+        user.github_url = github_url
+        user.save(update_fields=['github_url'])
+        return Response({'github_url': user.github_url})
+
+
+class ProfileResumeView(APIView):
+    """이력서 파일 업로드"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        file = request.FILES.get('resume_file')
+        if not file:
+            return Response({'error': '파일이 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not file.name.endswith(('.pdf', '.txt')):
+            return Response({'error': 'PDF 또는 TXT 파일만 업로드 가능합니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        if user.resume_file:
+            user.resume_file.delete(save=False)
+        user.resume_file = file
+        user.save(update_fields=['resume_file'])
+        return Response({'resume_file': user.resume_file.name.replace('resumes/', '')})
+
+
+class ProfileAnalyzeView(APIView):
+    """AI 분석 실행"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        if not user.can_run_profile_analysis():
+            return Response({'error': '오늘 분석 횟수를 모두 사용했습니다.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        if not user.github_url and not user.resume_file:
+            return Response({'error': 'GitHub URL 또는 이력서를 먼저 등록해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            market_snapshot = get_or_refresh_market_snapshot()
+            analysis = build_profile_analysis(
+                user.github_url,
+                user.resume_file,
+                desired_direction=user.get_selected_job_direction(),
+                market_role_context=get_market_role_context(
+                    market_snapshot,
+                    user.get_selected_job_direction(),
+                ),
+            )
+            user.github_username = analysis['github_username']
+            user.github_profile_summary = analysis['github_profile_summary']
+            user.github_top_languages = analysis['github_top_languages']
+            user.resume_extracted_text = analysis['resume_extracted_text']
+            user.resume_analysis_summary = analysis['resume_analysis_summary']
+            user.analysis_recommendation = analysis['analysis_recommendation']
+            user.ai_profile_summary = analysis.get('ai_profile_summary', '')
+            user.ai_profile_payload = analysis.get('ai_profile_payload', {})
+            user.ai_profile_error = analysis.get('ai_profile_error', '')
+            if user.github_url:
+                user.mark_github_connected()
+            user.mark_profile_analyzed()
+            user.consume_profile_analysis()
+            user.save()
+            return Response({
+                'github_username': user.github_username,
+                'github_profile_summary': user.github_profile_summary,
+                'github_top_languages': user.github_top_languages,
+                'resume_analysis_summary': user.resume_analysis_summary,
+                'analysis_recommendation': user.analysis_recommendation,
+                'ai_profile_summary': user.ai_profile_summary,
+                'ai_profile_payload': user.ai_profile_payload,
+                'profile_analyzed_at': user.profile_analyzed_at,
+                'remaining_analysis_count': user.get_remaining_analysis_count(),
+            })
+        except Exception as exc:
+            return Response({'error': f'분석 중 오류가 발생했습니다: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
