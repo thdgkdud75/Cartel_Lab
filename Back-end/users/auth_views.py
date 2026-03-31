@@ -78,8 +78,9 @@ class RefreshView(APIView):
 
         try:
             refresh = RefreshToken(refresh_token)
-            response = Response({'detail': '토큰이 갱신되었습니다.'})
-            set_auth_cookies(response, str(refresh.access_token), str(refresh))
+            new_access = str(refresh.access_token)
+            response = Response({'detail': '토큰이 갱신되었습니다.', 'access_token': new_access})
+            set_auth_cookies(response, new_access, str(refresh))
             return response
         except Exception:
             return Response({'error': '유효하지 않은 토큰입니다.'}, status=status.HTTP_401_UNAUTHORIZED)
