@@ -29,6 +29,22 @@ export interface AuthUser {
   class_group: string;
 }
 
+// 프로필 API 응답 (ProfileView)
+export interface Profile {
+  github_url: string;
+  github_username: string;
+  github_profile_summary: string;
+  github_top_languages: string;
+  resume_file: string | null;
+  desired_job_direction: string;
+  profile_analyzed_at: string | null;
+  ai_profile_summary: string;
+  ai_profile_payload: Record<string, unknown>;
+  resume_analysis_summary: string;
+  analysis_recommendation: string;
+  remaining_analysis_count: number;
+}
+
 // 로그인 요청 바디
 export interface LoginBody {
   student_id: string;

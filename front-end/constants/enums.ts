@@ -81,6 +81,10 @@ export enum ApiPaths {
     LOGOUT = "/logout/",
     REFRESH = "/refresh/",
     ME = "/me/",
+    PROFILE = "/profile/",
+    PROFILE_GITHUB = "/profile/github/",
+    GITHUB_CONNECT = "/profile/github/connect/",
+    GITHUB_CALLBACK = "/profile/github/callback/",
 }
 
 // API 메서드를 정의
