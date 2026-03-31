@@ -1,3 +1,5 @@
+import urllib.parse
+import requests as github_req
 from django.contrib.auth import authenticate
 from django.conf import settings
 from rest_framework.views import APIView
@@ -150,6 +152,69 @@ class ProfileResumeView(APIView):
         user.resume_file = file
         user.save(update_fields=['resume_file'])
         return Response({'resume_file': user.resume_file.name.replace('resumes/', '')})
+
+
+class GitHubConnectView(APIView):
+    """GitHub OAuth URL 반환"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        frontend_callback = request.query_params.get(
+            'redirect_uri',
+            'http://localhost:3000/api/github/callback'
+        )
+        params = urllib.parse.urlencode({
+            'client_id': settings.GITHUB_CLIENT_ID,
+            'redirect_uri': frontend_callback,
+            'scope': 'read:user',
+        })
+        return Response({'oauth_url': f'https://github.com/login/oauth/authorize?{params}'})
+
+
+class GitHubCallbackView(APIView):
+    """GitHub code → username 저장"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        code = request.data.get('code')
+        redirect_uri = request.data.get('redirect_uri', 'http://localhost:3000/api/github/callback')
+        if not code:
+            return Response({'error': 'code가 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token_resp = github_req.post(
+                'https://github.com/login/oauth/access_token',
+                json={
+                    'client_id': settings.GITHUB_CLIENT_ID,
+                    'client_secret': settings.GITHUB_CLIENT_SECRET,
+                    'code': code,
+                    'redirect_uri': redirect_uri,
+                },
+                headers={'Accept': 'application/json'},
+                timeout=15,
+            )
+            access_token = token_resp.json().get('access_token')
+            if not access_token:
+                return Response({'error': 'GitHub 인증 코드가 만료되었습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user_resp = github_req.get(
+                'https://api.github.com/user',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=15,
+            )
+            username = user_resp.json().get('login')
+            if not username:
+                return Response({'error': 'GitHub 사용자 정보를 가져오지 못했습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception:
+            return Response({'error': 'GitHub 서버와 연결할 수 없습니다.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        user = request.user
+        user.github_username = username
+        user.github_url = f'https://github.com/{username}'
+        user.mark_github_connected()
+        user.save()
+        return Response({'github_username': username, 'github_url': user.github_url})
 
 
 class ProfileAnalyzeView(APIView):
