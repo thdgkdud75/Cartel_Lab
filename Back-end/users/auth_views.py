@@ -135,8 +135,20 @@ class ProfileGithubView(APIView):
         github_url = (request.data.get('github_url') or '').strip()
         user = request.user
         user.github_url = github_url
-        user.save(update_fields=['github_url'])
-        return Response({'github_url': user.github_url})
+        if not github_url:
+            user.github_username = ""
+            user.github_profile_summary = ""
+            user.github_top_languages = ""
+            user.github_connected_at = None
+            user.save(update_fields=['github_url', 'github_username', 'github_profile_summary', 'github_top_languages', 'github_connected_at'])
+        else:
+            user.save(update_fields=['github_url'])
+        return Response({
+            'github_url': user.github_url,
+            'github_username': user.github_username,
+            'github_profile_summary': user.github_profile_summary,
+            'github_top_languages': user.github_top_languages,
+        })
 
 
 class ProfileResumeView(APIView):

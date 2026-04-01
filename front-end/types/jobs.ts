@@ -11,8 +11,10 @@ export type JobPosting = {
   job_role: string;
   employment_type: string;
   experience_label: string;
+  education_level: string;
   is_junior_friendly: boolean;
   required_skills: string;
+  summary_text: string;
   posted_at: string;
   deadline_at: string | null;
   external_url: string;
@@ -26,10 +28,28 @@ export type JobPosting = {
   ui_recommendation_reasons: string[];
 };
 
+export type JobAiRecommendation = {
+  fit_score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  study_plan: string[];
+};
+
+export type JobDetailLink = {
+  label: string;
+  url: string;
+};
+
 export type JobDetail = {
   id: number;
+  source: string;
+  source_display: string;
   title: string;
   company_name: string;
+  location: string;
+  experience_label: string;
+  education_level: string;
   job_role: string;
   overview: string;
   main_tasks: string[];
@@ -37,7 +57,12 @@ export type JobDetail = {
   preferred_points: string[];
   benefits: string[];
   required_skills: string[];
+  logo_url: string;
+  detail_images: string[];
+  detail_links: JobDetailLink[];
   external_url: string;
   recommendation_score: number | null;
   recommendation_reasons: string[];
+  ai_recommendation?: JobAiRecommendation;
+  ai_recommendation_error?: string;
 };

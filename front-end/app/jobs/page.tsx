@@ -27,7 +27,7 @@ export default function JobsPage() {
     setError(null);
 
     try {
-      const result = await authFetch("/api/jobs/");
+      const result = await authFetch("/jobs/");
       setData(result as JobsPageData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "채용 정보를 불러오지 못했습니다.");
@@ -40,9 +40,25 @@ export default function JobsPage() {
     fetchJobs();
   }, [fetchJobs]);
 
+  useEffect(() => {
+    const handleVisibleRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchJobs();
+      }
+    };
+
+    window.addEventListener("focus", fetchJobs);
+    document.addEventListener("visibilitychange", handleVisibleRefresh);
+
+    return () => {
+      window.removeEventListener("focus", fetchJobs);
+      document.removeEventListener("visibilitychange", handleVisibleRefresh);
+    };
+  }, [fetchJobs]);
+
   return (
     <div style={{ minHeight: "100vh", background: PALETTE.page }}>
-      <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-6 md:py-8">
+      <div className="mx-auto max-w-[1120px] px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-8">
         <JobsListSection
           jobs={data?.jobs ?? []}
           categories={data?.categories ?? []}

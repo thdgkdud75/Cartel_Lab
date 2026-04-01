@@ -6,7 +6,10 @@ import { Routes, ApiPaths, Methods, Responses } from "@/constants/enums";
 import { ANALYZING_TIPS } from "./_analysis-constants";
 import type { Profile } from "@/types/user";
 
-export function useProfileAnalyze(setProfile: React.Dispatch<React.SetStateAction<Profile | null>>) {
+export function useProfileAnalyze(
+  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>,
+  onRefresh: () => Promise<void>,
+) {
   const authFetch = useAuthFetch();
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzingTip, setAnalyzingTip] = useState("");
@@ -40,6 +43,7 @@ export function useProfileAnalyze(setProfile: React.Dispatch<React.SetStateActio
         profile_analyzed_at: result.profile_analyzed_at ?? prev.profile_analyzed_at,
         remaining_analysis_count: result.remaining_analysis_count ?? prev.remaining_analysis_count,
       } : prev);
+      await onRefresh().catch(() => null);
     } catch (error) {
       setResponseType(Responses.ERROR);
       setResponseMessage(error instanceof Error ? error.message : "분석에 실패했습니다.");
