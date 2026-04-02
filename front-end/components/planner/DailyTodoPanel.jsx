@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import DailyGoal from '@/components/planner/DailyGoal'
 
 const PLANNER_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api').replace(/\/api$/, '')
 
@@ -17,8 +18,6 @@ export default function DailyTodoPanel({ selectedDate }) {
   const today = selectedDate || new Date().toISOString().slice(0, 10)
 
   const [todos, setTodos] = useState([])
-  const [dailyGoal, setDailyGoal] = useState(null)
-  const [goalInput, setGoalInput] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [addDate, setAddDate] = useState(today)
   const [addDuration, setAddDuration] = useState(1)
@@ -44,50 +43,24 @@ export default function DailyTodoPanel({ selectedDate }) {
     }
   }, [token, session])
 
-  const fetchDailyGoal = useCallback(async () => {
-    if (!session) return
-    try {
-      const res = await fetch(`${PLANNER_BASE}/planner/api/daily-goal/`, {
-        headers: authHeaders,
-        credentials: 'include',
-      })
-      if (!res.ok) return
-      const data = await res.json()
-      setDailyGoal(data.content ? data : null)
-    } catch (e) {
-      console.error(e)
-    }
-  }, [token, session])
-
-  useEffect(() => {
-    fetchTodos()
-    fetchDailyGoal()
-  }, [fetchTodos, fetchDailyGoal])
+  useEffect(() => { fetchTodos() }, [fetchTodos])
 
   const toggleTodo = async (id) => {
     try {
       await fetch(`${PLANNER_BASE}/planner/api/daily-todos/${id}/toggle/`, {
-        method: 'POST',
-        headers: authHeaders,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, credentials: 'include',
       })
       fetchTodos()
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const deleteTodo = async (id) => {
     try {
       await fetch(`${PLANNER_BASE}/planner/api/daily-todos/${id}/delete/`, {
-        method: 'POST',
-        headers: authHeaders,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, credentials: 'include',
       })
       fetchTodos()
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const addTodos = async (e) => {
@@ -96,54 +69,19 @@ export default function DailyTodoPanel({ selectedDate }) {
     if (validContents.length === 0) return
     setLoading(true)
     try {
-      // API POST: 각 항목을 개별 추가
       for (const c of validContents) {
-        const body = JSON.stringify({ content: c, target_date: addDate, duration_days: addDuration, color: addColor })
         await fetch(`${PLANNER_BASE}/planner/api/daily-todos/`, {
           method: 'POST',
           headers: { ...authHeaders, 'Content-Type': 'application/json' },
-          body,
+          body: JSON.stringify({ content: c, target_date: addDate, duration_days: addDuration, color: addColor }),
           credentials: 'include',
         })
       }
       setModalOpen(false)
       setAddContents([''])
       fetchTodos()
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setLoading(false)
-  }
-
-  const saveGoal = async (e) => {
-    e.preventDefault()
-    if (!goalInput.trim()) return
-    try {
-      await fetch(`${PLANNER_BASE}/planner/api/daily-goal/`, {
-        method: 'POST',
-        headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: goalInput }),
-        credentials: 'include',
-      })
-      setGoalInput('')
-      fetchDailyGoal()
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const toggleGoal = async () => {
-    if (!dailyGoal) return
-    try {
-      await fetch(`${PLANNER_BASE}/planner/api/daily-goal/achieve/`, {
-        method: 'POST',
-        headers: authHeaders,
-        credentials: 'include',
-      })
-      fetchDailyGoal()
-    } catch (e) {
-      console.error(e)
-    }
   }
 
   const addContentRow = () => setAddContents((prev) => [...prev, ''])
@@ -163,7 +101,6 @@ export default function DailyTodoPanel({ selectedDate }) {
 
         {session && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-            {/* 전체선택 */}
             <button
               type="button"
               disabled={todos.length === 0}
@@ -180,7 +117,6 @@ export default function DailyTodoPanel({ selectedDate }) {
             >
               {allChecked ? '선택해제' : '전체선택'}
             </button>
-            {/* 등록 */}
             <button
               type="button"
               disabled={checkedCount === 0}
@@ -196,20 +132,16 @@ export default function DailyTodoPanel({ selectedDate }) {
             >
               등록
             </button>
-            {/* 삭제 */}
             <button
               type="button"
               disabled={checkedCount === 0}
               onClick={async () => {
-                for (const t of todos.filter((t) => t.is_checked)) {
-                  await deleteTodo(t.id)
-                }
+                for (const t of todos.filter((t) => t.is_checked)) await deleteTodo(t.id)
               }}
               style={{ border: '1px solid #ffd2b3', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#fff', color: '#9f3f10', opacity: checkedCount === 0 ? 0.5 : 1 }}
             >
               삭제
             </button>
-            {/* 추가 버튼 */}
             <button
               type="button"
               onClick={() => setModalOpen(true)}
@@ -236,7 +168,6 @@ export default function DailyTodoPanel({ selectedDate }) {
                       <input type="number" value={addDuration} min={1} max={60} onChange={(e) => setAddDuration(Number(e.target.value))} required style={{ border: '1px solid #dfe3ea', borderRadius: 8, padding: '8px 10px', fontSize: 14 }} />
                     </div>
                   </div>
-                  {/* 색상 */}
                   <div style={{ marginBottom: 8 }}>
                     <span style={{ fontSize: 11, color: '#8b9098', fontWeight: 700, display: 'block', marginBottom: 6 }}>색상</span>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
@@ -248,19 +179,10 @@ export default function DailyTodoPanel({ selectedDate }) {
                       ))}
                     </div>
                   </div>
-                  {/* 항목 입력 */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
                     {addContents.map((c, i) => (
                       <div key={i} style={{ display: 'flex', gap: 6 }}>
-                        <input
-                          type="text"
-                          value={c}
-                          onChange={(e) => updateContent(i, e.target.value)}
-                          maxLength={255}
-                          placeholder="투두 입력"
-                          required={i === 0}
-                          style={{ flex: 1, border: '1px solid #dfe3ea', borderRadius: 8, padding: '8px 10px', fontSize: 14 }}
-                        />
+                        <input type="text" value={c} onChange={(e) => updateContent(i, e.target.value)} maxLength={255} placeholder="투두 입력" required={i === 0} style={{ flex: 1, border: '1px solid #dfe3ea', borderRadius: 8, padding: '8px 10px', fontSize: 14 }} />
                         {i > 0 && (
                           <button type="button" onClick={() => removeContentRow(i)} style={{ border: 'none', background: '#f1f5f9', borderRadius: 6, padding: '0 10px', cursor: 'pointer', color: '#9ca3af', fontSize: 16 }}>✕</button>
                         )}
@@ -282,28 +204,8 @@ export default function DailyTodoPanel({ selectedDate }) {
             추가 버튼을 눌러 투두를 추가한 후 체크하고 등록 버튼을 눌러야 캘린더, 오늘의 계획, Google Calendar에 반영됩니다.
           </p>
 
-          {/* 오늘의 목표 */}
-          {dailyGoal ? (
-            <div style={{ marginBottom: 10, padding: '10px 14px', background: '#eff6ff', borderRadius: 10, border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, color: '#6b7280', flexShrink: 0 }}>🎯</span>
-              <span style={{ flex: 1, fontSize: 14, color: '#1e3a5f', ...(dailyGoal.is_achieved && { textDecoration: 'line-through', opacity: 0.5 }) }}>{dailyGoal.content}</span>
-              <button type="button" onClick={toggleGoal} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, padding: 0 }}>
-                {dailyGoal.is_achieved ? '✅' : '⬜'}
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={saveGoal} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-              <input
-                type="text"
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                maxLength={255}
-                placeholder="🎯 오늘의 목표 입력"
-                style={{ flex: 1, padding: '8px 12px', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, background: '#eff6ff', outline: 'none' }}
-              />
-              <button type="submit" style={{ padding: '8px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>등록</button>
-            </form>
-          )}
+          {/* 오늘의 목표 - 별도 컴포넌트 */}
+          <DailyGoal />
 
           {/* 투두 목록 */}
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
