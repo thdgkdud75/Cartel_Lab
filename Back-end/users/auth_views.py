@@ -281,6 +281,47 @@ class GitHubCallbackView(APIView):
         return Response({'github_username': username, 'github_url': user.github_url})
 
 
+class UpdateBasicInfoView(APIView):
+    """기본 정보 수정 (이름, 학번, 반, 학년, 비밀번호)"""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        from .models import User
+        user = request.user
+        data = request.data
+
+        name = str(data.get('name', '') or '').strip()
+        student_id = str(data.get('student_id', '') or '').strip()
+        class_group = str(data.get('class_group', '') or '').strip()
+        grade = str(data.get('grade', '') or '').strip()
+        new_password = str(data.get('new_password', '') or '')
+        new_password_confirm = str(data.get('new_password_confirm', '') or '')
+
+        if name:
+            user.name = name
+        if student_id and student_id != user.student_id:
+            if User.objects.filter(student_id=student_id).exclude(pk=user.pk).exists():
+                return Response({'error': '이미 사용 중인 학번입니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.student_id = student_id
+        if class_group in ('A', 'B'):
+            user.class_group = class_group
+        if grade in ('1', '2', '3'):
+            user.grade = grade
+        if new_password:
+            if new_password != new_password_confirm:
+                return Response({'error': '비밀번호가 일치하지 않습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(new_password)
+
+        user.save()
+        return Response({
+            'id': user.id,
+            'name': user.name,
+            'student_id': user.student_id,
+            'class_group': user.class_group,
+            'grade': user.grade,
+        })
+
+
 class ProfileAnalyzeView(APIView):
     """AI 분석 실행"""
     permission_classes = [IsAuthenticated]
