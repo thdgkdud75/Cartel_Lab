@@ -1,9 +1,16 @@
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.static import serve
 
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
+
 urlpatterns = [
+    path('health/', health_check),
     path('api/auth/', include('users.auth_urls')),
     path('api/jobs/', include('jobs.urls')),
     path('api/users/', include('users.urls')),
