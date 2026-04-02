@@ -6,6 +6,7 @@ import { API_BASE_URL } from "./api-client";
 
 export function useAuthFetch() {
   const { data: session, update } = useSession();
+  const accessToken = session?.user?.access_token ?? null;
 
   const authFetch = useCallback(
     async (endpoint: string, options: RequestInit = {}) => {
@@ -28,7 +29,7 @@ export function useAuthFetch() {
           credentials: "include",
         });
 
-      let response = await doFetch(session?.user?.access_token);
+      let response = await doFetch(accessToken);
 
       // 401이면 NextAuth 세션 갱신 (jwt 콜백에서 refresh_token으로 서버사이드 재발급)
       if (response.status === 401) {
@@ -60,7 +61,7 @@ export function useAuthFetch() {
 
       return response.json();
     },
-    [session, update]
+    [accessToken, update]
   );
 
   return authFetch;

@@ -58,6 +58,46 @@ class LoginView(APIView):
         return response
 
 
+class SignUpView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from .models import User
+        student_id = request.data.get('student_id', '').strip()
+        name = request.data.get('name', '').strip()
+        class_group = request.data.get('class_group', '').strip()
+        grade = request.data.get('grade')
+        password = request.data.get('password', '')
+
+        if not all([student_id, name, class_group, grade, password]):
+            return Response({'error': '모든 항목을 입력해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(student_id=student_id).exists():
+            return Response({'error': '이미 사용 중인 학번입니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            student_id=student_id,
+            name=name,
+            class_group=class_group,
+            grade=grade,
+            password=password,
+        )
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        response = Response({
+            'id': user.id,
+            'name': user.name,
+            'image': user.profile_image_url,
+            'is_staff': user.is_staff,
+            'class_group': user.class_group,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        }, status=status.HTTP_201_CREATED)
+        set_auth_cookies(response, access_token, refresh_token)
+        return response
+
+
 class LogoutView(APIView):
     permission_classes = [AllowAny]
 

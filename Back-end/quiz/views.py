@@ -61,14 +61,20 @@ def index(request):
             .select_related("created_by")
             .first()
         )
-        attempt = None
+        attempts = []
+        has_correct = False
         if today_quiz:
-            attempt = QuizAttempt.objects.filter(
-                quiz=today_quiz, user=request.user
-            ).first()
+            attempts = list(
+                QuizAttempt.objects.filter(quiz=today_quiz, user=request.user)
+                .order_by("attempted_at")
+            )
+            has_correct = any(a.is_correct for a in attempts)
         return render(request, "quiz/index.html", {
             "today_quiz": today_quiz,
-            "attempt": attempt,
+            "attempts": attempts,
+            "attempt_count": len(attempts),
+            "has_correct": has_correct,
+            "max_attempts": 3,
             "today": today,
         })
 
@@ -204,15 +210,34 @@ def admin_dashboard(request):
                 status = "none"
             year_cells.append({"date": d, "status": status, "count": len(day_attempts)})
 
-        user_week_attempts = [a for a in week_attempts if a.user_id == user.pk]
+        raw_user_week = [a for a in week_attempts if a.user_id == user.pk]
+        # 퀴즈별 차수 계산
+        quiz_counter = {}
+        user_week_attempts = []
+        for a in raw_user_week:
+            quiz_counter[a.quiz_id] = quiz_counter.get(a.quiz_id, 0) + 1
+            a.attempt_number = quiz_counter[a.quiz_id]
+            user_week_attempts.append(a)
         week_solved = sum(1 for c in week_cells if c["status"] != "none")
         week_correct = sum(1 for c in week_cells if c["status"] == "correct")
+
+        # 날짜별 그룹핑
+        KO_DAYS = ["월", "화", "수", "목", "금", "토", "일"]
+        attempts_by_date = {}
+        for a in user_week_attempts:
+            d = timezone.localtime(a.attempted_at).date()
+            attempts_by_date.setdefault(d, []).append(a)
+        week_attempts_by_day = [
+            {"date": d, "day_ko": KO_DAYS[d.weekday()], "attempts": attempts_by_date[d]}
+            for d in week_dates if d in attempts_by_date
+        ]
 
         freshman_data.append({
             "user": user,
             "week_cells": week_cells,
             "year_cells": year_cells,
             "week_attempts": user_week_attempts,
+            "week_attempts_by_day": week_attempts_by_day,
             "week_solved": week_solved,
             "week_correct": week_correct,
         })
@@ -331,8 +356,16 @@ def submit_answer(request, quiz_id):
 
     quiz = get_object_or_404(Quiz, pk=quiz_id)
 
-    if QuizAttempt.objects.filter(quiz=quiz, user=request.user).exists():
-        messages.warning(request, "이미 응시한 문제입니다.")
+    MAX_ATTEMPTS = 3
+    existing_attempts = QuizAttempt.objects.filter(quiz=quiz, user=request.user)
+    attempt_count = existing_attempts.count()
+
+    if attempt_count >= MAX_ATTEMPTS:
+        messages.warning(request, f"최대 {MAX_ATTEMPTS}번까지 제출할 수 있습니다.")
+        return redirect("quiz-index")
+
+    if existing_attempts.filter(is_correct=True).exists():
+        messages.warning(request, "이미 정답을 맞혔습니다.")
         return redirect("quiz-index")
 
     if request.method == "POST":

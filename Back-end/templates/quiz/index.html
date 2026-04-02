@@ -505,21 +505,32 @@
 
         <p style="font-size:15px; color:#3a3a3c; margin:0; line-height:1.6;">{{ today_quiz.question }}</p>
 
-        {% if attempt %}
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            {% if attempt.is_correct %}
-            <span class="result-badge correct">✓ 정답</span>
-            {% else %}
-            <span class="result-badge wrong">✗ 오답</span>
-            {% endif %}
-            <span style="font-size:14px; color:var(--muted);">내 답변: <strong style="color:var(--text);">{{ attempt.submitted_answer }}</strong></span>
+        {% if attempts %}
+        <div style="display:grid; gap:8px;">
+            {% for a in attempts %}
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px; border-radius:10px; background:#fafafa; border:1px solid #f0f0f2;">
+                <span style="font-size:12px; color:var(--muted); font-weight:700;">{{ forloop.counter }}차</span>
+                {% if a.is_correct %}
+                <span class="result-badge correct">✓ 정답</span>
+                {% else %}
+                <span class="result-badge wrong">✗ 오답</span>
+                {% endif %}
+                <span style="font-size:14px; color:var(--muted);">내 답변: <strong style="color:var(--text);">{{ a.submitted_answer }}</strong></span>
+            </div>
+            {% endfor %}
         </div>
-        {% else %}
-        <form method="post" action="{% url 'quiz-submit' today_quiz.pk %}" class="answer-form">
-            {% csrf_token %}
-            <input type="text" name="answer" class="answer-input" placeholder="답변을 입력하세요" required autofocus>
-            <button type="submit" class="answer-submit">제출</button>
-        </form>
+        {% endif %}
+        {% if not has_correct and attempt_count < max_attempts %}
+        <div>
+            <form method="post" action="{% url 'quiz-submit' today_quiz.pk %}" class="answer-form">
+                {% csrf_token %}
+                <input type="text" name="answer" class="answer-input" placeholder="답변을 입력하세요" required {% if not attempts %}autofocus{% endif %}>
+                <button type="submit" class="answer-submit">제출</button>
+            </form>
+            <p style="margin:6px 0 0; font-size:12px; color:var(--muted); text-align:right;">{{ attempt_count }}/{{ max_attempts }}회 사용</p>
+        </div>
+        {% elif attempt_count >= max_attempts and not has_correct %}
+        <p style="margin:0; font-size:14px; color:var(--muted);">제출 기회를 모두 사용했습니다. ({{ max_attempts }}/{{ max_attempts }})</p>
         {% endif %}
     </div>
     {% else %}

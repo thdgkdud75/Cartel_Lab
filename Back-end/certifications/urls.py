@@ -1,9 +1,10 @@
 from django.urls import path
 
-from .views import important_certifications_api, index
+from .views import ImportantCertificationsApiView
 
 
 urlpatterns = [
-    path("", index, name="certifications-index"),
-    path("api/important/", important_certifications_api, name="certifications-important-api"),
+    path("", ImportantCertificationsApiView.as_view(), name="certifications-feed-api"),
+    path("important/", ImportantCertificationsApiView.as_view(), name="certifications-important-api"),
+    path("api/important/", ImportantCertificationsApiView.as_view(), name="certifications-important-legacy-api"),
 ]

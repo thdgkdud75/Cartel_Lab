@@ -13,3 +13,10 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Codex / local helper files
+.codex/
+AGENTS.md
+.impeccable.md
+front-end/.impeccable.md
+front-end/REFACTOR_GUIDE.md

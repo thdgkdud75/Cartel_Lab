@@ -1,5 +1,6 @@
 import json
 import math
+from calendar import month_abbr
 from datetime import timedelta, datetime as dt
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -19,6 +20,14 @@ def _get_user(request):
     if request.user.is_authenticated:
         return request.user
     auth = request.META.get('HTTP_AUTHORIZATION', '')
+    if auth.startswith('Bearer '):
+        try:
+            from rest_framework_simplejwt.authentication import JWTAuthentication
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                return validated[0]
+        except Exception:
+            pass
     if auth.startswith('Token '):
         from rest_framework.authtoken.models import Token
         try:
@@ -60,6 +69,178 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
+
+
+def _build_today_record_payload(record):
+    if not record:
+        return None
+    return {
+        "status": record.status,
+        "status_label": record.get_status_display(),
+        "check_in_at": timezone.localtime(record.check_in_at).isoformat() if record.check_in_at else None,
+        "check_out_at": timezone.localtime(record.check_out_at).isoformat() if record.check_out_at else None,
+        "note": record.note,
+    }
+
+
+def _build_heatmap_data(user, today, time_setting):
+    first_day_of_year = today.replace(month=1, day=1)
+    yearly_records = AttendanceRecord.objects.filter(
+        user=user,
+        attendance_date__gte=first_day_of_year,
+        attendance_date__lte=today,
+    )
+
+    heatmap_data = {}
+    for record in yearly_records:
+        date_str = record.attendance_date.strftime('%Y-%m-%d')
+        in_status = "present"
+        out_status = "present"
+
+        if time_setting and record.check_in_at:
+            in_time = timezone.localtime(record.check_in_at).time()
+            if in_time > time_setting.check_in_deadline:
+                in_status = "late"
+
+        if time_setting:
+            if record.check_out_at:
+                out_time = timezone.localtime(record.check_out_at).time()
+                if out_time < time_setting.check_out_minimum:
+                    out_status = "leave"
+            else:
+                out_status = "none"
+
+        heatmap_data[date_str] = {
+            "status": record.status,
+            "in": in_status,
+            "out": out_status,
+        }
+
+    return heatmap_data
+
+
+def _build_stats_payload(user, today):
+    month_start = today.replace(day=1)
+    weekdays_in_month = sum(
+        1 for i in range((today - month_start).days + 1)
+        if (month_start + timedelta(days=i)).weekday() < 5
+    )
+
+    month_records = AttendanceRecord.objects.filter(
+        user=user, attendance_date__gte=month_start, attendance_date__lte=today
+    )
+    present_count = month_records.filter(status__in=['present', 'late', 'leave']).count()
+    late_count = month_records.filter(status='late').count()
+    leave_count = month_records.filter(status='leave').count()
+    attendance_rate = round(present_count / weekdays_in_month * 100) if weekdays_in_month > 0 else 0
+
+    streak = 0
+    check_date = today
+    for _ in range(60):
+        if check_date.weekday() >= 5:
+            check_date -= timedelta(days=1)
+            continue
+        if AttendanceRecord.objects.filter(user=user, attendance_date=check_date).exists():
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    return {
+        "streak": streak,
+        "attendance_rate": attendance_rate,
+        "present_count": present_count,
+        "late_count": late_count,
+        "leave_count": leave_count,
+        "weekdays_in_month": weekdays_in_month,
+        "month": today.strftime("%m"),
+    }
+
+
+def _build_current_members_payload(user, today):
+    records = AttendanceRecord.objects.filter(
+        attendance_date=today, check_out_at__isnull=True
+    ).select_related('user').order_by('check_in_at')
+
+    members = [
+        {
+            "name": rec.user.name,
+            "class_group": rec.user.class_group,
+            "check_in_at": timezone.localtime(rec.check_in_at).strftime("%H:%M") if rec.check_in_at else None,
+            "is_me": rec.user_id == user.id,
+        }
+        for rec in records
+    ]
+    return {"members": members, "count": len(members)}
+
+
+def _build_checkout_requests_payload(user, today):
+    my_record = AttendanceRecord.objects.filter(user=user, attendance_date=today).first()
+    my_checkout_time = None
+    if my_record and my_record.check_out_at:
+        my_checkout_time = timezone.localtime(my_record.check_out_at).time()
+
+    pending_qs = CheckoutRequest.objects.filter(
+        attendance_date=today, status='pending'
+    ).exclude(user=user).select_related('user')
+
+    eligible = []
+    for request_item in pending_qs:
+        if user.is_staff or my_checkout_time is None or my_checkout_time >= request_item.requested_time:
+            eligible.append({
+                "id": request_item.id,
+                "name": request_item.user.name if hasattr(request_item.user, 'name') else request_item.user.get_full_name() or request_item.user.username,
+                "requested_time": request_item.requested_time.strftime("%H:%M"),
+                "attendance_date": str(request_item.attendance_date),
+            })
+
+    return {"requests": eligible}
+
+
+@csrf_exempt
+@require_GET
+def dashboard_summary(request):
+    user = _get_user(request)
+    if not user:
+        return JsonResponse({"status": "error", "message": "인증이 필요합니다."}, status=401)
+
+    today = timezone.localdate()
+    time_setting = _get_time_setting()
+    location = _get_location_setting()
+    today_record = AttendanceRecord.objects.filter(user=user, attendance_date=today).first()
+    checkout_req = CheckoutRequest.objects.filter(user=user, attendance_date=today).first()
+
+    return JsonResponse({
+        "today": today.isoformat(),
+        "user": {
+            "name": user.name,
+            "student_id": user.student_id,
+            "grade": user.grade,
+            "class_group": user.class_group,
+            "profile_image": request.build_absolute_uri(user.profile_image.url) if getattr(user, "profile_image", None) else None,
+            "is_staff": bool(user.is_staff),
+        },
+        "today_record": _build_today_record_payload(today_record),
+        "today_status": {
+            "attendance": "none" if not today_record else ("checked_out" if today_record.check_out_at else "checked_in"),
+            "checkout_request": checkout_req.status if checkout_req else None,
+        },
+        "time_setting": {
+            "check_in_deadline": time_setting.check_in_deadline.strftime("%H:%M") if time_setting else None,
+            "check_out_minimum": time_setting.check_out_minimum.strftime("%H:%M") if time_setting else None,
+        },
+        "location_setting": {
+            "name": location.name,
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "radius": location.radius,
+        } if location else None,
+        "stats": _build_stats_payload(user, today),
+        "current_members": _build_current_members_payload(user, today),
+        "checkout_requests": _build_checkout_requests_payload(user, today),
+        "heatmap": _build_heatmap_data(user, today, time_setting),
+        "months": [month_abbr[index] for index in range(1, 13)],
+    })
 
 
 @login_required

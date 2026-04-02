@@ -260,33 +260,70 @@
                         <span><span class="sq" style="background:#e5e7eb;"></span> 미제출</span>
                     </div>
 
-                    {# 이번 주 제출 내역 #}
-                    <p style="margin:18px 0 10px; font-size:13px; font-weight:700; color:var(--muted);">이번 주 제출 내역</p>
-                    {% if item.week_attempts %}
-                    <div class="attempt-list">
-                        {% for a in item.week_attempts %}
-                        <div class="attempt-row">
-                            <div class="attempt-date">{{ a.attempted_at|date:"m/d H:i" }}</div>
-                            <div class="attempt-info">
-                                <div class="attempt-quiz-name">{{ a.quiz.title }}</div>
-                                <div class="attempt-submitted">제출: <strong>{{ a.submitted_answer }}</strong></div>
-                            </div>
-                            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-                                {% if a.is_correct %}
-                                <span class="attempt-tag correct">✓ 정답</span>
-                                {% else %}
-                                <span class="attempt-tag wrong">✗ 오답</span>
+                    {# 이번 주 제출 내역 — 아코디언 #}
+                    <div style="margin-top:18px; border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+                        <div onclick="toggleAttempts('attempts-{{ item.user.pk }}')"
+                             style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; background:#fafafa; user-select:none;"
+                             id="attempts-head-{{ item.user.pk }}">
+                            <span style="font-size:13px; font-weight:700; color:var(--muted);">
+                                이번 주 제출 내역
+                                {% if item.week_attempts %}
+                                <span style="font-size:12px; font-weight:600; color:var(--brand); margin-left:6px;">{{ item.week_attempts|length }}건</span>
                                 {% endif %}
-                                {% if a.is_ai_flagged %}
-                                <span class="ai-flag-tag">⚠ AI 의심</span>
-                                {% endif %}
-                            </div>
+                            </span>
+                            <svg id="attempts-chevron-{{ item.user.pk }}" width="14" height="14" viewBox="0 0 16 16" fill="none" style="color:var(--muted); transition:transform .2s; transform:rotate(180deg);">
+                                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
                         </div>
-                        {% endfor %}
+                        <div id="attempts-{{ item.user.pk }}" style="padding:12px 14px;">
+                            {% if item.week_attempts_by_day %}
+                            <div style="display:grid; gap:8px;">
+                                {% for day_group in item.week_attempts_by_day %}
+                                <div style="border:1px solid {% if day_group.date == today %}#ffcca0{% else %}#f0f0f2{% endif %}; border-radius:8px; overflow:hidden;">
+                                    <div onclick="toggleAttemptDay(this)"
+                                         style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; cursor:pointer; background:{% if day_group.date == today %}#fff8f3{% else %}#f8f8fa{% endif %}; user-select:none;">
+                                        <span style="font-size:12px; font-weight:700; color:{% if day_group.date == today %}var(--brand){% else %}var(--text){% endif %};">
+                                            {{ day_group.day_ko }}요일 {{ day_group.date|date:"m/d" }}{% if day_group.date == today %} · 오늘{% endif %}
+                                            <span style="font-weight:600; color:var(--muted); margin-left:4px;">{{ day_group.attempts|length }}회</span>
+                                        </span>
+                                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="color:var(--muted); transition:transform .2s; transform:rotate(180deg);">
+                                            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div style="padding:8px 12px;">
+                                        <div class="attempt-list">
+                                            {% for a in day_group.attempts %}
+                                            <div class="attempt-row">
+                                                <div class="attempt-date">
+                                                    {{ a.attempted_at|date:"H:i" }}
+                                                    <div style="margin-top:3px; font-size:11px; font-weight:700; color:var(--brand);">{{ a.attempt_number }}차</div>
+                                                </div>
+                                                <div class="attempt-info">
+                                                    <div class="attempt-quiz-name">{{ a.quiz.title }}</div>
+                                                    <div class="attempt-submitted">제출: <strong>{{ a.submitted_answer }}</strong></div>
+                                                </div>
+                                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                                                    {% if a.is_correct %}
+                                                    <span class="attempt-tag correct">✓ 정답</span>
+                                                    {% else %}
+                                                    <span class="attempt-tag wrong">✗ 오답</span>
+                                                    {% endif %}
+                                                    {% if a.is_ai_flagged %}
+                                                    <span class="ai-flag-tag">⚠ AI 의심</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="no-attempts">이번 주 제출한 답변이 없습니다.</p>
+                            {% endif %}
+                        </div>
                     </div>
-                    {% else %}
-                    <p class="no-attempts">이번 주 제출한 답변이 없습니다.</p>
-                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -305,6 +342,20 @@
 <script>
 function toggleCard(id) {
     document.getElementById(id).classList.toggle('is-open');
+}
+function toggleAttempts(id) {
+    var body = document.getElementById(id);
+    var chevron = document.getElementById('attempts-chevron-' + id.replace('attempts-', ''));
+    var hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    chevron.style.transform = hidden ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+function toggleAttemptDay(header) {
+    var body = header.nextElementSibling;
+    var chevron = header.querySelector('svg');
+    var hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    chevron.style.transform = hidden ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 </script>
 {% endblock %}

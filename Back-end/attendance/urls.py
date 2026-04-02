@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     index, attendance_list, check_in, check_out,
-    set_location, set_attendance_time, today_status,
+    set_location, set_attendance_time, today_status, dashboard_summary,
     register_push_token,
     submit_checkout_request, list_checkout_requests,
     approve_checkout_request, reject_checkout_request,
@@ -17,6 +17,7 @@ urlpatterns = [
     path("check-out/", check_out, name="check-out"),
     path("set-location/", set_location, name="set-location"),
     path("set-time/", set_attendance_time, name="set-time"),
+    path("dashboard/", dashboard_summary, name="dashboard-summary"),
     path("today/", today_status, name="today-status"),
     path("register-push-token/", register_push_token, name="register-push-token"),
     path("checkout-request/", submit_checkout_request, name="checkout-request"),

@@ -6,6 +6,7 @@ ROOT = "/",
     ATTENDANCE = "/attendance",
     CERTIFICATIONS = "/certifications",
     PLANNER = "/planner",
+    TIMETABLE = "/timetable",
     SEATS = "/seats",
     JOBS = "/jobs",
     CONTESTS = "/contests",
@@ -77,6 +78,7 @@ export enum UserRole {
 
 // API 서브 경로를 정의 (Routes와 조합하여 사용)
 export enum ApiPaths {
+    SIGNUP = "/signup/",
     LOGIN = "/login/",
     LOGOUT = "/logout/",
     REFRESH = "/refresh/",
@@ -106,4 +108,12 @@ export enum Responses {
     ERROR = "error",
     WARNING = "warning",
     INFO = "info",
-  }
+}
+
+// 출결 상태 옵션
+export const ATTENDANCE_STATUS_OPTIONS = [
+  { value: "present", label: "출석" },
+  { value: "late",    label: "지각" },
+  { value: "absent",  label: "결석" },
+  { value: "leave",   label: "조퇴" },
+] as const;

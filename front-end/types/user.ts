@@ -46,6 +46,11 @@ export interface Profile {
   remaining_analysis_count: number;
 }
 
+export type UserProfileSummary = Pick<User, "name" | "student_id" | "class_group" | "grade"> &
+  Pick<Profile, "github_username" | "profile_analyzed_at"> & {
+    has_resume: boolean;
+  };
+
 // 로그인 요청 바디
 export interface LoginBody {
   student_id: string;
