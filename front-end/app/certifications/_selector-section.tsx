@@ -138,7 +138,7 @@ function CertificationSelectorCard({
     <article
       style={{
         ...subCardStyle,
-        borderColor: selected ? "#f3c7a8" : subCardStyle.border,
+        borderColor: selected ? "#f3c7a8" : (subCardStyle.border as string | undefined),
         background: selected ? "#fffaf6" : "#fcfcfd",
       }}
       className="flex h-full flex-col gap-4 p-5"

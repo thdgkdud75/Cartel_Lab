@@ -707,7 +707,7 @@ function getPrimaryScheduleEntry(item: CertificationItem) {
 
       const entry = {
         date: isoDate,
-        rawValue,
+        rawValue: rawValue as string,
         label: field.label,
         priority: field.priority,
       };

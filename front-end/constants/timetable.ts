@@ -218,14 +218,14 @@ export function getDailyTimetableItems(classGroup: "A" | "B", weekday: number): 
 }
 
 export function getMergedTimetableRows(rows: TimetableMatrixRow[]): MergedTimetableRow[] {
-  const mergedRows = rows.map((row) => ({
+  const mergedRows: MergedTimetableRow[] = rows.map((row) => ({
     period: row.period,
     monday: null,
     tuesday: null,
     wednesday: null,
     thursday: null,
     friday: null,
-  })) satisfies MergedTimetableRow[];
+  }));
 
   WEEKDAY_FIELD_KEYS.forEach((key) => {
     let anchorIndex = -1;

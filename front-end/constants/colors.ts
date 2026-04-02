@@ -71,6 +71,7 @@ export const DASHBOARD_QUIZ_DOT = {
   ai: { bg: DASHBOARD_PALETTE.warningAltSoft, color: DASHBOARD_PALETTE.warningAltText, label: "○" },
   wrong: { bg: DASHBOARD_PALETTE.dangerAltSoft, color: DASHBOARD_PALETTE.orangeText, label: "△" },
   none: { bg: DASHBOARD_PALETTE.neutralAltSoft, color: DASHBOARD_PALETTE.neutralAltText, label: "─" },
+  future: { bg: "#f3f4f6", color: DASHBOARD_PALETTE.neutralAltText, label: "─" },
 } as const;
 
 export type DashboardQuizDotKey = keyof typeof DASHBOARD_QUIZ_DOT;
