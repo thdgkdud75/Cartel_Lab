@@ -1,8 +1,10 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+command = "pip install -r requirements.txt"
 
 [deploy]
 healthcheckPath = "/health/"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
+startCommand = "gunicorn Cartel_Lab.wsgi:application"
