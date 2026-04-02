@@ -12,62 +12,62 @@ const COLOR_OPTIONS = [
   { value: 'green', label: '초록', style: { color: '#2e7d32', background: '#f1fdf2' } },
 ]
 
+const COLOR_CELL_STYLE = {
+  red:    { background: '#fff0ee', color: '#b44343', borderLeft: '3px solid #e57373' },
+  blue:   { background: '#eef4ff', color: '#2d63c7', borderLeft: '3px solid #64b5f6' },
+  yellow: { background: '#fffde7', color: '#b07d00', borderLeft: '3px solid #ffd54f' },
+  green:  { background: '#f1fdf2', color: '#2e7d32', borderLeft: '3px solid #81c784' },
+}
+
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 function buildCalendar(year, month) {
-  // month: 0-indexed
   const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
   const weeks = []
   let week = []
 
-  // 앞 빈칸 채우기 (일요일 시작)
   for (let i = 0; i < firstDay.getDay(); i++) {
-    const d = new Date(year, month, 1 - (firstDay.getDay() - i))
-    week.push({ date: d, isCurrentMonth: false })
+    week.push({ date: new Date(year, month, 1 - (firstDay.getDay() - i)), isCurrentMonth: false })
   }
-
-  for (let d = 1; d <= lastDay.getDate(); d++) {
+  const lastDate = new Date(year, month + 1, 0).getDate()
+  for (let d = 1; d <= lastDate; d++) {
     week.push({ date: new Date(year, month, d), isCurrentMonth: true })
-    if (week.length === 7) {
-      weeks.push(week)
-      week = []
-    }
+    if (week.length === 7) { weeks.push(week); week = [] }
   }
-
-  // 뒷 빈칸 채우기
   if (week.length > 0) {
     let extra = 1
-    while (week.length < 7) {
-      week.push({ date: new Date(year, month + 1, extra++), isCurrentMonth: false })
-    }
+    while (week.length < 7) week.push({ date: new Date(year, month + 1, extra++), isCurrentMonth: false })
     weeks.push(week)
   }
-
   return weeks
 }
 
-function toYMD(date) {
-  return date.toISOString().slice(0, 10)
+function toYMD(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
+
+const MAX_PREVIEW = 2
 
 export default function CalendarPanel() {
   const { data: session } = useSession()
   const todayDate = new Date()
+
   const [currentYear, setCurrentYear] = useState(todayDate.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth())
   const [selectedDate, setSelectedDate] = useState(toYMD(todayDate))
-  const [goals, setGoals] = useState([]) // 선택된 날짜의 계획 목록
+  const [goalsByDate, setGoalsByDate] = useState({})  // 월별 미리보기용
+  const [detailGoals, setDetailGoals] = useState([])   // 상세 패널용
   const [pickedGoalId, setPickedGoalId] = useState(null)
 
-  // 일정 추가 모달
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addDate, setAddDate] = useState(selectedDate)
   const [addDuration, setAddDuration] = useState(1)
   const [addColor, setAddColor] = useState('red')
   const [addContent, setAddContent] = useState('')
 
-  // 일정 수정 모달
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [editDate, setEditDate] = useState('')
@@ -80,8 +80,8 @@ export default function CalendarPanel() {
   const token = session?.user?.access_token
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
 
-  const weeks = buildCalendar(currentYear, currentMonth)
   const monthLabel = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
+  const weeks = buildCalendar(currentYear, currentMonth)
 
   const prevMonth = () => {
     if (currentMonth === 0) { setCurrentYear((y) => y - 1); setCurrentMonth(11) }
@@ -92,27 +92,40 @@ export default function CalendarPanel() {
     else setCurrentMonth((m) => m + 1)
   }
 
-  const fetchGoals = useCallback(async () => {
+  // 월별 캘린더 미리보기 데이터
+  const fetchCalendar = useCallback(async () => {
     if (!session) return
     try {
       const res = await fetch(
-        `${PLANNER_BASE}/planner/goals/?date=${selectedDate}`,
+        `${PLANNER_BASE}/planner/api/calendar/?month=${monthLabel}`,
         { headers: authHeaders, credentials: 'include' }
       )
       if (!res.ok) return
-      // TODO: 백엔드에서 /planner/api/goals/?date=YYYY-MM-DD API 추가 필요
-      // 현재는 빈 배열로 처리
-      const data = await res.json().catch(() => ({ goals: [] }))
-      setGoals(data.goals || [])
+      const data = await res.json()
+      setGoalsByDate(data.goals_by_date || {})
+    } catch (e) {
+      console.error(e)
+    }
+  }, [monthLabel, token, session])
+
+  // 선택 날짜 상세 계획
+  const fetchDetailGoals = useCallback(async () => {
+    if (!session) return
+    try {
+      const res = await fetch(
+        `${PLANNER_BASE}/planner/api/goals/?date=${selectedDate}`,
+        { headers: authHeaders, credentials: 'include' }
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      setDetailGoals(data.goals || [])
     } catch {
-      setGoals([])
+      setDetailGoals([])
     }
   }, [selectedDate, token, session])
 
-  useEffect(() => {
-    fetchGoals()
-    setPickedGoalId(null)
-  }, [fetchGoals])
+  useEffect(() => { fetchCalendar() }, [fetchCalendar])
+  useEffect(() => { fetchDetailGoals(); setPickedGoalId(null) }, [fetchDetailGoals])
 
   const addGoal = async (e) => {
     e.preventDefault()
@@ -125,45 +138,34 @@ export default function CalendarPanel() {
       fd.append('color', addColor)
       fd.append('content', addContent)
       await fetch(`${PLANNER_BASE}/planner/goals/add/`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: fd,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, body: fd, credentials: 'include',
       })
       setAddModalOpen(false)
       setAddContent('')
-      fetchGoals()
-    } catch (e) {
-      console.error(e)
-    }
+      fetchCalendar()
+      fetchDetailGoals()
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
   const deleteGoal = async (id) => {
     try {
       await fetch(`${PLANNER_BASE}/planner/goals/${id}/delete/`, {
-        method: 'POST',
-        headers: authHeaders,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, credentials: 'include',
       })
-      fetchGoals()
+      fetchCalendar()
+      fetchDetailGoals()
       setPickedGoalId(null)
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   const toggleGoal = async (id) => {
     try {
       await fetch(`${PLANNER_BASE}/planner/goals/${id}/toggle/`, {
-        method: 'POST',
-        headers: authHeaders,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, credentials: 'include',
       })
-      fetchGoals()
-    } catch (e) {
-      console.error(e)
-    }
+      fetchDetailGoals()
+    } catch (e) { console.error(e) }
   }
 
   const openEditModal = (goal) => {
@@ -186,36 +188,32 @@ export default function CalendarPanel() {
       fd.append('color', editColor)
       fd.append('content', editContent)
       await fetch(`${PLANNER_BASE}/planner/goals/${editGoalId}/update/`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: fd,
-        credentials: 'include',
+        method: 'POST', headers: authHeaders, body: fd, credentials: 'include',
       })
       setEditModalOpen(false)
-      fetchGoals()
-    } catch (e) {
-      console.error(e)
-    }
+      fetchCalendar()
+      fetchDetailGoals()
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
-  const pickedGoal = goals.find((g) => g.id === pickedGoalId)
+  const pickedGoal = detailGoals.find((g) => g.id === pickedGoalId)
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(310px, 1fr)', gap: 16 }}>
       {/* 캘린더 패널 */}
       <section style={{ border: '1px solid #eceef2', borderRadius: 14, background: '#fff', overflow: 'hidden', position: 'relative' }}>
-        {/* 헤더 */}
+        {/* 월 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, borderBottom: '1px solid #eceef2', padding: 12, background: '#fff9f5' }}>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em' }}>{monthLabel}</h1>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{monthLabel}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button type="button" onClick={prevMonth} style={{ textDecoration: 'none', color: '#e15c00', border: '1px solid #ffd2b3', background: '#fff1e8', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>이전 달</button>
-            <button type="button" onClick={nextMonth} style={{ textDecoration: 'none', color: '#e15c00', border: '1px solid #ffd2b3', background: '#fff1e8', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>다음 달</button>
+            <button type="button" onClick={prevMonth} style={{ color: '#e15c00', border: '1px solid #ffd2b3', background: '#fff1e8', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>이전 달</button>
+            <button type="button" onClick={nextMonth} style={{ color: '#e15c00', border: '1px solid #ffd2b3', background: '#fff1e8', borderRadius: 8, padding: '7px 10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>다음 달</button>
           </div>
         </div>
 
-        {/* 일정 추가 버튼 */}
-        <div style={{ borderBottom: '1px solid #eceef2', background: '#fff', padding: '10px 12px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, position: 'relative', zIndex: 40 }}>
+        {/* 추가 버튼 */}
+        <div style={{ borderBottom: '1px solid #eceef2', background: '#fff', padding: '10px 12px', display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 40 }}>
           {session && (
             <button
               type="button"
@@ -234,7 +232,7 @@ export default function CalendarPanel() {
                 <button type="button" onClick={() => setAddModalOpen(false)} style={{ border: 0, background: 'transparent', color: '#8a9099', fontSize: 20, lineHeight: 1, cursor: 'pointer' }}>×</button>
               </div>
               <form onSubmit={addGoal}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, alignItems: 'start', marginBottom: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <span style={{ fontSize: 11, color: '#8b9098', fontWeight: 700 }}>날짜</span>
                     <input type="date" value={addDate} onChange={(e) => setAddDate(e.target.value)} required style={{ border: '1px solid #dfe3ea', borderRadius: 8, padding: '8px 10px', fontSize: 14 }} />
@@ -279,15 +277,25 @@ export default function CalendarPanel() {
             const ymd = toYMD(date)
             const isSelected = ymd === selectedDate
             const isToday = ymd === toYMD(todayDate)
+            const cellGoals = goalsByDate[ymd] || []
+            const previewGoals = cellGoals.slice(0, MAX_PREVIEW)
+            const moreCount = cellGoals.length - MAX_PREVIEW
+
             return (
               <button
                 key={idx}
                 type="button"
                 onClick={() => setSelectedDate(ymd)}
                 style={{
-                  border: 'none', borderTop: '1px solid #eceef2', borderRight: idx % 7 !== 6 ? '1px solid #eceef2' : 'none',
+                  border: 'none',
+                  borderTop: '1px solid #eceef2',
+                  borderRight: idx % 7 !== 6 ? '1px solid #eceef2' : 'none',
                   background: isSelected ? '#fff1e8' : '#fff',
-                  padding: '6px 4px', minHeight: 80, cursor: 'pointer', textAlign: 'left', verticalAlign: 'top',
+                  padding: '6px 4px 4px',
+                  minHeight: 80,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  verticalAlign: 'top',
                   opacity: isCurrentMonth ? 1 : 0.35,
                 }}
               >
@@ -296,16 +304,38 @@ export default function CalendarPanel() {
                   borderRadius: '50%', fontSize: 13, fontWeight: isToday ? 800 : 400,
                   background: isToday ? '#ff6f0f' : 'transparent',
                   color: isToday ? '#fff' : '#333',
+                  marginBottom: 2,
                 }}>
                   {date.getDate()}
                 </span>
+
+                {/* 일정 미리보기 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {previewGoals.map((g) => (
+                    <div
+                      key={g.id}
+                      style={{
+                        fontSize: 11, lineHeight: 1.3, padding: '1px 4px', borderRadius: 4,
+                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                        ...(COLOR_CELL_STYLE[g.color] || COLOR_CELL_STYLE.red),
+                        ...(g.is_completed && { opacity: 0.5, textDecoration: 'line-through' }),
+                      }}
+                    >
+                      {g.planned_time && <span style={{ fontWeight: 700, marginRight: 3 }}>{g.planned_time}</span>}
+                      {g.content}
+                    </div>
+                  ))}
+                  {moreCount > 0 && (
+                    <div style={{ fontSize: 11, color: '#a05a26', fontWeight: 700, paddingLeft: 4 }}>+{moreCount}개 더</div>
+                  )}
+                </div>
               </button>
             )
           })}
         </div>
       </section>
 
-      {/* 상세 패널 (오늘의 계획) */}
+      {/* 상세 패널 */}
       <aside style={{ border: '1px solid #eceef2', borderRadius: 14, background: '#fff', overflow: 'visible', position: 'relative', zIndex: 35 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eceef2', padding: '12px 12px 10px' }}>
           <div>
@@ -373,12 +403,12 @@ export default function CalendarPanel() {
 
         <div style={{ padding: 12 }}>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
-            {goals.length === 0 ? (
+            {detailGoals.length === 0 ? (
               <li style={{ color: '#8b9098', fontSize: 14, border: '1px dashed #d9dce3', borderRadius: 10, padding: 12, background: '#fcfcfd' }}>
-                이 날짜에 등록된 계획이 없습니다. 캘린더의 추가 버튼으로 등록하세요.
+                이 날짜에 등록된 계획이 없습니다. 추가 버튼으로 등록하세요.
               </li>
             ) : (
-              goals.map((goal) => (
+              detailGoals.map((goal) => (
                 <li
                   key={goal.id}
                   onClick={() => setPickedGoalId(pickedGoalId === goal.id ? null : goal.id)}
@@ -386,7 +416,20 @@ export default function CalendarPanel() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
-                      <span style={{ fontSize: 14, ...(goal.is_completed && { textDecoration: 'line-through', color: '#8b9098' }) }}>
+                      {goal.planned_time && (
+                        <span style={{ fontSize: 12, color: '#a05a26', fontWeight: 700, minWidth: 42 }}>{goal.planned_time}</span>
+                      )}
+                      <span
+                        style={{
+                          fontSize: 14,
+                          minWidth: 0,
+                          wordBreak: 'break-word',
+                          display: 'inline-block',
+                          paddingLeft: 6,
+                          borderLeft: `3px solid ${COLOR_CELL_STYLE[goal.color]?.borderLeft?.split(' ')[2] || '#e57373'}`,
+                          ...(goal.is_completed && { textDecoration: 'line-through', color: '#8b9098' }),
+                        }}
+                      >
                         {goal.content}
                       </span>
                     </span>

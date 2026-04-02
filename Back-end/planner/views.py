@@ -1206,15 +1206,24 @@ def daily_goal_achieve(request, goal_id):
 
 
 def _get_planner_user(request):
-    """세션 또는 Token 인증 모두 지원"""
+    """세션 또는 Bearer JWT 또는 Token 인증 모두 지원"""
     if request.user.is_authenticated:
         return request.user
     auth = request.META.get('HTTP_AUTHORIZATION', '')
-    if auth.startswith('Token '):
-        from rest_framework.authtoken.models import Token
+    if auth.startswith('Bearer '):
         try:
+            from rest_framework_simplejwt.tokens import AccessToken
+            from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+            from django.contrib.auth import get_user_model
+            token = AccessToken(auth.split(' ')[1])
+            return get_user_model().objects.get(id=token['user_id'])
+        except Exception:
+            pass
+    if auth.startswith('Token '):
+        try:
+            from rest_framework.authtoken.models import Token
             return Token.objects.select_related('user').get(key=auth.split(' ')[1]).user
-        except Token.DoesNotExist:
+        except Exception:
             pass
     return None
 
@@ -1403,6 +1412,100 @@ def api_daily_todo_delete(request, todo_id):
     todo = get_object_or_404(DailyTodo, id=todo_id, user=user)
     todo.delete()
     return JsonResponse({"status": "ok"})
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_calendar(request):
+    """월별 날짜별 계획(WeeklyGoal) 목록 조회"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    month_raw = request.GET.get('month', '')
+    try:
+        year, month_num = map(int, month_raw.split('-'))
+        first_day = date(year, month_num, 1)
+    except Exception:
+        today = timezone.localdate()
+        year, month_num = today.year, today.month
+        first_day = date(year, month_num, 1)
+
+    last_day = date(year, month_num, calendar.monthrange(year, month_num)[1])
+
+    goals_qs = WeeklyGoal.objects.filter(user=user)
+    goals_by_date = {}
+    for goal in goals_qs:
+        goal_date = _goal_date(goal)
+        if first_day <= goal_date <= last_day:
+            ymd = goal_date.isoformat()
+            goals_by_date.setdefault(ymd, []).append({
+                'id': goal.id,
+                'content': goal.content,
+                'color': goal.color,
+                'planned_time': goal.planned_time.strftime('%H:%M') if goal.planned_time else None,
+                'is_completed': goal.is_completed,
+            })
+
+    return JsonResponse({'month': f'{year}-{month_num:02d}', 'goals_by_date': goals_by_date})
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_goals_for_date(request):
+    """특정 날짜의 계획 목록 조회"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    date_raw = request.GET.get('date', '')
+    try:
+        target_date = date.fromisoformat(date_raw)
+    except Exception:
+        target_date = timezone.localdate()
+
+    week_start = _week_start_from_input(target_date.isoformat())
+    weekday = (target_date - week_start).days
+
+    goals = WeeklyGoal.objects.filter(
+        user=user, week_start=week_start, weekday=weekday,
+    ).order_by('planned_time', 'created_at')
+
+    return JsonResponse({
+        'date': target_date.isoformat(),
+        'goals': [
+            {
+                'id': g.id,
+                'content': g.content,
+                'color': g.color,
+                'planned_time': g.planned_time.strftime('%H:%M') if g.planned_time else None,
+                'is_completed': g.is_completed,
+            }
+            for g in goals
+        ],
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_google_calendar_status(request):
+    """구글 캘린더 연결 상태 조회"""
+    user = _get_planner_user(request)
+    if not user:
+        return JsonResponse({"error": "인증이 필요합니다."}, status=401)
+
+    credential = getattr(user, 'google_calendar_credential', None)
+    connected = credential is not None
+    email = credential.google_email if credential else None
+
+    return JsonResponse({
+        'enabled': is_configured(),
+        'connected': connected,
+        'email': email,
+        'connect_url': reverse('planner-google-calendar-connect'),
+        'disconnect_url': reverse('planner-google-calendar-disconnect'),
+        'sync_url': reverse('planner-google-calendar-import'),
+    })
 
 
 @csrf_exempt
