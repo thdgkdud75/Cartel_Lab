@@ -21,12 +21,146 @@ function DetailList({ title, items }: { title: string; items: string[] }) {
       }}
     >
       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: PALETTE.ink }}>{title}</h3>
-      <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8, color: PALETTE.body, lineHeight: 1.75 }}>
-        {items.map((item) => (
-          <li key={`${title}-${item}`}>{item}</li>
+      <div style={{ display: "grid", gap: 10 }}>
+        {items.map((item, index) => (
+          <div
+            key={`${title}-${item}`}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "18px minmax(0,1fr)",
+              gap: 10,
+              alignItems: "start",
+              padding: "12px 14px",
+              borderRadius: 14,
+              background: index % 2 === 0 ? "#fcfcfd" : "#fffaf5",
+              border: `1px solid ${PALETTE.line}`,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 18,
+                height: 18,
+                borderRadius: 999,
+                background: PALETTE.brandSoft,
+                color: PALETTE.brandText,
+                fontSize: 12,
+                fontWeight: 900,
+                lineHeight: 1,
+                marginTop: 2,
+              }}
+            >
+              •
+            </span>
+            <div style={{ color: PALETTE.body, lineHeight: 1.75, fontSize: 14 }}>{item}</div>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
+  );
+}
+
+function buildWantedOverviewItems(text: string) {
+  const rawLineItems = text
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const mergedLineItems = rawLineItems.reduce<string[]>((acc, line) => {
+    if (acc.length === 0) {
+      acc.push(line);
+      return acc;
+    }
+
+    const prev = acc[acc.length - 1];
+    const prevEndsSentence = /[.!?]$/.test(prev);
+    const currentIsShort = line.length <= 16;
+    const prevIsShort = prev.length <= 24;
+    const shouldMerge = currentIsShort || (!prevEndsSentence && prevIsShort);
+
+    if (shouldMerge) {
+      acc[acc.length - 1] = `${prev} ${line}`.replace(/\s+/g, " ").trim();
+    } else {
+      acc.push(line);
+    }
+
+    return acc;
+  }, []);
+  if (mergedLineItems.length > 1) {
+    return mergedLineItems;
+  }
+
+  return text
+    .split(/(?<=[.!?])\s+(?=[A-Z가-힣])/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function OverviewList({ text, source }: { text: string; source?: string }) {
+  const items =
+    source === "wanted"
+      ? buildWantedOverviewItems(text)
+      : text
+          .split(/\n+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+  if (items.length <= 1) {
+    return (
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 16,
+          background: "#fffdf9",
+          border: `1px solid ${PALETTE.line}`,
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: PALETTE.body }}>{text}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {items.map((item, index) => (
+        <div
+          key={`${index}-${item}`}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "20px minmax(0,1fr)",
+            gap: 10,
+            alignItems: "start",
+            padding: 14,
+            borderRadius: 16,
+            background: index % 2 === 0 ? "#fffdf9" : "#ffffff",
+            border: `1px solid ${PALETTE.line}`,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              borderRadius: 999,
+              background: PALETTE.brandSoft,
+              color: PALETTE.brandText,
+              fontSize: 11,
+              fontWeight: 900,
+              lineHeight: 1,
+              marginTop: 1,
+            }}
+          >
+            {index + 1}
+          </span>
+          <div style={{ fontSize: 14, lineHeight: 1.75, color: PALETTE.body }}>{item}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -384,7 +518,7 @@ export function JobDetailModal({
                   }}
                 >
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: PALETTE.ink }}>공고 요약</h3>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: PALETTE.body }}>{detail.overview}</p>
+                  <OverviewList text={detail.overview} source={detail.source} />
                 </section>
               )}
 

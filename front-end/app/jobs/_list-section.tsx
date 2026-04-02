@@ -70,6 +70,47 @@ function getDeadlineTone(label: string | null) {
   };
 }
 
+function buildPreviewTags(job: JobPosting) {
+  const source = job.ui_tags.length > 0 ? job.ui_tags : job.ui_main_tasks;
+  return source
+    .map((tag) => tag.replace(/^#/, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function getSummaryLine(job: JobPosting) {
+  const candidates = [...job.ui_main_tasks, job.summary_text ?? ""]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const ignoredPatterns = [
+    /^이런 업무를 담당합니다\.?$/,
+    /^이런 분을 찾고 있어요\.?$/,
+    /^주요 업무입니다\.?$/,
+    /^상세 업무는 자세히 보기에서 확인/,
+  ];
+
+  const summary =
+    candidates.find((value) => ignoredPatterns.every((pattern) => !pattern.test(value))) ??
+    null;
+
+  return summary || "상세 업무는 자세히 보기에서 확인할 수 있습니다.";
+}
+
+function getIntroLine(job: JobPosting) {
+  const cleaned = getSummaryLine(job)
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/^[-•\s]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || cleaned === "상세 업무는 자세히 보기에서 확인할 수 있습니다.") {
+    return job.job_role || job.company_name;
+  }
+
+  return cleaned;
+}
+
 export function JobsListSection({
   jobs,
   categories,
@@ -92,8 +133,9 @@ export function JobsListSection({
   const filteredJobs =
     selectedCategory === "all"
       ? jobs
-      : jobs.filter((job) =>
-          job.ui_categories.includes(selectedCategory) || job.job_role === selectedCategory,
+      : jobs.filter(
+          (job) =>
+            job.ui_categories.includes(selectedCategory) || job.job_role === selectedCategory,
         );
 
   const scoredJobs = jobs.filter((job) => job.ui_recommendation_score !== null);
@@ -142,9 +184,9 @@ export function JobsListSection({
                 color: PALETTE.ink,
               }}
             >
-              공고를 한 장씩 넘기지 않고
+              지금 바로 살펴볼 공고
               <br />
-              한 번에 읽히는 채용 리스트
+              한눈에 훑는 채용 리스트
             </h1>
 
             <p
@@ -156,8 +198,8 @@ export function JobsListSection({
                 color: PALETTE.body,
               }}
             >
-              신입 친화 공고, 마감 시점, 핵심 업무를 세로 흐름으로 먼저 훑고 필요한 공고만 열어보는 구조입니다.
-              모바일에서는 빠른 스캔과 탭 동선이 우선입니다.
+              목록에서는 빠르게 훑고, 필요할 때만 상세를 여는 구조로 정리했습니다. 모바일은
+              위에서 아래로 스캔하기 쉽게 유지합니다.
             </p>
           </div>
 
@@ -185,7 +227,9 @@ export function JobsListSection({
               <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: PALETTE.ink }}>
                 {juniorCount}개
               </div>
-              <div style={{ marginTop: 5, fontSize: 12, color: PALETTE.body }}>신입 우대 태그 포함</div>
+              <div style={{ marginTop: 5, fontSize: 12, color: PALETTE.body }}>
+                신입 키워드 포함 공고
+              </div>
             </div>
 
             <div style={metricTileStyle}>
@@ -194,7 +238,7 @@ export function JobsListSection({
                 {scoringEnabled && averageScore !== null ? `${averageScore}점` : "비공개"}
               </div>
               <div style={{ marginTop: 5, fontSize: 12, color: PALETTE.body }}>
-                {scoringEnabled ? "로그인 상태 평균" : "로그인 후 노출"}
+                {scoringEnabled ? "로그인 상태 평균" : "로그인 후 확인"}
               </div>
             </div>
           </div>
@@ -245,7 +289,7 @@ export function JobsListSection({
                 color: PALETTE.body,
               }}
             >
-              GitHub 링크와 이력서를 모두 등록하면 공고별 프로필 적합도와 AI 추천 해석이 함께 표시됩니다.
+              GitHub 연동 이력을 모두 등록하면 공고별 추천도와 AI 해석을 함께 볼 수 있습니다.
             </div>
           )}
         </div>
@@ -257,7 +301,9 @@ export function JobsListSection({
         </div>
       ) : error ? (
         <div style={{ ...sectionCardStyle, padding: 28 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: PALETTE.ink }}>공고를 불러오지 못했습니다.</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: PALETTE.ink }}>
+            공고를 불러오지 못했습니다.
+          </div>
           <p style={{ margin: "8px 0 16px", fontSize: 14, color: PALETTE.body }}>{error}</p>
           <button onClick={onRetry} style={primaryButtonStyle}>
             다시 불러오기
@@ -265,9 +311,11 @@ export function JobsListSection({
         </div>
       ) : filteredJobs.length === 0 ? (
         <div style={{ ...sectionCardStyle, padding: 28 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: PALETTE.ink }}>조건에 맞는 공고가 없습니다.</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: PALETTE.ink }}>
+            조건에 맞는 공고가 없습니다.
+          </div>
           <p style={{ margin: "8px 0 0", fontSize: 14, color: PALETTE.body }}>
-            다른 카테고리를 선택해서 다시 확인해 보세요.
+            다른 카테고리를 선택해서 다시 확인해보세요.
           </p>
         </div>
       ) : (
@@ -284,11 +332,13 @@ export function JobsListSection({
             <div style={{ fontSize: 12, fontWeight: 800, color: PALETTE.brandText }}>LIST VIEW</div>
             <div className="grid gap-2 md:flex md:items-end md:justify-between">
               <div>
-                <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.05em", color: PALETTE.ink }}>
+                <div
+                  style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.05em", color: PALETTE.ink }}
+                >
                   지금 바로 살펴볼 공고
                 </div>
                 <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.75, color: PALETTE.body }}>
-                  모바일에선 위에서 아래로 빠르게 스캔하고, 필요할 때만 상세를 엽니다.
+                  요약 카드만 보여주고, 상세는 카드 클릭으로 이어지게 정리했습니다.
                 </div>
               </div>
               <div style={{ fontSize: 13, color: PALETTE.muted }}>
@@ -297,9 +347,12 @@ export function JobsListSection({
             </div>
           </div>
 
-          <div className="grid">
-            {filteredJobs.map((job, index) => {
+          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredJobs.map((job) => {
               const deadlineTone = getDeadlineTone(job.ui_deadline_label);
+              const previewTags = buildPreviewTags(job);
+              const introLine = getIntroLine(job);
+              const summaryLine = getSummaryLine(job);
 
               return (
                 <button
@@ -307,68 +360,94 @@ export function JobsListSection({
                   onClick={() => onSelect(job)}
                   style={{
                     ...listRowStyle,
-                    borderTop: index === 0 ? "none" : `1px solid ${PALETTE.lineSoft}`,
+                    border: `1px solid ${PALETTE.line}`,
+                    borderRadius: 22,
+                    background: PALETTE.surface,
+                    overflow: "hidden",
+                    minHeight: 372,
+                    textAlign: "left",
                   }}
                 >
-                  <div
-                    className="grid gap-4 px-4 py-4 md:px-5 md:py-5 lg:grid-cols-[minmax(0,1fr)_248px]"
-                    style={{ alignItems: "start" }}
-                  >
-                    <div className="grid gap-3">
-                      <div className="flex items-start gap-4">
-                        <span
+                  <div className="flex h-full flex-col gap-4 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span style={{ fontSize: 13, fontWeight: 800, color: PALETTE.muted }}>
+                            {job.company_name}
+                          </span>
+                          <span style={{ fontSize: 12, color: PALETTE.faint }}>
+                            {getSourceLabel(job.source)}
+                          </span>
+                        </div>
+
+                        <div
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 48,
-                            height: 48,
-                            borderRadius: 16,
-                            background: index % 2 === 0 ? PALETTE.surfaceTint : PALETTE.surfaceSubtle,
-                            color: PALETTE.brandText,
-                            fontSize: 15,
-                            fontWeight: 900,
-                            flexShrink: 0,
+                            marginTop: 8,
+                            fontSize: 12,
+                            lineHeight: 1.55,
+                            color: PALETTE.body,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
                           }}
                         >
-                          {job.ui_company_mark || job.company_name.slice(0, 2)}
-                        </span>
+                          {introLine}
+                        </div>
 
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span style={{ fontSize: 13, fontWeight: 700, color: PALETTE.muted }}>
-                              {job.company_name}
-                            </span>
-                            <span style={{ fontSize: 12, color: PALETTE.faint }}>{getSourceLabel(job.source)}</span>
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: 8,
-                              fontSize: 22,
-                              lineHeight: 1.15,
-                              letterSpacing: "-0.04em",
-                              fontWeight: 900,
-                              color: PALETTE.ink,
-                            }}
-                          >
-                            {job.title}
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {[job.location, job.employment_type, job.experience_label, job.education_level]
-                              .filter(Boolean)
-                              .map((item) => (
-                                <span key={`${job.id}-${item}`} style={subtleBadgeStyle}>
-                                  {item}
-                                </span>
-                              ))}
-                          </div>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 18,
+                            lineHeight: 1.22,
+                            letterSpacing: "-0.04em",
+                            fontWeight: 900,
+                            color: PALETTE.ink,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            minHeight: 44,
+                          }}
+                        >
+                          {job.title}
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {job.ui_tags.slice(0, 4).map((tag) => (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 999,
+                          padding: "7px 11px",
+                          fontSize: 11,
+                          fontWeight: 900,
+                          background: deadlineTone.background,
+                          border: `1px solid ${deadlineTone.border}`,
+                          color: deadlineTone.text,
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {deadlineTone.label}
+                      </span>
+                    </div>
+
+                    <div className="flex min-h-[64px] flex-wrap content-start gap-2">
+                      {[job.location, job.employment_type, job.experience_label, job.education_level]
+                        .filter(Boolean)
+                        .slice(0, 4)
+                        .map((item) => (
+                          <span key={`${job.id}-${item}`} style={subtleBadgeStyle}>
+                            {item}
+                          </span>
+                        ))}
+                    </div>
+
+                    <div className="flex min-h-[56px] flex-wrap content-start gap-2">
+                      {previewTags.length > 0 ? (
+                        previewTags.map((tag) => (
                           <span
                             key={`${job.id}-${tag}`}
                             style={{
@@ -377,155 +456,73 @@ export function JobsListSection({
                               borderRadius: 999,
                               background: PALETTE.surfaceTint,
                               color: PALETTE.brandText,
-                              padding: "7px 12px",
+                              padding: "7px 11px",
                               fontSize: 12,
-                              fontWeight: 700,
+                              fontWeight: 800,
                             }}
                           >
-                            {tag}
+                            #{tag}
                           </span>
-                        ))}
-                      </div>
-
-                      <div style={{ display: "grid", gap: 7 }}>
-                        {job.ui_main_tasks.length > 0 ? (
-                          job.ui_main_tasks.slice(0, 2).map((task) => (
-                            <div
-                              key={`${job.id}-${task}`}
-                              style={{
-                                fontSize: 13,
-                                lineHeight: 1.7,
-                                color: PALETTE.body,
-                                display: "grid",
-                                gridTemplateColumns: "10px minmax(0,1fr)",
-                                gap: 6,
-                                alignItems: "start",
-                              }}
-                            >
-                              <span style={{ color: PALETTE.brandText, fontWeight: 900 }}>•</span>
-                              <span>{task}</span>
-                            </div>
-                          ))
-                        ) : job.summary_text ? (
-                          <div style={{ fontSize: 13, lineHeight: 1.75, color: PALETTE.body }}>{job.summary_text}</div>
-                        ) : (
-                          <div style={{ fontSize: 13, lineHeight: 1.75, color: PALETTE.muted }}>
-                            요약 정보가 없는 공고입니다.
-                          </div>
-                        )}
-                      </div>
-
-                      {scoringEnabled && job.ui_recommendation_score !== null && job.ui_recommendation_reasons.length > 0 && (
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: 5,
-                            padding: "12px 14px",
-                            borderRadius: 18,
-                            background: PALETTE.brandSoft,
-                            border: `1px solid ${PALETTE.brandSoftStrong}`,
-                          }}
-                        >
-                          {job.ui_recommendation_reasons.slice(0, 2).map((reason) => (
-                            <div key={`${job.id}-${reason}`} style={{ fontSize: 12, lineHeight: 1.65, color: PALETTE.brandText }}>
-                              {reason}
-                            </div>
-                          ))}
-                        </div>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: 12, color: PALETTE.muted }}>태그 준비 중</span>
                       )}
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 10,
-                          padding: 16,
-                          borderRadius: 20,
-                          background: PALETTE.surfaceSubtle,
-                          border: `1px solid ${PALETTE.line}`,
-                        }}
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              borderRadius: 999,
-                              padding: "8px 12px",
-                              fontSize: 12,
-                              fontWeight: 800,
-                              background: deadlineTone.background,
-                              border: `1px solid ${deadlineTone.border}`,
-                              color: deadlineTone.text,
-                            }}
-                          >
-                            {deadlineTone.label}
-                          </span>
-                          {job.is_junior_friendly && (
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                borderRadius: 999,
-                                background: PALETTE.successSoft,
-                                color: PALETTE.success,
-                                padding: "8px 12px",
-                                fontSize: 12,
-                                fontWeight: 800,
-                              }}
-                            >
-                              신입 친화
-                            </span>
-                          )}
-                        </div>
+                    <div
+                      style={{
+                        minHeight: 66,
+                        fontSize: 13,
+                        lineHeight: 1.7,
+                        color: PALETTE.body,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {summaryLine}
+                    </div>
 
-                        {scoringEnabled && job.ui_recommendation_score !== null ? (
-                          <div style={{ display: "grid", gap: 4 }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: PALETTE.muted }}>매칭도</div>
-                            <div style={{ fontSize: 22, fontWeight: 900, color: PALETTE.ink }}>
-                              {job.ui_recommendation_score}점
-                            </div>
-                            {job.ui_recommendation_reasons[0] && (
-                              <div style={{ fontSize: 12, lineHeight: 1.7, color: PALETTE.body }}>
-                                {job.ui_recommendation_reasons[0]}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 12, lineHeight: 1.7, color: PALETTE.body }}>
-                            상세에서 요구사항과 우대 조건을 더 확인할 수 있습니다.
-                          </div>
-                        )}
-                      </div>
-
-                      <div
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <a
+                        href={job.external_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
                         style={{
                           display: "flex",
-                          alignItems: "flex-end",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          padding: "2px 2px 0",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 48,
+                          borderRadius: 16,
+                          border: `1px solid ${PALETTE.line}`,
+                          background: PALETTE.surfaceSubtle,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: PALETTE.ink,
+                          textDecoration: "none",
                         }}
                       >
-                        <div style={{ fontSize: 12, lineHeight: 1.7, color: PALETTE.muted }}>
-                          탭해서 상세, 기술, 외부 링크까지 확인
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <a
-                            href={job.external_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(event) => event.stopPropagation()}
-                            style={{ fontSize: 12, fontWeight: 700, color: PALETTE.muted, textDecoration: "none" }}
-                          >
-                            원문 이동
-                          </a>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: PALETTE.brandText }}>
-                            자세히 보기
-                          </span>
-                        </div>
-                      </div>
+                        공고보기
+                      </a>
+
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 48,
+                          borderRadius: 16,
+                          border: `1px solid ${PALETTE.brandSoftStrong}`,
+                          background: PALETTE.brandSoft,
+                          fontSize: 14,
+                          fontWeight: 900,
+                          color: PALETTE.brandText,
+                        }}
+                      >
+                        자세히 보기
+                      </span>
                     </div>
                   </div>
                 </button>
