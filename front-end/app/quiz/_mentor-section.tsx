@@ -1,12 +1,13 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Eye,
+  EyeOff,
   Plus,
   Save,
   ShieldAlert,
@@ -137,6 +138,18 @@ const EMPTY_FORM: FormState = {
   ai_trap_answer: "",
 };
 
+const CODE_TEXTAREA_STYLE = {
+  ...textareaStyle,
+  minHeight: 112,
+  resize: "none" as const,
+  overflow: "hidden",
+  background: "#1e1e2e",
+  color: "#cdd6f4",
+  borderColor: "#2a2a3a",
+  fontFamily: "'Courier New', monospace",
+  fontSize: 13,
+};
+
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("ko-KR", {
     month: "2-digit",
@@ -186,6 +199,46 @@ export function MentorSection({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [openStudentId, setOpenStudentId] = useState<number | null>(null);
+  const [trapOpen, setTrapOpen] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
+  const codeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const trapCodeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const autoResize = (element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
+  const resizeCodeTextareas = () => {
+    window.requestAnimationFrame(() => {
+      autoResize(codeTextareaRef.current);
+      autoResize(trapCodeTextareaRef.current);
+    });
+  };
+
+  const handleCodeTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Tab") return;
+    event.preventDefault();
+
+    const textarea = event.currentTarget;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const nextValue = `${textarea.value.slice(0, start)}    ${textarea.value.slice(end)}`;
+
+    handleFormChange(
+      textarea.name as "code_snippet" | "ai_trap_code",
+      nextValue,
+    );
+
+    window.requestAnimationFrame(() => {
+      const target = textarea.name === "code_snippet" ? codeTextareaRef.current : trapCodeTextareaRef.current;
+      if (!target) return;
+      target.selectionStart = start + 4;
+      target.selectionEnd = start + 4;
+      resizeCodeTextareas();
+    });
+  };
 
   useEffect(() => {
     if (!data?.week_days.length) return;
@@ -204,9 +257,30 @@ export function MentorSection({
   const selectedEditable = Boolean(selectedDay) && Boolean(selectedDay?.quiz) && !selectedIsPast && Boolean(selectedListItem?.is_mine);
   const canCreate = Boolean(selectedDay) && !selectedDay?.quiz && !selectedIsPast;
 
+  const fieldLabelStyle = {
+    fontSize: 13,
+    fontWeight: 700,
+    color: QUIZ_PALETTE.ink,
+  } as const;
+
+  const fieldHintStyle = {
+    fontSize: 12,
+    fontWeight: 500,
+    color: QUIZ_PALETTE.muted,
+  } as const;
+
+  const listCodeBlockStyle = {
+    ...codeBlockStyle,
+    padding: "14px 16px",
+    borderRadius: 16,
+    fontSize: 12,
+    lineHeight: 1.6,
+  } as const;
+
   useEffect(() => {
     setFormError(null);
     setFormMessage(null);
+    setTrapOpen(false);
     if (!selectedDay?.quiz) {
       setForm(EMPTY_FORM);
       return;
@@ -220,6 +294,10 @@ export function MentorSection({
       ai_trap_answer: selectedDay.quiz.ai_trap_answer,
     });
   }, [selectedDay?.date, selectedDay?.quiz?.id]);
+
+  useEffect(() => {
+    resizeCodeTextareas();
+  }, [form.code_snippet, form.ai_trap_code, selectedDay?.date]);
 
   const handleFormChange = (field: keyof FormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -308,6 +386,20 @@ export function MentorSection({
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
+                onClick={() => setShowAnswers((current) => !current)}
+                style={{
+                  ...buttonBaseStyle,
+                  border: `1px solid ${showAnswers ? QUIZ_PALETTE.brandSoftStrong : QUIZ_PALETTE.line}`,
+                  background: showAnswers ? QUIZ_PALETTE.brandSoft : QUIZ_PALETTE.surface,
+                  color: showAnswers ? QUIZ_PALETTE.brandText : QUIZ_PALETTE.inkSoft,
+                  cursor: "pointer",
+                }}
+              >
+                {showAnswers ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showAnswers ? "답 숨기기" : "답 보기"}
+              </button>
+              <button
+                type="button"
                 onClick={() => setModalOpen(true)}
                 style={{
                   ...buttonBaseStyle,
@@ -392,12 +484,12 @@ export function MentorSection({
                 <article
                   key={item.quiz.id}
                   style={{
-                    borderRadius: 22,
+                    borderRadius: 20,
                     border: `1px solid ${item.quiz.scheduled_date === data.today ? QUIZ_PALETTE.brandSoftStrong : QUIZ_PALETTE.line}`,
-                    background: item.quiz.scheduled_date === data.today ? QUIZ_PALETTE.surfaceTint : QUIZ_PALETTE.surface,
-                    padding: 20,
+                    background: item.quiz.scheduled_date === data.today ? "#fff8f1" : QUIZ_PALETTE.surface,
+                    padding: 16,
                     display: "grid",
-                    gap: 14,
+                    gap: 10,
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -413,12 +505,17 @@ export function MentorSection({
                       <span style={{
                         display: "inline-flex",
                         alignItems: "center",
-                        padding: "7px 10px",
-                        borderRadius: 999,
-                        background: QUIZ_PALETTE.sand,
-                        color: QUIZ_PALETTE.inkSoft,
+                        justifyContent: "center",
+                        minHeight: 26,
+                        padding: "0 8px",
+                        borderRadius: 10,
+                        border: `1px solid ${item.quiz.scheduled_date === data.today ? "#ffd7bf" : "#f0d7c3"}`,
+                        background: item.quiz.scheduled_date === data.today ? "#fff1e8" : "#fff7f1",
+                        color: item.quiz.scheduled_date === data.today ? QUIZ_PALETTE.brandText : "#c76a1a",
                         fontSize: 12,
-                        fontWeight: 800,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
                       }}>
                         {item.quiz.scheduled_date === data.today
                           ? "오늘"
@@ -431,12 +528,17 @@ export function MentorSection({
                       <span style={{
                         display: "inline-flex",
                         alignItems: "center",
-                        padding: "7px 10px",
-                        borderRadius: 999,
-                        background: QUIZ_PALETTE.sand,
-                        color: QUIZ_PALETTE.inkSoft,
+                        justifyContent: "center",
+                        minHeight: 26,
+                        padding: "0 8px",
+                        borderRadius: 10,
+                        border: "1px solid #f0d7c3",
+                        background: "#fff7f1",
+                        color: "#c76a1a",
                         fontSize: 12,
-                        fontWeight: 800,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        whiteSpace: "nowrap",
                       }}>
                         응시 {item.total} / 정답 {item.correct}
                       </span>
@@ -444,12 +546,17 @@ export function MentorSection({
                         <span style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          padding: "7px 10px",
-                          borderRadius: 999,
-                          background: QUIZ_PALETTE.warningSoft,
+                          justifyContent: "center",
+                          minHeight: 26,
+                          padding: "0 8px",
+                          borderRadius: 10,
+                          border: "1px solid #f3d6b3",
+                          background: "#fff3e6",
                           color: QUIZ_PALETTE.warningDeep,
                           fontSize: 12,
-                          fontWeight: 800,
+                          fontWeight: 700,
+                          lineHeight: 1,
+                          whiteSpace: "nowrap",
                         }}>
                           AI {item.ai_flagged}
                         </span>
@@ -457,16 +564,24 @@ export function MentorSection({
                     </div>
                   </div>
 
-                  {item.quiz.code_snippet ? <pre style={codeBlockStyle}>{item.quiz.code_snippet}</pre> : null}
-                  <p style={{ margin: 0, color: QUIZ_PALETTE.inkSoft, lineHeight: 1.8 }}>{item.quiz.question}</p>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  {item.quiz.code_snippet ? <pre style={listCodeBlockStyle}>{item.quiz.code_snippet}</pre> : null}
+                  <p style={{ margin: 0, color: QUIZ_PALETTE.inkSoft, lineHeight: 1.65 }}>{item.quiz.question}</p>
+                  <div style={{ display: "grid", gap: 4 }}>
                     <div style={{ fontSize: 12, color: QUIZ_PALETTE.brandText, fontWeight: 800 }}>정답</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: QUIZ_PALETTE.ink }}>{item.quiz.answer}</div>
-                    {item.quiz.ai_trap_code ? (
-                      <div style={{ fontSize: 13, color: QUIZ_PALETTE.inkSoft, lineHeight: 1.7 }}>
-                        AI 함정 정답 <strong style={{ color: QUIZ_PALETTE.ink }}>{item.quiz.ai_trap_answer}</strong>
+                    {showAnswers ? (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: QUIZ_PALETTE.ink }}>{item.quiz.answer}</div>
+                        {item.quiz.ai_trap_code ? (
+                          <div style={{ fontSize: 13, color: QUIZ_PALETTE.inkSoft, lineHeight: 1.6 }}>
+                            AI 함정 정답 <strong style={{ color: QUIZ_PALETTE.ink }}>{item.quiz.ai_trap_answer}</strong>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 13, color: QUIZ_PALETTE.muted, lineHeight: 1.5 }}>
+                        답 보기를 눌러 정답을 확인할 수 있습니다.
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </article>
               ))}
@@ -743,8 +858,8 @@ export function MentorSection({
             background: "#fff",
             borderRadius: 20,
             width: "100%",
-            maxWidth: 700,
-            padding: 28,
+            maxWidth: 760,
+            padding: 32,
             margin: "auto",
             maxHeight: "90vh",
             overflowY: "auto",
@@ -812,8 +927,8 @@ export function MentorSection({
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 8,
-              marginBottom: 20,
+              gap: 10,
+              marginBottom: 24,
             }}>
               {data?.week_days.map((day) => {
                 const isSelected = day.date === selectedDate;
@@ -855,9 +970,9 @@ export function MentorSection({
                     style={{
                       border: cardBorder,
                       borderRadius: 12,
-                      padding: "10px 6px",
+                      padding: "12px 8px",
                       textAlign: "center",
-                      minHeight: 80,
+                      minHeight: 92,
                       cursor: cardCursor,
                       background: cardBg,
                       opacity: cardOpacity,
@@ -867,21 +982,21 @@ export function MentorSection({
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 4,
+                      gap: 6,
                     }}
                   >
-                    <div style={{ fontSize: 10, fontWeight: 800, color: isSelected ? QUIZ_PALETTE.brandText : QUIZ_PALETTE.muted }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: isSelected ? QUIZ_PALETTE.brandText : QUIZ_PALETTE.muted }}>
                       {day.day_ko}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: QUIZ_PALETTE.ink }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: QUIZ_PALETTE.ink }}>
                       {formatDate(day.date)}
                     </div>
                     {day.quiz ? (
-                      <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>
                         문제 있음
                       </div>
                     ) : !isPast ? (
-                      <div style={{ fontSize: 10, color: QUIZ_PALETTE.muted, marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: QUIZ_PALETTE.muted, marginTop: 2 }}>
                         비어있음
                       </div>
                     ) : null}
@@ -897,9 +1012,9 @@ export function MentorSection({
               <div style={{
                 border: `2px solid ${QUIZ_PALETTE.brand}`,
                 borderRadius: 16,
-                padding: 20,
+                padding: 24,
                 display: "grid",
-                gap: 18,
+                gap: 20,
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                   <div>
@@ -983,72 +1098,128 @@ export function MentorSection({
                         gap: 10,
                       }}>
                         <div style={{ fontSize: 12, color: QUIZ_PALETTE.brandText, fontWeight: 800 }}>정답</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: QUIZ_PALETTE.ink }}>{selectedDay.quiz.answer}</div>
-                        {selectedDay.quiz.ai_trap_code ? (
-                          <div style={{ fontSize: 13, lineHeight: 1.7, color: QUIZ_PALETTE.inkSoft }}>
-                            AI 함정 정답: <strong style={{ color: QUIZ_PALETTE.ink }}>{selectedDay.quiz.ai_trap_answer}</strong>
+                        {showAnswers ? (
+                          <>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: QUIZ_PALETTE.ink }}>{selectedDay.quiz.answer}</div>
+                            {selectedDay.quiz.ai_trap_code ? (
+                              <div style={{ fontSize: 13, lineHeight: 1.7, color: QUIZ_PALETTE.inkSoft }}>
+                                AI 함정 정답: <strong style={{ color: QUIZ_PALETTE.ink }}>{selectedDay.quiz.ai_trap_answer}</strong>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 13, color: QUIZ_PALETTE.muted, lineHeight: 1.7 }}>
+                            상단의 답 보기 버튼을 눌러 정답을 확인할 수 있습니다.
                           </div>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   </div>
                 ) : canCreate || selectedEditable ? (
                   /* 등록 / 수정 폼 */
-                  <form onSubmit={handleSave} style={{ display: "grid", gap: 14 }}>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      <input
-                        value={form.title}
-                        onChange={(event) => handleFormChange("title", event.target.value)}
-                        placeholder="문제 제목"
-                        style={inputStyle}
-                      />
-                      <textarea
-                        value={form.code_snippet}
-                        onChange={(event) => handleFormChange("code_snippet", event.target.value)}
-                        placeholder="코드 스니펫"
-                        style={{ ...textareaStyle, minHeight: 180, background: "#f9fafb" }}
-                      />
-                      <textarea
-                        value={form.question}
-                        onChange={(event) => handleFormChange("question", event.target.value)}
-                        placeholder="문제 설명"
-                        style={textareaStyle}
-                      />
-                      <input
-                        value={form.answer}
-                        onChange={(event) => handleFormChange("answer", event.target.value)}
-                        placeholder="정답 (쉼표로 복수 입력 가능)"
-                        style={inputStyle}
-                      />
+                  <form onSubmit={handleSave} style={{ display: "grid", gap: 16 }}>
+                    <div style={{ display: "grid", gap: 14 }}>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <label style={fieldLabelStyle}>문제 제목</label>
+                        <input
+                          value={form.title}
+                          onChange={(event) => handleFormChange("title", event.target.value)}
+                          placeholder="예) range(5) 합계 구하기"
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <label style={fieldLabelStyle}>
+                          화면에 보여줄 코드 <span style={fieldHintStyle}>(선택)</span>
+                        </label>
+                        <textarea
+                          ref={codeTextareaRef}
+                          name="code_snippet"
+                          value={form.code_snippet}
+                          onChange={(event) => {
+                            handleFormChange("code_snippet", event.target.value);
+                            resizeCodeTextareas();
+                          }}
+                          onKeyDown={handleCodeTextareaKeyDown}
+                          placeholder={"sum = 0\nfor i in range(5):\n    sum += i\nprint(sum)"}
+                          style={CODE_TEXTAREA_STYLE}
+                        />
+                      </div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <label style={fieldLabelStyle}>문제 설명</label>
+                        <textarea
+                          value={form.question}
+                          onChange={(event) => handleFormChange("question", event.target.value)}
+                          placeholder="출력 결과는?"
+                          style={{ ...textareaStyle, minHeight: 132 }}
+                        />
+                      </div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <label style={fieldLabelStyle}>
+                          정답 <span style={fieldHintStyle}>(복수는 쉼표 구분)</span>
+                        </label>
+                        <input
+                          value={form.answer}
+                          onChange={(event) => handleFormChange("answer", event.target.value)}
+                          placeholder="10, 십"
+                          style={inputStyle}
+                        />
+                      </div>
                     </div>
 
-                    <div style={{
-                      borderRadius: 20,
-                      padding: 18,
-                      background: QUIZ_PALETTE.sand,
-                      border: `1px solid ${QUIZ_PALETTE.sandLine}`,
-                      display: "grid",
-                      gap: 12,
-                    }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: QUIZ_PALETTE.ink }}>AI 함정 설정</div>
-                        <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.7, color: QUIZ_PALETTE.inkSoft }}>
-                          화면에는 보이지 않지만 복사할 때만 AI에게 다른 코드를 전달하는 구조입니다.
+                    <details
+                      open={trapOpen}
+                      onToggle={(event) => setTrapOpen(event.currentTarget.open)}
+                      style={{
+                        border: "1px dashed #e2a96b",
+                        borderRadius: 12,
+                        padding: 14,
+                        background: "#fff8f3",
+                      }}
+                    >
+                      <summary style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: QUIZ_PALETTE.brand,
+                        cursor: "pointer",
+                        listStyle: "auto",
+                      }}>
+                        AI 감지 함정 설정 (선택)
+                      </summary>
+                      <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: QUIZ_PALETTE.inkSoft }}>
+                          복붙 시 AI가 받는 전체 코드를 따로 작성합니다. 화면엔 안 보이지만 복사하면 이 코드가 클립보드에 담깁니다.
+                        </p>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <label style={fieldLabelStyle}>
+                            복붙 시 AI가 받는 코드 <span style={fieldHintStyle}>(전체 코드 작성)</span>
+                          </label>
+                          <textarea
+                            ref={trapCodeTextareaRef}
+                            name="ai_trap_code"
+                            value={form.ai_trap_code}
+                            onChange={(event) => {
+                              handleFormChange("ai_trap_code", event.target.value);
+                              resizeCodeTextareas();
+                            }}
+                            onKeyDown={handleCodeTextareaKeyDown}
+                            placeholder={"sum = 0\nsum = 100\nfor i in range(5):\n    sum += i\nprint(sum)"}
+                            style={CODE_TEXTAREA_STYLE}
+                          />
+                        </div>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <label style={fieldLabelStyle}>
+                            AI가 낼 오답 <span style={fieldHintStyle}>(쉼표로 복수 가능)</span>
+                          </label>
+                          <input
+                            value={form.ai_trap_answer}
+                            onChange={(event) => handleFormChange("ai_trap_answer", event.target.value)}
+                            placeholder="110, 백십"
+                            style={inputStyle}
+                          />
                         </div>
                       </div>
-                      <textarea
-                        value={form.ai_trap_code}
-                        onChange={(event) => handleFormChange("ai_trap_code", event.target.value)}
-                        placeholder="숨김 코드"
-                        style={{ ...textareaStyle, minHeight: 120 }}
-                      />
-                      <input
-                        value={form.ai_trap_answer}
-                        onChange={(event) => handleFormChange("ai_trap_answer", event.target.value)}
-                        placeholder="AI 함정 정답"
-                        style={inputStyle}
-                      />
-                    </div>
+                    </details>
 
                     {formError ? (
                       <p style={{ margin: 0, color: QUIZ_PALETTE.danger, fontSize: 13, lineHeight: 1.6 }}>{formError}</p>
@@ -1057,12 +1228,13 @@ export function MentorSection({
                       <p style={{ margin: 0, color: QUIZ_PALETTE.successDeep, fontSize: 13, lineHeight: 1.6 }}>{formMessage}</p>
                     ) : null}
 
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "grid", gap: 10 }}>
                       <button
                         type="submit"
                         disabled={saving}
                         style={{
                           ...buttonBaseStyle,
+                          width: "100%",
                           border: "none",
                           background: QUIZ_PALETTE.brand,
                           color: "#fff",
@@ -1079,6 +1251,7 @@ export function MentorSection({
                           disabled={deleting}
                           style={{
                             ...buttonBaseStyle,
+                            width: "100%",
                             border: `1px solid #f2c4c4`,
                             background: "#fff6f6",
                             color: QUIZ_PALETTE.danger,

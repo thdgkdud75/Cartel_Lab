@@ -1,7 +1,7 @@
 "use client";
 
-import type { ClipboardEvent, FormEvent } from "react";
-import { useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, Copy, Send } from "lucide-react";
 import { buttonBaseStyle, codeBlockStyle, heroCardStyle, inputStyle, sectionCardStyle, sectionSubtitleStyle, sectionTitleStyle, QUIZ_PALETTE } from "./_styles";
 
@@ -64,6 +64,8 @@ export function StudentSection({ data, loading, error, authFetch, onRefresh }: P
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const codeBlockRef = useRef<HTMLPreElement | null>(null);
+  const copyHintTimerRef = useRef<number | null>(null);
 
   const todayQuiz = data?.today_quiz ?? null;
   const canSubmit = Boolean(todayQuiz) && !data?.has_correct && (data?.attempt_count ?? 0) < (data?.max_attempts ?? 0);
@@ -89,13 +91,50 @@ export function StudentSection({ data, loading, error, authFetch, onRefresh }: P
     }
   };
 
-  const handleCopy = async (event: ClipboardEvent<HTMLElement>) => {
-    if (!todayQuiz?.ai_trap_code) return;
-    event.preventDefault();
-    await navigator.clipboard.writeText(todayQuiz.ai_trap_code);
-    setCopyHint("복사된 코드가 갱신되었습니다.");
-    window.setTimeout(() => setCopyHint(null), 1800);
-  };
+  useEffect(() => {
+    if (!todayQuiz?.ai_trap_code || !codeBlockRef.current) {
+      return undefined;
+    }
+
+    const trapCopy = (event: ClipboardEvent) => {
+      const block = codeBlockRef.current;
+      if (!block) return;
+
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+
+      const container = selection.getRangeAt(0).commonAncestorContainer;
+      const targetNode = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+      if (!targetNode || !(targetNode instanceof Node)) return;
+
+      const inBlock = block === targetNode || block.contains(targetNode);
+      if (!inBlock) return;
+
+      event.preventDefault();
+      event.clipboardData?.setData("text/plain", todayQuiz.ai_trap_code ?? "");
+
+      if (copyHintTimerRef.current) {
+        window.clearTimeout(copyHintTimerRef.current);
+      }
+      setCopyHint("복사된 코드가 갱신되었습니다.");
+      copyHintTimerRef.current = window.setTimeout(() => {
+        setCopyHint(null);
+        copyHintTimerRef.current = null;
+      }, 1800);
+    };
+
+    document.addEventListener("copy", trapCopy, true);
+    document.addEventListener("copy", trapCopy, false);
+
+    return () => {
+      document.removeEventListener("copy", trapCopy, true);
+      document.removeEventListener("copy", trapCopy, false);
+      if (copyHintTimerRef.current) {
+        window.clearTimeout(copyHintTimerRef.current);
+        copyHintTimerRef.current = null;
+      }
+    };
+  }, [todayQuiz?.ai_trap_code]);
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
@@ -183,7 +222,7 @@ export function StudentSection({ data, loading, error, authFetch, onRefresh }: P
 
           {todayQuiz.code_snippet ? (
             <div style={{ padding: 28 }}>
-              <pre style={codeBlockStyle} onCopy={handleCopy}>
+              <pre ref={codeBlockRef} style={codeBlockStyle}>
                 {todayQuiz.code_snippet}
               </pre>
               {copyHint ? (

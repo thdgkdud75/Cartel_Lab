@@ -91,9 +91,9 @@ export const codeBlockStyle: CSSProperties = {
   borderRadius: 20,
   background: QUIZ_PALETTE.codeBg,
   color: QUIZ_PALETTE.codeFg,
+  fontFamily: "'Courier New', monospace",
   fontSize: 13,
   lineHeight: 1.7,
   overflowX: "auto",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
+  whiteSpace: "pre",
 };
