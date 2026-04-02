@@ -3,14 +3,8 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { Routes, Pages } from "@/constants/enums";
+import { DEFAULT_PROFILE_IMAGES } from "@/constants/images";
 import { Button } from "@/components/ui/button";
-
-const DEFAULT_PROFILE_IMAGES = [
-  "/images/default_01.png",
-  "/images/default_02.png",
-  "/images/default_03.png",
-  "/images/default_04.png",
-];
 
 export default function AuthButton() {
   const { data: session } = useSession();
@@ -50,6 +44,11 @@ export default function AuthButton() {
         <Link href={Routes.USERS} className="dropdown-item">
           <ProfileIcon /> 내 프로필
         </Link>
+        {user.is_staff && (
+          <Link href={Routes.ADMIN} className="dropdown-item">
+            <DashboardIcon /> 관리자 대시보드
+          </Link>
+        )}
         <div className="my-1 h-px bg-[#f0f0f2]" />
         <Button
           variant="ghost"
@@ -74,6 +73,13 @@ const ProfileIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="8" r="4"/>
     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+  </svg>
+);
+
+const DashboardIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
   </svg>
 );
 

@@ -6,12 +6,14 @@ ROOT = "/",
     ATTENDANCE = "/attendance",
     CERTIFICATIONS = "/certifications",
     PLANNER = "/planner",
+    TIMETABLE = "/timetable",
     SEATS = "/seats",
     JOBS = "/jobs",
     CONTESTS = "/contests",
     QUIZ = "/quiz",
     BLOG = "/blog",
     USERS = "/users",
+    MYPAGE = "/mypage",
     ADMIN = "/dashboard",
     AUTH = "/auth",
 }
@@ -80,6 +82,12 @@ export enum ApiPaths {
     LOGOUT = "/logout/",
     REFRESH = "/refresh/",
     ME = "/me/",
+    PROFILE = "/profile/",
+    PROFILE_GITHUB = "/profile/github/",
+    PROFILE_RESUME = "/profile/resume/",
+    GITHUB_CONNECT = "/profile/github/connect/",
+    GITHUB_CALLBACK = "/profile/github/callback/",
+    PROFILE_ANALYZE = "/profile/analyze/",
 }
 
 // API 메서드를 정의
@@ -87,6 +95,7 @@ export enum Methods{
     GET = "GET",
     POST = "POST",
     PUT = "PUT",
+    PATCH = "PATCH",
     DELETE = "DELETE",
 }
 
@@ -98,4 +107,12 @@ export enum Responses {
     ERROR = "error",
     WARNING = "warning",
     INFO = "info",
-  }
+}
+
+// 출결 상태 옵션
+export const ATTENDANCE_STATUS_OPTIONS = [
+  { value: "present", label: "출석" },
+  { value: "late",    label: "지각" },
+  { value: "absent",  label: "결석" },
+  { value: "leave",   label: "조퇴" },
+] as const;

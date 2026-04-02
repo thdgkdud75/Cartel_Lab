@@ -33,7 +33,9 @@ export default async function RootLayout({
           <ReduxProvider>
             {process.env.NODE_ENV === "development" && <DevAutoLogin />}
             <Header />
-            {children}
+            <main className="flex-1">
+              {children}
+            </main>
           </ReduxProvider>
         </NextAuthSessionProvider>
       </body>

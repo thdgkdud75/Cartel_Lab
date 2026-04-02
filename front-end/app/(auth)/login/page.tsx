@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { login } from "@/server/auth-action";
+import { API_BASE_URL } from "@/lib/api-client";
+import { Routes, ApiPaths, Methods } from "@/constants/enums";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,13 +21,21 @@ export default function LoginPage() {
 
     const result = await login(studentId, password);
 
-    setLoading(false);
-
     if (!result.success) {
+      setLoading(false);
       setError(result.message);
       return;
     }
 
+    // 브라우저에서 직접 Django 로그인 → Django JWT 쿠키를 브라우저에 심음
+    await fetch(`${API_BASE_URL}${Routes.AUTH}${ApiPaths.LOGIN}`, {
+      method: Methods.POST,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ student_id: studentId, password }),
+    }).catch(() => null);
+
+    setLoading(false);
     router.push("/");
     router.refresh();
   }

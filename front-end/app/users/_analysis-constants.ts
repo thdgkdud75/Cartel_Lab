@@ -1,0 +1,33 @@
+export const LANG_STYLE: Record<string, { bg: string; color: string; dot: string }> = {
+  "JavaScript":  { bg: "#fefce8", color: "#854d0e", dot: "#eab308" },
+  "TypeScript":  { bg: "#eff6ff", color: "#1e40af", dot: "#3b82f6" },
+  "Python":      { bg: "#f0fdf4", color: "#166534", dot: "#22c55e" },
+  "Java":        { bg: "#fff7ed", color: "#9a3412", dot: "#f97316" },
+  "Kotlin":      { bg: "#f5f3ff", color: "#5b21b6", dot: "#8b5cf6" },
+  "Swift":       { bg: "#fff1f2", color: "#9f1239", dot: "#f43f5e" },
+  "Go":          { bg: "#ecfeff", color: "#155e75", dot: "#06b6d4" },
+  "Rust":        { bg: "#fff7ed", color: "#7c2d12", dot: "#ea580c" },
+  "C":           { bg: "#f0f4ff", color: "#1e3a8a", dot: "#6366f1" },
+  "C++":         { bg: "#f0f4ff", color: "#1e3a8a", dot: "#6366f1" },
+  "C#":          { bg: "#f5f3ff", color: "#4c1d95", dot: "#7c3aed" },
+  "Ruby":        { bg: "#fff1f2", color: "#881337", dot: "#e11d48" },
+  "PHP":         { bg: "#f5f3ff", color: "#3730a3", dot: "#6366f1" },
+  "HTML":        { bg: "#fff7ed", color: "#9a3412", dot: "#f97316" },
+  "CSS":         { bg: "#eff6ff", color: "#1d4ed8", dot: "#60a5fa" },
+  "Dart":        { bg: "#ecfeff", color: "#0e7490", dot: "#22d3ee" },
+  "Next.js":     { bg: "#f9fafb", color: "#111827", dot: "#374151" },
+  "React":       { bg: "#ecfeff", color: "#0e7490", dot: "#38bdf8" },
+  "Vue":         { bg: "#f0fdf4", color: "#166534", dot: "#4ade80" },
+  "Spring":      { bg: "#f0fdf4", color: "#14532d", dot: "#16a34a" },
+  "Django":      { bg: "#f0fdf4", color: "#064e3b", dot: "#10b981" },
+  "Flutter":     { bg: "#ecfeff", color: "#155e75", dot: "#06b6d4" },
+};
+
+export const ANALYZING_TIPS = [
+  "이력서 속 프로젝트를 하나씩 살펴보는 중입니다.",
+  "GitHub에서 어떤 기술을 자주 썼는지 모아보는 중입니다.",
+  "요즘 공고와 겹치는 키워드를 조용히 대조하는 중입니다.",
+  "백엔드인지 프론트엔드인지 성향을 추적하는 중입니다.",
+  "AI가 학생 프로필을 읽기 좋은 형태로 정리하는 중입니다.",
+  "추천 공고에 붙일 근거를 문장으로 다듬는 중입니다.",
+];

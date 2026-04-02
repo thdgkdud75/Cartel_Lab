@@ -10,30 +10,65 @@ import os
 import uuid
 from .models import Post
 
+def _build_thumbnail_url(request, post):
+    if not post.thumbnail:
+        return None
+    return request.build_absolute_uri(post.thumbnail.url)
+
+def _build_summary(post):
+    if post.summary:
+        return post.summary
+    compact_content = " ".join(post.content.split())
+    return compact_content[:160]
+
+def _serialize_post_card(request, post):
+    return {
+        "id": post.id,
+        "title": post.title,
+        "slug": post.slug,
+        "summary": _build_summary(post),
+        "thumbnail_url": _build_thumbnail_url(request, post),
+        "created_at": post.created_at.isoformat(),
+        "updated_at": post.updated_at.isoformat(),
+        "author": {
+            "name": getattr(post.author, "name", post.author.username),
+            "student_id": getattr(post.author, "student_id", ""),
+        },
+    }
+
+def _serialize_post_detail(request, post):
+    data = _serialize_post_card(request, post)
+    data["content"] = post.content
+    return data
+
 class PostListView(ListView):
-    # ... (existing code)
     model = Post
-    template_name = "blog/post_list.html"
-    context_object_name = "posts"
 
     def get_queryset(self):
-        queryset = Post.objects.filter(is_published=True).select_related('author')
-        tab = self.request.GET.get('tab')
-        
-        if tab == 'my' and self.request.user.is_authenticated:
+        queryset = Post.objects.filter(is_published=True).select_related("author")
+        tab = self.request.GET.get("tab")
+
+        if tab == "my" and self.request.user.is_authenticated:
             return queryset.filter(author=self.request.user)
-        
+
         return queryset
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['current_tab'] = self.request.GET.get('tab', 'all')
-        return context
+    def render_to_response(self, context, **response_kwargs):
+        posts = [_serialize_post_card(self.request, post) for post in context["object_list"]]
+        return JsonResponse({
+            "posts": posts,
+            "count": len(posts),
+            "current_tab": self.request.GET.get("tab", "all"),
+        }, **response_kwargs)
 
 class PostDetailView(DetailView):
     model = Post
-    template_name = "blog/post_detail.html"
-    context_object_name = "post"
+
+    def get_queryset(self):
+        return Post.objects.filter(is_published=True).select_related("author")
+
+    def render_to_response(self, context, **response_kwargs):
+        return JsonResponse(_serialize_post_detail(self.request, context["post"]), **response_kwargs)
 
 class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post

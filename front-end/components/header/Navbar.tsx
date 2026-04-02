@@ -57,7 +57,7 @@ export default function Navbar({ isOpen, onClose }: Props) {
         </div>
 
         {/* 네비게이션 링크 */}
-        <div className="flex flex-col xl:flex-row xl:items-center xl:gap-[30px] xl:p-0">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:gap-[30px] xl:p-0 max-xl:overflow-y-auto max-xl:flex-1">
           {NAV_LINKS.map(({ href, label }) => {
             const active = pathname.startsWith(href);
             return (
@@ -81,9 +81,9 @@ export default function Navbar({ isOpen, onClose }: Props) {
 
         </div>
 
-        {/* 모바일 전용 유저 메뉴 - 하단 오른쪽 들여쓰기 */}
+        {/* 모바일 전용 유저 메뉴 - 하단 고정 */}
         {session && (
-          <div className="xl:hidden mt-auto px-8 pt-4 pb-2 flex flex-col items-end gap-0">
+          <div className="xl:hidden mt-auto px-8 pt-4 pb-2 flex flex-col items-end gap-0 border-t border-[#f0f0f2] shrink-0">
             <Link href={Routes.USERS} onClick={onClose} className={`w-full flex items-center justify-end gap-2 py-3 text-[15px] font-medium ${pathname === Routes.USERS ? "text-brand" : "text-[#868b94]"}`}>
               내 프로필
               {session.user.image ? (
@@ -106,7 +106,7 @@ export default function Navbar({ isOpen, onClose }: Props) {
         )}
 
         {/* 모바일 전용 로그인/로그아웃 */}
-        <div className="xl:hidden px-6 pb-10" style={{ marginTop: session ? '0' : 'auto' }}>
+        <div className="xl:hidden px-6 pb-10 shrink-0" style={{ marginTop: session ? '0' : 'auto' }}>
           {session ? (
             <button
               onClick={() => { signOut(); onClose(); }}

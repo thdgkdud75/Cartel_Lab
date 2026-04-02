@@ -18,19 +18,16 @@ from certifications.services.certification_feed import (
     }
 )
 class CertificationPageTests(TestCase):
-    def test_certification_page_loads(self):
-        response = self.client.get(reverse("certifications-index"))
+    def test_certification_feed_api_loads(self):
+        response = self.client.get(reverse("certifications-feed-api"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "중요 자격증 정보")
-        self.assertContains(response, "자격증 빠른 선택")
-        self.assertContains(response, "자격증 상세")
-        self.assertNotContains(response, "UI 샘플 페이지")
-        self.assertNotContains(response, "1번 페이지")
-        self.assertNotContains(response, "2번 페이지")
-        self.assertNotContains(response, "3번 페이지")
+        payload = response.json()
+        self.assertIn("items", payload)
+        self.assertIn("today_alerts", payload)
+        self.assertIn("generated_at", payload)
 
-    def test_certification_api_loads(self):
+    def test_certification_important_api_alias_loads(self):
         response = self.client.get(reverse("certifications-important-api"))
 
         self.assertEqual(response.status_code, 200)

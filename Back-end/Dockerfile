@@ -23,6 +23,4 @@ RUN echo "0 21 * * * cd /app && python manage.py auto_check_out >> /var/log/auto
 # 실행 포트
 EXPOSE 8000
 
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]

@@ -9,6 +9,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .google_calendar import (
     GoogleCalendarError,
     GOOGLE_EVENT_COLOR_IDS,
@@ -23,7 +29,6 @@ from .google_calendar import (
     token_expiry_from_seconds,
     update_goal_event,
 )
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import DailyGoal, DailyTodo, GoogleCalendarCredential, LabWideGoal, WeeklyGoal
@@ -203,6 +208,56 @@ def _goal_content_from_certification(name, label):
     content = " | ".join([value for value in [normalized_name, normalized_label] if value])
     content = content or "자격증 일정"
     return content[:255]
+
+
+def _save_goal_from_certification(user, target_date_raw, cert_name, schedule_label, color):
+    if not target_date_raw:
+        return {"message": "추가할 시험 날짜가 필요합니다."}, status.HTTP_400_BAD_REQUEST
+
+    try:
+        target_date = date.fromisoformat(target_date_raw)
+    except ValueError:
+        return {"message": "시험 날짜 형식이 올바르지 않습니다."}, status.HTTP_400_BAD_REQUEST
+
+    content = _goal_content_from_certification(cert_name, schedule_label)
+    week_start = _week_start_from_input(target_date.isoformat())
+    weekday = (target_date - week_start).days
+    goal = WeeklyGoal.objects.filter(
+        user=user,
+        week_start=week_start,
+        weekday=weekday,
+        content=content,
+    ).order_by("created_at").first()
+    created = goal is None
+
+    if created:
+        goal = WeeklyGoal.objects.create(
+            user=user,
+            week_start=week_start,
+            weekday=weekday,
+            planned_time=None,
+            content=content,
+            color=color,
+        )
+
+    if goal.color != color:
+        goal.color = color
+        goal.save(update_fields=["color", "updated_at"])
+
+    return (
+        {
+            "created": created,
+            "message": (
+                "오늘의 계획에 추가되었습니다."
+                if created
+                else "이미 오늘의 계획에 추가된 일정입니다."
+            ),
+            "planner_url": _planner_plan_url_for_date(target_date),
+            "target_date": target_date.isoformat(),
+            "content": goal.content,
+        },
+        status.HTTP_200_OK,
+    )
 
 
 def _sync_daily_todo_create(todo):
@@ -669,57 +724,38 @@ def add_goal_from_certification(request):
             status=401,
         )
 
-    target_date_raw = (request.POST.get("target_date") or "").strip()
-    cert_name = (request.POST.get("certification_name") or "").strip()
-    schedule_label = (request.POST.get("schedule_label") or "").strip()
-    color = _color_from_input(request.POST.get("color")) or "yellow"
-
-    if not target_date_raw:
-        return JsonResponse({"message": "추가할 시험 날짜가 필요합니다."}, status=400)
-
-    try:
-        target_date = date.fromisoformat(target_date_raw)
-    except ValueError:
-        return JsonResponse({"message": "시험 날짜 형식이 올바르지 않습니다."}, status=400)
-
-    content = _goal_content_from_certification(cert_name, schedule_label)
-    week_start = _week_start_from_input(target_date.isoformat())
-    weekday = (target_date - week_start).days
-    goal = WeeklyGoal.objects.filter(
+    payload, status_code = _save_goal_from_certification(
         user=request.user,
-        week_start=week_start,
-        weekday=weekday,
-        content=content,
-    ).order_by("created_at").first()
-    created = goal is None
-
-    if created:
-        goal = WeeklyGoal.objects.create(
-            user=request.user,
-            week_start=week_start,
-            weekday=weekday,
-            planned_time=None,
-            content=content,
-            color=color,
-        )
-
-    if goal.color != color:
-        goal.color = color
-        goal.save(update_fields=["color", "updated_at"])
-
-    return JsonResponse(
-        {
-            "created": created,
-            "message": (
-                "오늘의 계획에 추가되었습니다."
-                if created
-                else "이미 오늘의 계획에 추가된 일정입니다."
-            ),
-            "planner_url": _planner_plan_url_for_date(target_date),
-            "target_date": target_date.isoformat(),
-            "content": goal.content,
-        }
+        target_date_raw=(request.POST.get("target_date") or "").strip(),
+        cert_name=(request.POST.get("certification_name") or "").strip(),
+        schedule_label=(request.POST.get("schedule_label") or "").strip(),
+        color=_color_from_input(request.POST.get("color")) or "yellow",
     )
+    return JsonResponse(payload, status=status_code)
+
+
+class AddGoalFromCertificationApiView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response(
+                {
+                    "message": "로그인 후 오늘의 계획에 추가할 수 있습니다.",
+                    "login_url": reverse("users-login"),
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        payload, status_code = _save_goal_from_certification(
+            user=request.user,
+            target_date_raw=(request.data.get("target_date") or "").strip(),
+            cert_name=(request.data.get("certification_name") or "").strip(),
+            schedule_label=(request.data.get("schedule_label") or "").strip(),
+            color=_color_from_input(request.data.get("color")) or "yellow",
+        )
+        return Response(payload, status=status_code)
 
 
 @login_required
@@ -1423,5 +1459,3 @@ def api_lab_goals(request):
             for g in goals
         ],
     })
-
-

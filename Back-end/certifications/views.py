@@ -1,15 +1,12 @@
-from django.http import JsonResponse
-from django.shortcuts import render
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from certifications.services.certification_feed import get_important_certification_feed
 
 
-def index(request):
-    return render(request, "certifications/index.html")
+class ImportantCertificationsApiView(APIView):
+    permission_classes = [AllowAny]
 
-
-def important_certifications_api(request):
-    return JsonResponse(
-        get_important_certification_feed(),
-        json_dumps_params={"ensure_ascii": False},
-    )
+    def get(self, request):
+        return Response(get_important_certification_feed())
