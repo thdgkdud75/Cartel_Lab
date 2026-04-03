@@ -21,6 +21,42 @@
 @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
 
 .panel { background: #fff; border: 1px solid #e2e5e9; border-radius: 14px; padding: 20px 22px; margin-bottom: 20px; }
+.panel-subtitle { margin: 0 0 16px; color: #6b7280; font-size: 13px; line-height: 1.6; }
+
+.password-panel { border-color: #ffd8c2; background: linear-gradient(180deg, #fffdfa 0%, #ffffff 100%); }
+.password-form { display: grid; gap: 14px; }
+.field { display: grid; gap: 7px; }
+.field label { font-size: 13px; font-weight: 600; color: #374151; }
+.field input {
+    width: 100%;
+    border: 1px solid #d7dbe0;
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 14px;
+    color: #111827;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus {
+    outline: none;
+    border-color: #ff6f0f;
+    box-shadow: 0 0 0 4px rgba(255, 111, 15, 0.12);
+}
+.password-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.password-note { margin: 0; color: #9ca3af; font-size: 12px; }
+.primary-btn {
+    border: none;
+    border-radius: 10px;
+    background: #ff6f0f;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 11px 16px;
+    cursor: pointer;
+    transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+    box-shadow: 0 10px 24px rgba(255, 111, 15, 0.18);
+}
+.primary-btn:hover { opacity: .94; transform: translateY(-1px); }
 
 .att-list, .todo-list, .weekly-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 
@@ -59,6 +95,39 @@
             {% if student.github_username %}<span class="pill gray">GitHub @{{ student.github_username }}</span>{% endif %}
             {% if student.profile_analyzed_at %}<span class="pill green">분석 완료 {{ student.profile_analyzed_at|date:"Y.m.d" }}</span>{% endif %}
             {% if student.resume_file %}<span class="pill gray">이력서 등록됨</span>{% endif %}
+        </div>
+    </div>
+
+    <div class="grid2">
+        <div class="panel password-panel">
+            <p class="section-title">비밀번호 변경</p>
+            <p class="panel-subtitle">관리자 권한으로 이 학생 계정의 새 비밀번호를 바로 설정합니다. 기존 비밀번호 입력은 필요하지 않습니다.</p>
+            <form method="post" action="{% url 'dashboard-change-password' student.student_id %}" class="password-form">
+                {% csrf_token %}
+                <div class="field">
+                    <label for="new_password">새 비밀번호</label>
+                    <input id="new_password" name="new_password" type="password" autocomplete="new-password" placeholder="새 비밀번호 입력" required />
+                </div>
+                <div class="field">
+                    <label for="new_password_confirm">새 비밀번호 확인</label>
+                    <input id="new_password_confirm" name="new_password_confirm" type="password" autocomplete="new-password" placeholder="한 번 더 입력" required />
+                </div>
+                <div class="password-actions">
+                    <p class="password-note">변경 후 학생에게 새 비밀번호를 별도로 안내해야 합니다.</p>
+                    <button type="submit" class="primary-btn">비밀번호 저장</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <p class="section-title">계정 상태</p>
+            <p class="panel-subtitle">학생 계정의 기본 상태를 한눈에 확인합니다.</p>
+            <div class="student-pills">
+                {% if student.grade %}<span class="pill gray">{{ student.grade }}학년</span>{% endif %}
+                {% if student.class_group %}<span class="pill gray">{{ student.class_group }}반</span>{% endif %}
+                {% if student.deletion_scheduled_at %}<span class="pill">삭제 예정 {{ student.deletion_scheduled_at|date:"Y.m.d" }}</span>{% endif %}
+                {% if not student.deletion_scheduled_at %}<span class="pill green">활성 계정</span>{% endif %}
+            </div>
         </div>
     </div>
 

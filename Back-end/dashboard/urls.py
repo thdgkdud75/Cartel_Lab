@@ -13,6 +13,7 @@ from .views import (
     api_student_detail,
     api_set_time,
     api_weekly_attendance,
+    dashboard_change_password,
     dashboard_cancel_delete,
     dashboard_confirm_delete,
     dashboard_edit_attendance,
@@ -24,6 +25,7 @@ from .views import (
 urlpatterns = [
     path("", dashboard_index, name="dashboard-index"),
     path("student/<str:student_id>/", dashboard_student, name="dashboard-student"),
+    path("student/<str:student_id>/change-password/", dashboard_change_password, name="dashboard-change-password"),
     path("student/<str:student_id>/schedule-delete/", dashboard_schedule_delete, name="dashboard-schedule-delete"),
     path("student/<str:student_id>/cancel-delete/", dashboard_cancel_delete, name="dashboard-cancel-delete"),
     path("student/<str:student_id>/confirm-delete/", dashboard_confirm_delete, name="dashboard-confirm-delete"),
