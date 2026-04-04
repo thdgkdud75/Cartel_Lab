@@ -1,6 +1,9 @@
 from django.urls import path
 
 from .views import (
+    GithubMarkCorrectView,
+    GithubNextAvailableDateView,
+    GithubRegisterQuizView,
     QuizAdminApiView,
     QuizCreateApiView,
     QuizDeleteApiView,
@@ -16,4 +19,7 @@ urlpatterns = [
     path("<int:quiz_id>/edit/", QuizEditApiView.as_view(), name="quiz-api-edit"),
     path("<int:quiz_id>/delete/", QuizDeleteApiView.as_view(), name="quiz-api-delete"),
     path("<int:quiz_id>/submit/", QuizSubmitApiView.as_view(), name="quiz-api-submit"),
+    path("github/next-available-date/", GithubNextAvailableDateView.as_view(), name="quiz-github-next-date"),
+    path("github/register-quiz/", GithubRegisterQuizView.as_view(), name="quiz-github-register"),
+    path("github/mark-correct/", GithubMarkCorrectView.as_view(), name="quiz-github-mark-correct"),
 ]

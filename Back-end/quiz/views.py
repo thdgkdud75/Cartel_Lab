@@ -1,13 +1,14 @@
 import math
 from datetime import date, timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -695,4 +696,103 @@ class QuizSubmitApiView(APIView):
             "attempt": _serialize_attempt(attempt),
             "attempt_count": attempt.attempt_number,
             "has_correct": attempt.is_correct,
+        }, status=status.HTTP_201_CREATED)
+
+
+class GithubNextAvailableDateView(APIView):
+    """특정 날짜부터 시작해서 퀴즈가 없는 첫 번째 날짜 반환"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not _verify_github_token(request):
+            return Response({"error": "인증 실패"}, status=status.HTTP_403_FORBIDDEN)
+
+        from_date_raw = request.query_params.get("from", "")
+        try:
+            from_date = date.fromisoformat(from_date_raw) if from_date_raw else timezone.localdate()
+        except ValueError:
+            from_date = timezone.localdate()
+
+        candidate = from_date
+        for _ in range(365):
+            if not Quiz.objects.filter(scheduled_date=candidate).exists():
+                return Response({"available_date": candidate.isoformat()})
+            candidate = candidate + timedelta(days=1)
+
+        return Response({"error": "1년 내에 빈 날짜가 없습니다."}, status=status.HTTP_409_CONFLICT)
+
+
+def _verify_github_token(request):
+    token = request.headers.get("X-GitHub-Token", "")
+    expected = getattr(settings, "GITHUB_WEBHOOK_SECRET", "")
+    if not expected or token != expected:
+        return False
+    return True
+
+
+class GithubRegisterQuizView(APIView):
+    """GitHub Actions에서 문제 md 머지 시 퀴즈 자동 등록"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not _verify_github_token(request):
+            return Response({"error": "인증 실패"}, status=status.HTTP_403_FORBIDDEN)
+
+        # 등록할 사용자: github_username으로 2학년 봇 계정 조회
+        github_username = request.data.get("created_by_github")
+        creator = User.objects.filter(github_username=github_username, grade="2").first()
+        if not creator:
+            return Response({"error": f"GitHub 계정 '{github_username}'에 연동된 2학년 유저를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+        data, error_message = _parse_quiz_payload(request.data, include_date=True)
+        if error_message:
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+
+        scheduled_date = data["scheduled_date"]
+        warning_message = None
+        if Quiz.objects.filter(scheduled_date=scheduled_date).exists():
+            warning_message = f"{scheduled_date} 에 이미 문제가 등록되어 있습니다. 그래도 추가했습니다."
+
+        quiz = Quiz.objects.create(created_by=creator, **data)
+        return Response({
+            "message": f"문제가 {scheduled_date} 로 등록되었습니다.",
+            "warning": warning_message,
+            "quiz": _serialize_quiz(quiz, include_answer=True, include_trap=True),
+        }, status=status.HTTP_201_CREATED)
+
+
+class GithubMarkCorrectView(APIView):
+    """GitHub Actions에서 학생 PR 머지 시 정답 처리"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not _verify_github_token(request):
+            return Response({"error": "인증 실패"}, status=status.HTTP_403_FORBIDDEN)
+
+        github_username = request.data.get("github_username")
+        quiz_id = request.data.get("quiz_id")
+
+        student = User.objects.filter(github_username=github_username, grade="1").first()
+        if not student:
+            return Response({"error": f"GitHub 계정 '{github_username}'에 연동된 1학년 유저를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+        quiz = get_object_or_404(Quiz, pk=quiz_id)
+
+        # 이미 정답 처리된 경우 스킵
+        if QuizAttempt.objects.filter(quiz=quiz, user=student, is_correct=True).exists():
+            return Response({"message": "이미 정답 처리되어 있습니다."})
+
+        attempt_count = QuizAttempt.objects.filter(quiz=quiz, user=student).count()
+        attempt = QuizAttempt.objects.create(
+            quiz=quiz,
+            user=student,
+            submitted_answer="[GitHub PR 머지]",
+            is_correct=True,
+            is_ai_flagged=False,
+        )
+        attempt.attempt_number = attempt_count + 1
+
+        return Response({
+            "message": f"{student.name}({github_username}) 정답 처리 완료",
+            "attempt": _serialize_attempt(attempt),
         }, status=status.HTTP_201_CREATED)
