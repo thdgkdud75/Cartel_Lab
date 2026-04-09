@@ -1,5 +1,5 @@
 ﻿import hashlib
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -168,39 +168,6 @@ class AdminClearSeatApiView(APIView):
             "message": f"{seat_number}번 좌석({username})을 초기화했습니다.",
             "seat_number": seat.number,
         })
-
-def index(request):
-    # 10자리 고정 보장 (DB에 없으면 생성)
-    _ensure_default_seats()
-
-    seats = Seat.objects.select_related('user').all()
-    user_seat = None
-    if request.user.is_authenticated:
-        user_seat = Seat.objects.filter(user=request.user).first()
-        
-    today = timezone.localdate()
-    attendance_records = {
-        record.user_id: record 
-        for record in AttendanceRecord.objects.filter(attendance_date=today)
-    }
-
-    # 좌석에 출결 입퇴실 시간 연동
-    for seat in seats:
-        if seat.user:
-            record = attendance_records.get(seat.user.id)
-            if record:
-                seat.attendance_entry_time = record.check_in_at
-                seat.attendance_exit_time = record.check_out_at
-                seat.attendance_labels = []
-            else:
-                seat.attendance_entry_time = None
-                seat.attendance_exit_time = None
-                seat.attendance_labels = _attendance_labels_for_user(seat.user, today)
-
-    return render(request, "seats/index.html", {
-        "seats": seats,
-        "user_seat": user_seat
-    })
 
 def seat_status_api(request):
     return JsonResponse(_build_seat_payload(request.user if request.user.is_authenticated else None))
