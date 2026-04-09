@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DASHBOARD_PALETTE } from "@/constants/colors";
-import { useAuthFetch } from "@/lib/use-auth-fetch";
+import { dbFetch } from "@/lib/api-client";
 import type { JobAiRecommendation, JobDetail } from "@/types/jobs";
 import { ghostButtonStyle, modalCardStyle, primaryButtonStyle, subtleBadgeStyle } from "./_styles";
 
@@ -294,7 +294,6 @@ export function JobDetailModal({
   jobId: number | null;
   onClose: () => void;
 }) {
-  const authFetch = useAuthFetch();
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -309,14 +308,14 @@ export function JobDetailModal({
     setError(null);
     setDetail(null);
 
-    authFetch(`/jobs/${jobId}/detail/?ai=0`)
+    dbFetch(`/jobs/${jobId}/detail/?ai=0`)
       .then((baseDetail: JobDetail) => {
         if (cancelled) return;
         setDetail(baseDetail);
         setLoading(false);
         setAiLoading(true);
 
-        return authFetch(`/jobs/${jobId}/detail/`)
+        return dbFetch(`/jobs/${jobId}/detail/`)
           .then((fullDetail: JobDetail) => {
             if (cancelled) return;
             setDetail((prev) => ({
@@ -349,7 +348,7 @@ export function JobDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [jobId, authFetch]);
+  }, [jobId]);
 
   if (!jobId) return null;
 

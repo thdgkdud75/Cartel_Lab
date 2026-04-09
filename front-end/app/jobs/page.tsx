@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DASHBOARD_PALETTE } from "@/constants/colors";
-import { useAuthFetch } from "@/lib/use-auth-fetch";
+import { dbFetch } from "@/lib/api-client";
 import type { JobCategory, JobPosting } from "@/types/jobs";
 import { JobDetailModal } from "./_detail-modal";
 import { JobsListSection } from "./_list-section";
@@ -16,7 +16,6 @@ type JobsPageData = {
 };
 
 export default function JobsPage() {
-  const authFetch = useAuthFetch();
   const [data, setData] = useState<JobsPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,14 +26,14 @@ export default function JobsPage() {
     setError(null);
 
     try {
-      const result = await authFetch("/jobs/");
+      const result = await dbFetch("/jobs/");
       setData(result as JobsPageData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "채용 정보를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, []);
 
   useEffect(() => {
     fetchJobs();
