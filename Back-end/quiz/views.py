@@ -568,14 +568,17 @@ def submit_answer(request, quiz_id):
 
 
 class QuizPageApiView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         today = timezone.localdate()
-        if request.user.grade == "1":
+        user = request.user if request.user.is_authenticated else None
+
+        # 비로그인 또는 1학년 → 학생 화면
+        if not user or user.grade == "1":
             return Response({
-                "grade": request.user.grade,
-                **_serialize_student_state(_build_student_state(request.user, today)),
+                "grade": "1",
+                **_serialize_student_state(_build_student_state(user, today)),
             })
 
         week_offset = _parse_week_offset(request.query_params.get("w"))

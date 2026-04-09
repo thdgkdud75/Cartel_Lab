@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Pages, Routes } from "@/constants/enums";
+import { dbFetch } from "@/lib/api-client";
 import { useAuthFetch } from "@/lib/use-auth-fetch";
 import { pageContainerStyle, pageShellStyle } from "./_styles";
 import { SeatHeroSection } from "./_hero-section";
@@ -25,13 +26,11 @@ export default function SeatsPage() {
   const [isTimetableOpen, setIsTimetableOpen] = useState(false);
 
   const loadSeats = useCallback(async (silent = false) => {
-    if (status === "loading") return;
-
     if (!silent) setLoading(true);
     setErrorMessage("");
 
     try {
-      const response = await authFetch(`${Routes.SEATS}/`);
+      const response = await dbFetch(`${Routes.SEATS}/`);
       setBoardData(response);
     } catch (error) {
       const nextMessage = error instanceof Error ? error.message : "좌석 정보를 불러오지 못했습니다.";
@@ -39,13 +38,11 @@ export default function SeatsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [authFetch, status]);
+  }, []);
 
   const checkSeatVersion = useCallback(async () => {
-    if (status === "loading") return;
-
     try {
-      const response = await authFetch(`${Routes.SEATS}/version/`);
+      const response = await dbFetch(`${Routes.SEATS}/version/`);
       if (response.version !== versionRef.current) {
         versionRef.current = response.version;
         await loadSeats(true);
@@ -53,16 +50,13 @@ export default function SeatsPage() {
     } catch {
       // 상태 폴링은 조용히 실패시키고, 실제 에러 표시는 상세 조회 요청에서만 노출한다.
     }
-  }, [authFetch, loadSeats, status]);
+  }, [loadSeats]);
 
   useEffect(() => {
-    if (status === "loading") return;
     void loadSeats();
-  }, [status, loadSeats]);
+  }, [loadSeats]);
 
   useEffect(() => {
-    if (status === "loading") return;
-
     const interval = window.setInterval(() => {
       void checkSeatVersion();
     }, 10000);
@@ -78,7 +72,7 @@ export default function SeatsPage() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [status, checkSeatVersion]);
+  }, [checkSeatVersion]);
 
   async function handleRegisterSeat(seatNumber: number) {
     if (status !== "authenticated") {
@@ -126,10 +120,6 @@ export default function SeatsPage() {
     } finally {
       setActiveActionSeat(null);
     }
-  }
-
-  if (status === "loading") {
-    return null;
   }
 
   return (

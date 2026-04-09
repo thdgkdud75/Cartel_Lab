@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { dbFetch } from "@/lib/api-client";
 import { useAuthFetch } from "@/lib/use-auth-fetch";
-import { Pages } from "@/constants/enums";
 import {
   buildCertificationLiveAlerts,
   displayCertificationName,
@@ -158,7 +156,7 @@ export default function CertificationsPage() {
     }
 
     if (status !== "authenticated") {
-      router.replace(`/${Pages.LOGIN}`);
+      setCalendarFeedback("로그인 후 이용할 수 있습니다.");
       return;
     }
 
