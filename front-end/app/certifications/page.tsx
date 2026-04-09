@@ -29,7 +29,6 @@ const KNOWN_SCHEDULE_STORAGE_KEY = "certifications-known-schedules-v1";
 
 export default function CertificationsPage() {
   const { status } = useSession();
-  const router = useRouter();
   const authFetch = useAuthFetch();
 
   const [items, setItems] = useState<CertificationItem[]>([]);
