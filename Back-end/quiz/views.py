@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -490,24 +490,6 @@ def _submit_attempt(user, quiz, submitted_answer):
     )
     attempt.attempt_number = attempt_count + 1
     return attempt, None
-
-
-@login_required
-def index(request):
-    today = timezone.localdate()
-    if request.user.grade == "1":
-        return render(request, "quiz/index.html", _build_student_state(request.user, today))
-
-    week_offset = _parse_week_offset(request.GET.get("w"))
-    return render(request, "quiz/index.html", _build_mentor_state(request.user, today, week_offset))
-
-
-@login_required
-def admin_dashboard(request):
-    if request.user.grade != "2":
-        messages.error(request, "접근 권한이 없습니다.")
-        return redirect("quiz-index")
-    return render(request, "quiz/admin.html", _build_admin_state(timezone.localdate()))
 
 
 @login_required

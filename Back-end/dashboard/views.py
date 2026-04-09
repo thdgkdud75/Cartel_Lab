@@ -18,9 +18,7 @@ from .page_views import (
     dashboard_cancel_delete,
     dashboard_confirm_delete,
     dashboard_edit_attendance,
-    dashboard_index,
     dashboard_schedule_delete,
-    dashboard_student,
 )
 
 __all__ = [
@@ -41,7 +39,5 @@ __all__ = [
     "dashboard_cancel_delete",
     "dashboard_confirm_delete",
     "dashboard_edit_attendance",
-    "dashboard_index",
     "dashboard_schedule_delete",
-    "dashboard_student",
 ]

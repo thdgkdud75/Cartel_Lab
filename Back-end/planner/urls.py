@@ -25,7 +25,6 @@ from .views import (
     google_calendar_connect,
     google_calendar_disconnect,
     google_calendar_import,
-    index,
     set_daily_todos_checked,
     toggle_daily_todo,
     toggle_goal,
@@ -33,7 +32,6 @@ from .views import (
 )
 
 urlpatterns = [
-    path("", index, name="planner-index"),
     path("lab-goals/add/", add_lab_goal, name="planner-lab-goal-add"),
     path("lab-goals/<int:goal_id>/delete/", delete_lab_goal, name="planner-lab-goal-delete"),
     path("google/connect/", google_calendar_connect, name="planner-google-calendar-connect"),
