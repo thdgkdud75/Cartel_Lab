@@ -187,6 +187,55 @@ function AutoCheckoutCard({ authFetch }: { authFetch: AuthFetch }) {
   );
 }
 
+function BulkCheckinCard({ authFetch, onRefresh }: { authFetch: AuthFetch; onRefresh: () => void }) {
+  const [message, setMessage] = useState("");
+
+  async function handleBulkCheckin() {
+    setMessage("처리 중...");
+    const result = await authFetch(`${Routes.ADMIN}/api/bulk-checkin/`, { method: "POST" }).catch(() => null);
+    setMessage(result?.message ?? "완료");
+    if (result?.status === "ok") onRefresh();
+  }
+
+  return (
+    <div style={{ ...sectionCardStyle, padding: 22 }}>
+      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: PALETTE.ink }}>
+        전체 출결 처리
+      </h3>
+      <p style={{ margin: "8px 0 16px", fontSize: 13, lineHeight: 1.65, color: PALETTE.muted }}>
+        오늘 출결 기록이 없는 학생 전원을 출석 처리합니다. (당일만 가능)
+      </p>
+
+      <div
+        style={{
+          borderRadius: 16,
+          background: PALETTE.surfaceSubtle,
+          border: `1px solid ${PALETTE.line}`,
+          padding: 14,
+          marginBottom: 16,
+          fontSize: 13,
+          lineHeight: 1.7,
+          color: PALETTE.body,
+        }}
+      >
+        미출결 학생을 한 번에 출석 처리하는 운영용 액션입니다.
+      </div>
+
+      <button
+        onClick={handleBulkCheckin}
+        style={primaryButtonStyle}
+      >
+        전체 출석 처리
+      </button>
+      {message && (
+        <p style={{ margin: "10px 0 0", fontSize: 13, color: PALETTE.success }}>
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function TimeSettingCard({
   setting,
   authFetch,
@@ -309,8 +358,9 @@ export function SettingsPanel({
       <div className="grid gap-4">
         <LocationSettingCard setting={locationSetting} authFetch={authFetch} onRefresh={onRefresh} />
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <AutoCheckoutCard authFetch={authFetch} />
+          <BulkCheckinCard authFetch={authFetch} onRefresh={onRefresh} />
           <TimeSettingCard setting={timeSetting} authFetch={authFetch} onRefresh={onRefresh} />
         </div>
       </div>
