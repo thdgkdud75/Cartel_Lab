@@ -18,6 +18,8 @@ from timetable.models import Timetable
 CHECK_IN_CMDS = {'ㅊㅅ', '출석', 'ㅊㄱ'}
 CHECK_OUT_CMDS = {'ㅌㅅ', '퇴실', 'ㅌㄱ'}
 ABSENT_CMDS = {'ㄲㅈ', '꺼져', 'ㄱㅈ'}
+LIST_MAPPED_CMDS = {'ㅁㅍ', '매핑', '매핑목록'}
+TAG_MAPPED_CMDS = {'ㅁㄷ', '모두', '전체'}
 
 
 def _get_time_setting():
@@ -93,6 +95,23 @@ def _do_absent(user):
     return "absent", None
 
 
+def _chunk_lines(lines, sep="\n", limit=1900):
+    """Discord 2000자 한도 안에 들어가도록 묶기."""
+    chunks = []
+    cur = ""
+    for line in lines:
+        candidate = line if not cur else cur + sep + line
+        if len(candidate) > limit:
+            if cur:
+                chunks.append(cur)
+            cur = line
+        else:
+            cur = candidate
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 class AttendanceBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -124,17 +143,79 @@ class AttendanceBot(commands.Bot):
             await self._handle_command(message, _do_check_out)
         elif content in ABSENT_CMDS:
             await self._handle_command(message, _do_absent)
+        elif content in LIST_MAPPED_CMDS:
+            await self._handle_list_mapped(message)
+        elif content in TAG_MAPPED_CMDS:
+            await self._handle_tag_mapped(message)
 
     async def _handle_command(self, message, handler):
         user = await sync_to_async(_get_user_by_discord_id)(str(message.author.id))
         if not user:
+            await message.channel.send(
+                f"{message.author.mention} 등록 안 된 계정이에요. "
+                f"(discord_id: `{message.author.id}` — 운영진에게 매핑 요청)"
+            )
             return
 
-        success, error_msg = await sync_to_async(handler)(user)
+        try:
+            success, error_msg = await sync_to_async(handler)(user)
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 처리 중 오류가 발생했어요: `{type(e).__name__}: {e}`"
+            )
+            return
+
         if error_msg:
             await message.channel.send(f"{message.author.mention} {error_msg}")
         else:
             await message.add_reaction("✅")
+
+    async def _handle_list_mapped(self, message):
+        def _fetch():
+            return list(
+                User.objects.filter(discord_id__gt="")
+                    .order_by("name")
+                    .values_list("name", "discord_id")
+            )
+        try:
+            rows = await sync_to_async(_fetch)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 조회 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        if not rows:
+            await message.channel.send("매핑된 사람이 없어요.")
+            return
+
+        header = f"**현재 매핑된 사람 ({len(rows)}명):**"
+        lines = [f"- {name} (`{did}`)" for name, did in rows]
+        for chunk in _chunk_lines([header] + lines):
+            await message.channel.send(chunk)
+
+    async def _handle_tag_mapped(self, message):
+        def _fetch():
+            return list(
+                User.objects.filter(discord_id__gt="")
+                    .values_list("discord_id", flat=True)
+            )
+        try:
+            ids = await sync_to_async(_fetch)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 조회 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        if not ids:
+            await message.channel.send("매핑된 사람이 없어요.")
+            return
+
+        tokens = [f"<@{did}>" for did in ids]
+        allow = discord.AllowedMentions(users=True)
+        for chunk in _chunk_lines(tokens, sep=" "):
+            await message.channel.send(chunk, allowed_mentions=allow)
 
     # ── 스케줄러: A반 기본 ──
 
