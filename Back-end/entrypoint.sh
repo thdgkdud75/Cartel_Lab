@@ -75,28 +75,9 @@ echo "공모전 초기 동기화 백그라운드 시작"
 python manage.py sync_job_sources &
 echo "job sync started in background"
 
-python manage.py shell -c "
-from users.models import User
-mapping = {
-    '김민혁': '1491998723918659756',
-    '황현준': '995983919344263218',
-    '유현기': '422290087464665089',
-    '임찬영': '882589449643507762',
-    '조우진': '1478648494095990959',
-}
-for name, discord_id in mapping.items():
-    try:
-        u = User.objects.get(name=name)
-        if u.discord_id != discord_id:
-            u.discord_id = discord_id
-            u.save(update_fields=['discord_id'])
-            print(f'{name} -> {discord_id} 매핑 완료')
-        else:
-            print(f'{name} 이미 매핑됨')
-    except User.DoesNotExist:
-        print(f'{name} 유저 없음, 건너뜀')
-"
-echo "디스코드 ID 매핑 완료"
+# discord_id 매핑은 봇의 'ㄷㄹ <학번>' self-service 명령으로 처리.
+# 강제 매핑이 필요하면 Django shell 또는 admin 에서 직접 박으세요.
+echo "디스코드 ID 매핑: self-service 모드 (봇의 ㄷㄹ 명령 사용)"
 
 if [ -n "$DISCORD_BOT_TOKEN" ] && [ -n "$DISCORD_CHANNEL_ID" ]; then
   python manage.py run_discord_bot &

@@ -1,10 +1,11 @@
 import asyncio
 import logging
+import re
 import time as _time
 import discord
 from discord.ext import commands, tasks
 from django.conf import settings
-from django.db import close_old_connections, connections, InterfaceError, OperationalError
+from django.db import close_old_connections, connections, transaction, InterfaceError, OperationalError
 from django.utils import timezone
 from datetime import time as dtime, timedelta
 from zoneinfo import ZoneInfo
@@ -25,6 +26,7 @@ CHECK_OUT_CMDS = {'ㅌㅅ', '퇴실', 'ㅌㄱ'}
 ABSENT_CMDS = {'ㄲㅈ', '꺼져', 'ㄱㅈ'}
 LIST_MAPPED_CMDS = {'ㅁㅍ', '매핑', '매핑목록'}
 TAG_MAPPED_CMDS = {'ㅁㄷ', '모두', '전체'}
+REGISTER_CMD_PREFIXES = ('ㄷㄹ', '등록')
 
 
 _CONN_ERR_HINTS = (
@@ -192,6 +194,8 @@ class AttendanceBot(commands.Bot):
             await self._handle_list_mapped(message)
         elif content in TAG_MAPPED_CMDS:
             await self._handle_tag_mapped(message)
+        elif content.split(maxsplit=1)[0] in REGISTER_CMD_PREFIXES:
+            await self._handle_register(message)
 
     async def _handle_command(self, message, handler):
         user = await sync_to_async(_get_user_by_discord_id)(str(message.author.id))
@@ -263,6 +267,105 @@ class AttendanceBot(commands.Bot):
         allow = discord.AllowedMentions(users=True)
         for chunk in _chunk_lines(tokens, sep=" "):
             await message.channel.send(chunk, allowed_mentions=allow)
+
+    async def _handle_register(self, message):
+        """`ㄷㄹ <학번>` 본인 등록, `ㄷㄹ` 단독은 현재 매핑 조회. 1:1 강제."""
+        discord_id = str(message.author.id)
+        if not discord_id:
+            return
+
+        parts = re.split(r'\s+', message.content.strip(), maxsplit=1)
+
+        if len(parts) == 1:
+            @_with_db_retry
+            def _fetch_current():
+                try:
+                    u = User.objects.get(discord_id=discord_id)
+                    return (u.student_id, u.name)
+                except User.DoesNotExist:
+                    return None
+            try:
+                current = await sync_to_async(_fetch_current)()
+            except Exception as e:
+                await message.channel.send(
+                    f"{message.author.mention} 조회 실패: `{type(e).__name__}: {e}`"
+                )
+                return
+            if current:
+                sid, name = current
+                await message.channel.send(
+                    f"{message.author.mention} 📋 `{name}` (학번 `{sid}`) 으로 등록돼 있어요."
+                )
+            else:
+                await message.channel.send(
+                    f"{message.author.mention} 등록 안 됨. `ㄷㄹ <학번>` 으로 본인 등록하세요."
+                )
+            return
+
+        student_id = parts[1].strip()
+        if not student_id or len(student_id) > 20:
+            await message.channel.send(
+                f"{message.author.mention} 학번 형식이 이상해요. (1~20자)"
+            )
+            return
+
+        @_with_db_retry
+        def _register():
+            with transaction.atomic():
+                try:
+                    target = User.objects.select_for_update().get(student_id=student_id)
+                except User.DoesNotExist:
+                    return ('not_found', None)
+
+                if target.discord_id == discord_id:
+                    return ('already', target)
+
+                if target.discord_id and target.discord_id != discord_id:
+                    return ('student_taken', target)
+
+                existing = (
+                    User.objects.select_for_update()
+                    .filter(discord_id=discord_id)
+                    .first()
+                )
+                if existing:
+                    return ('discord_taken', existing)
+
+                target.discord_id = discord_id
+                target.save(update_fields=['discord_id'])
+                return ('registered', target)
+
+        try:
+            result, user = await sync_to_async(_register)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 등록 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        if result == 'not_found':
+            await message.channel.send(
+                f"{message.author.mention} 학번 `{student_id}` 에 해당하는 사용자가 없어요."
+            )
+        elif result == 'student_taken':
+            await message.channel.send(
+                f"{message.author.mention} 학번 `{student_id}` 는 이미 다른 디스코드 계정 "
+                f"(`{user.discord_id}`) 에 등록돼 있어요. 운영진에게 문의."
+            )
+        elif result == 'discord_taken':
+            await message.channel.send(
+                f"{message.author.mention} 본인 디스코드는 이미 다른 학번 `{user.student_id}` "
+                f"({user.name}) 에 등록돼 있어요. 운영진에게 문의."
+            )
+        elif result == 'already':
+            await message.channel.send(
+                f"{message.author.mention} 이미 `{user.name}` (학번 `{user.student_id}`) 으로 매핑돼 있어요."
+            )
+        elif result == 'registered':
+            await message.channel.send(
+                f"{message.author.mention} ✅ `{user.name}` (학번 `{user.student_id}`) 등록 완료. "
+                f"이제 ㅊㅅ/ㅌㅅ 사용 가능."
+            )
 
     # ── 스케줄러: A반 기본 ──
 
