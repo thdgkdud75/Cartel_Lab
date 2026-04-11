@@ -9,6 +9,7 @@ import discord
 import holidays
 from discord.ext import commands, tasks
 from django.conf import settings
+from django.core.cache import cache
 from django.db import close_old_connections, connections, transaction, InterfaceError, OperationalError
 from django.utils import timezone
 from datetime import time as dtime, timedelta
@@ -87,12 +88,16 @@ _self_destruct_cooldown = {}  # discord_user_id -> monotonic timestamp
 _NUMBER_REACTIONS = {
     '777': '🎰 행운의 숫자',
     '1234': '순서대로 치는 거 귀엽네요',
-    '404': '🔍 찾을 수 없음',
+    '404': '🔍 찾을 수 없음. 자기 자신도 `자폭` 으로 찾을 수 없게 만들 수 있어요.',
     '42': '우주의 답이죠',
     '100': '💯 만점',
     '911': '긴급 상황?',
     '007': '🕴️ James Bond',
 }
+
+
+# 자폭 유도 대상 키워드 (15% 확률로 "자폭 추천" 한 줄 추가)
+_TIRED_KEYWORDS = {'힘들', '피곤', '졸려', '졸리', '퇴근', '집가고싶', '집가자'}
 
 _KR_HOLIDAYS = holidays.country_holidays('KR')
 
@@ -168,7 +173,9 @@ def _spam_message(count):
         return "진짜 그만 😠"
     if count <= 6:
         return "🤬 (경고)"
-    return "🗿"
+    if count <= 9:
+        return "🗿"
+    return "🗿 ... 이 정도면 `자폭` 해봐야 하는 거 아닌가?"
 
 
 _CONN_ERR_HINTS = (
@@ -276,9 +283,15 @@ def _do_check_in(user):
         head_parts.append("👍 일찍 왔네요")
     if today.weekday() == 0:
         head_parts.append("🫠 월요일 화이팅...")
+    elif today.weekday() >= 5:
+        head_parts.append("🤔 주말인데... 탈출하려면 `자폭`")
     if today in _KR_HOLIDAYS:
         hname = _KR_HOLIDAYS.get(today)
-        head_parts.append(f"🫡 {hname}인데 출근이라니...")
+        head_parts.append(f"🫡 {hname}인데 출근이라니... 탈출하려면 `자폭`")
+
+    # 1% 확률 자폭 유혹
+    if random.random() < 0.01:
+        head_parts.append("🫠 오늘은 `자폭`하기 좋은 날이네요")
 
     fortune = _daily_fortune(user.pk, today)
     display_name = user.name or "당신"
@@ -360,6 +373,7 @@ class AttendanceBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True  # on_member_join 이벤트용 (Developer Portal 에서도 활성화 필요)
         super().__init__(command_prefix="!", intents=intents)
         if not settings.DISCORD_CHANNEL_ID:
             raise ValueError("DISCORD_CHANNEL_ID 환경변수가 설정되지 않았습니다.")
@@ -371,6 +385,39 @@ class AttendanceBot(commands.Bot):
         self.check_out_reminder.start()
         self.b_class_thursday_reminder.start()
         self.b_class_thursday_nag.start()
+
+    async def on_member_join(self, member):
+        """자폭 후 재입장 감지 → 저장된 role 자동 복구."""
+        try:
+            key = f"discord:role_restore:{member.id}"
+            role_ids = await sync_to_async(cache.get)(key)
+            if not role_ids:
+                return
+
+            guild = member.guild
+            roles_to_add = []
+            missing = []
+            for rid in role_ids:
+                role = guild.get_role(rid)
+                if role:
+                    roles_to_add.append(role)
+                else:
+                    missing.append(rid)
+
+            if not roles_to_add:
+                await sync_to_async(cache.delete)(key)
+                return
+
+            await member.add_roles(*roles_to_add, reason="자폭 후 재입장 role 자동 복구")
+            await sync_to_async(cache.delete)(key)
+            logger.info(
+                "role restore completed user=%s restored=%d missing=%d",
+                member.id, len(roles_to_add), len(missing),
+            )
+        except discord.Forbidden:
+            logger.warning("role restore forbidden user=%s", member.id)
+        except Exception:
+            logger.exception("role restore failed user=%s", member.id)
 
     async def on_message(self, message):
         if message.author.bot:
@@ -407,8 +454,11 @@ class AttendanceBot(commands.Bot):
         if len(content) <= 20:
             for kw, reply in _KEYWORD_REACTIONS.items():
                 if kw in content:
+                    text = reply
+                    if kw in _TIRED_KEYWORDS and random.random() < 0.15:
+                        text += "\n...아니면 `자폭` 도 방법이죠"
                     try:
-                        await message.channel.send(reply)
+                        await message.channel.send(text)
                     except Exception:
                         pass
                     return
@@ -773,6 +823,18 @@ class AttendanceBot(commands.Bot):
 
         # 2초 더 드라마틱하게 기다린 후 강퇴 (총 ~5초)
         await asyncio.sleep(2)
+
+        # 강퇴 전 role 스냅샷 저장 (on_member_join 에서 복구용)
+        try:
+            role_ids = [r.id for r in getattr(author, 'roles', []) if not r.is_default()]
+            if role_ids:
+                await sync_to_async(cache.set)(
+                    f"discord:role_restore:{author.id}",
+                    role_ids,
+                    3600,  # 1시간, 초대링크 만료와 동일
+                )
+        except Exception:
+            logger.exception("self-destruct role snapshot failed user=%s", author.id)
 
         # 강퇴 실행
         try:
