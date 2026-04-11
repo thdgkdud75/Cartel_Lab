@@ -23,3 +23,4 @@ beautifulsoup4==4.12.3
 djangorestframework-simplejwt==5.3.1
 django-cors-headers==4.3.1
 discord.py==2.5.2
+holidays>=0.40,<1.0

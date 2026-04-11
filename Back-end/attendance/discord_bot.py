@@ -3,6 +3,7 @@ import logging
 import re
 import time as _time
 import discord
+import holidays
 from discord.ext import commands, tasks
 from django.conf import settings
 from django.db import close_old_connections, connections, transaction, InterfaceError, OperationalError
@@ -27,6 +28,11 @@ ABSENT_CMDS = {'ㄲㅈ', '꺼져', 'ㄱㅈ'}
 LIST_MAPPED_CMDS = {'ㅁㅍ', '매핑', '매핑목록'}
 TAG_MAPPED_CMDS = {'ㅁㄷ', '모두', '전체'}
 REGISTER_CMD_PREFIXES = ('ㄷㄹ', '등록')
+ALARM_ON_CMDS = {'전체알람켜기', '알람켜', '알람온'}
+ALARM_OFF_CMDS = {'전체알람끄기', '알람꺼', '알람오프'}
+ALARM_STATUS_CMDS = {'알람상태', '알람'}
+
+_KR_HOLIDAYS = holidays.country_holidays('KR')
 
 
 _CONN_ERR_HINTS = (
@@ -67,6 +73,20 @@ def _with_db_retry(fn):
 @_with_db_retry
 def _get_time_setting():
     return AttendanceTimeSetting.objects.first()
+
+
+@_with_db_retry
+def _should_skip_alarm():
+    """주말/한국 공휴일/전체 알람 비활성화 중 하나라도 해당하면 True."""
+    today = timezone.localdate()
+    if today.weekday() >= 5:
+        return True
+    if today in _KR_HOLIDAYS:
+        return True
+    setting = AttendanceTimeSetting.objects.first()
+    if setting and not setting.alarms_enabled:
+        return True
+    return False
 
 
 @_with_db_retry
@@ -194,6 +214,12 @@ class AttendanceBot(commands.Bot):
             await self._handle_list_mapped(message)
         elif content in TAG_MAPPED_CMDS:
             await self._handle_tag_mapped(message)
+        elif content in ALARM_ON_CMDS:
+            await self._handle_alarm_toggle(message, enable=True)
+        elif content in ALARM_OFF_CMDS:
+            await self._handle_alarm_toggle(message, enable=False)
+        elif content in ALARM_STATUS_CMDS:
+            await self._handle_alarm_status(message)
         elif content.split(maxsplit=1)[0] in REGISTER_CMD_PREFIXES:
             await self._handle_register(message)
 
@@ -367,26 +393,112 @@ class AttendanceBot(commands.Bot):
                 f"이제 ㅊㅅ/ㅌㅅ 사용 가능."
             )
 
+    async def _handle_alarm_toggle(self, message, enable: bool):
+        """전체 알람 켜기/끄기 — 운영진(is_staff) 전용."""
+        user = await sync_to_async(_get_user_by_discord_id)(str(message.author.id))
+        if not user:
+            await message.channel.send(
+                f"{message.author.mention} 등록 안 된 계정이에요. "
+                f"(discord_id: `{message.author.id}` — 운영진에게 매핑 요청)"
+            )
+            return
+        if not user.is_staff:
+            await message.channel.send(
+                f"{message.author.mention} 운영진(is_staff)만 사용할 수 있는 명령이에요."
+            )
+            return
+
+        @_with_db_retry
+        def _set():
+            with transaction.atomic():
+                setting, _ = AttendanceTimeSetting.objects.update_or_create(
+                    pk=1, defaults={'alarms_enabled': enable}
+                )
+                return setting.alarms_enabled
+
+        try:
+            result = await sync_to_async(_set)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 알람 설정 변경 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        try:
+            await message.add_reaction("✅")
+        except Exception:
+            pass
+
+        state = "🟢 켜짐" if result else "🔴 꺼짐"
+        await message.channel.send(
+            f"📢 전체 알람이 {state} 으로 설정됐어요. (by {user.name})"
+        )
+
+    async def _handle_alarm_status(self, message):
+        """현재 전체 알람 / 주말 / 공휴일 상태 조회."""
+        @_with_db_retry
+        def _fetch():
+            setting = AttendanceTimeSetting.objects.first()
+            return True if setting is None else bool(setting.alarms_enabled)
+        try:
+            enabled = await sync_to_async(_fetch)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 알람 상태 조회 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        today = timezone.localdate()
+        is_weekend = today.weekday() >= 5
+        is_holiday = today in _KR_HOLIDAYS
+        holiday_name = _KR_HOLIDAYS.get(today) if is_holiday else None
+
+        lines = [f"📢 전체 알람: {'🟢 켜짐' if enabled else '🔴 꺼짐'}"]
+        if is_weekend:
+            lines.append("📅 오늘은 주말 → 알람 자동 차단")
+        if is_holiday:
+            lines.append(f"🎌 오늘은 공휴일 ({holiday_name}) → 알람 자동 차단")
+        if enabled and not is_weekend and not is_holiday:
+            lines.append("→ 오늘은 정상 알람 동작")
+        elif not enabled:
+            lines.append("→ 운영진이 전체 알람을 꺼둔 상태")
+        await message.channel.send("\n".join(lines))
+
     # ── 스케줄러: A반 기본 ──
 
     @tasks.loop(time=dtime(hour=10, minute=0, second=0, tzinfo=KST))
     async def check_in_reminder(self):
         """10:00 전체 출결 알림"""
-        channel = self.get_channel(self.attendance_channel_id)
-        if channel:
-            await channel.send("@everyone 출결해주세요!", allowed_mentions=discord.AllowedMentions(everyone=True))
+        try:
+            if await sync_to_async(_should_skip_alarm)():
+                return
+            channel = self.get_channel(self.attendance_channel_id)
+            if channel:
+                await channel.send("@everyone 출결해주세요!", allowed_mentions=discord.AllowedMentions(everyone=True))
+        except Exception:
+            logger.exception("check_in_reminder failed")
 
     @tasks.loop(time=dtime(hour=10, minute=30, second=0, tzinfo=KST))
     async def check_in_nag(self):
         """10:30 미출결자 리마인드"""
-        await self._send_nag_reminder()
+        try:
+            if await sync_to_async(_should_skip_alarm)():
+                return
+            await self._send_nag_reminder()
+        except Exception:
+            logger.exception("check_in_nag failed")
 
     @tasks.loop(time=dtime(hour=20, minute=0, second=0, tzinfo=KST))
     async def check_out_reminder(self):
         """20:00 전체 퇴실 알림"""
-        channel = self.get_channel(self.attendance_channel_id)
-        if channel:
-            await channel.send("@everyone 퇴실해주세요!", allowed_mentions=discord.AllowedMentions(everyone=True))
+        try:
+            if await sync_to_async(_should_skip_alarm)():
+                return
+            channel = self.get_channel(self.attendance_channel_id)
+            if channel:
+                await channel.send("@everyone 퇴실해주세요!", allowed_mentions=discord.AllowedMentions(everyone=True))
+        except Exception:
+            logger.exception("check_out_reminder failed")
 
     # ── 스케줄러: B반 목요일 ──
 
@@ -396,6 +508,8 @@ class AttendanceBot(commands.Bot):
         try:
             today = timezone.localdate()
             if today.weekday() != 3:
+                return
+            if await sync_to_async(_should_skip_alarm)():
                 return
 
             @_with_db_retry
@@ -438,6 +552,8 @@ class AttendanceBot(commands.Bot):
         try:
             today = timezone.localdate()
             if today.weekday() != 3:
+                return
+            if await sync_to_async(_should_skip_alarm)():
                 return
 
             @_with_db_retry
@@ -496,8 +612,12 @@ class AttendanceBot(commands.Bot):
             if not missing:
                 return
 
-            mentions = " ".join(f"<@{u.discord_id}>" for u in missing)
-            await channel.send(f"{mentions} 아직 출결 안 했어요!")
+            allow = discord.AllowedMentions(users=True)
+            for u in missing:
+                await channel.send(
+                    f"<@{u.discord_id}> 아직 출결 안 했어요!",
+                    allowed_mentions=allow,
+                )
         except Exception:
             logger.exception("_send_nag_reminder failed (class_group=%s)", class_group)
 
