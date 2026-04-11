@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from planner.models import JobPosting
+from jobs.models import JobPosting
 from planner.services.job_sync import USER_AGENT
 
 

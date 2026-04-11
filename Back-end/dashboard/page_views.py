@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from attendance.models import AttendanceRecord
 from users.models import User
 
 from .view_helpers import staff_required

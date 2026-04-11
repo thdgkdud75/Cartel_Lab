@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 import requests
 from django.utils import timezone
 
-from planner.models import JobPosting, JobSyncLog
+from jobs.models import JobPosting, JobSyncLog
 
 
 USER_AGENT = (

@@ -15,7 +15,9 @@ import {
   Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { buttonBaseStyle, codeBlockStyle, heroCardStyle, inputStyle, sectionCardStyle, sectionSubtitleStyle, sectionTitleStyle, textareaStyle, QUIZ_PALETTE } from "./_styles";
+import remarkGfm from "remark-gfm";
+import { buttonBaseStyle, codeBlockStyle, heroCardStyle, inputStyle, sectionCardStyle, sectionSubtitleStyle, sectionTitleStyle, textareaStyle, QUIZ_PALETTE, markdownClassName } from "./_styles";
+import "./_markdown.css";
 
 export type MentorQuizAuthor = {
   id: number;
@@ -631,8 +633,8 @@ export function MentorSection({
 
                   {item.quiz.code_snippet ? <pre style={listCodeBlockStyle}>{item.quiz.code_snippet}</pre> : null}
                   {item.quiz.source === "github" ? (
-                    <div style={{ color: QUIZ_PALETTE.inkSoft, lineHeight: 1.65, fontSize: 14 }}>
-                      <ReactMarkdown>{item.quiz.question}</ReactMarkdown>
+                    <div className={markdownClassName}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.quiz.question}</ReactMarkdown>
                     </div>
                   ) : (
                     <p style={{ margin: 0, color: QUIZ_PALETTE.inkSoft, lineHeight: 1.65 }}>{item.quiz.question}</p>

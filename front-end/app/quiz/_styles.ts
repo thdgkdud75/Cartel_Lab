@@ -97,3 +97,5 @@ export const codeBlockStyle: CSSProperties = {
   overflowX: "auto",
   whiteSpace: "pre",
 };
+
+export const markdownClassName = "quiz-markdown";

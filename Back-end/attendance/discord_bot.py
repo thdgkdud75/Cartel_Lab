@@ -1,11 +1,16 @@
 import asyncio
+import logging
+import time as _time
 import discord
 from discord.ext import commands, tasks
 from django.conf import settings
+from django.db import close_old_connections, connections, InterfaceError, OperationalError
 from django.utils import timezone
 from datetime import time as dtime, timedelta
 from zoneinfo import ZoneInfo
 from asgiref.sync import sync_to_async
+
+logger = logging.getLogger(__name__)
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -18,12 +23,51 @@ from timetable.models import Timetable
 CHECK_IN_CMDS = {'ㅊㅅ', '출석', 'ㅊㄱ'}
 CHECK_OUT_CMDS = {'ㅌㅅ', '퇴실', 'ㅌㄱ'}
 ABSENT_CMDS = {'ㄲㅈ', '꺼져', 'ㄱㅈ'}
+LIST_MAPPED_CMDS = {'ㅁㅍ', '매핑', '매핑목록'}
+TAG_MAPPED_CMDS = {'ㅁㄷ', '모두', '전체'}
 
 
+_CONN_ERR_HINTS = (
+    "can't connect", "connection refused", "gone away",
+    "lost connection", "broken pipe", "connection reset",
+)
+
+
+def _is_connection_error(exc):
+    msg = str(exc).lower()
+    return any(s in msg for s in _CONN_ERR_HINTS)
+
+
+def _with_db_retry(fn):
+    """Long-running 봇용: stale 연결 정리 + connection 류 예외 1회 재시도.
+
+    InterfaceError 는 항상 connection 깨짐으로 간주, OperationalError 는 substring 매칭.
+    """
+    def wrapper(*args, **kwargs):
+        for attempt in range(2):
+            close_old_connections()
+            try:
+                return fn(*args, **kwargs)
+            except (OperationalError, InterfaceError) as e:
+                is_conn = isinstance(e, InterfaceError) or _is_connection_error(e)
+                if attempt == 0 and is_conn:
+                    for conn in connections.all():
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+                    _time.sleep(1)
+                    continue
+                raise
+    return wrapper
+
+
+@_with_db_retry
 def _get_time_setting():
     return AttendanceTimeSetting.objects.first()
 
 
+@_with_db_retry
 def _get_user_by_discord_id(discord_id: str):
     """discord_id로 매핑된 User 반환. 없으면 None."""
     try:
@@ -32,6 +76,7 @@ def _get_user_by_discord_id(discord_id: str):
         return None
 
 
+@_with_db_retry
 def _do_check_in(user):
     """출석 처리. (성공 타입, 에러 메시지) 중 하나 반환."""
     today = timezone.localdate()
@@ -54,6 +99,7 @@ def _do_check_in(user):
     return "check_in", None
 
 
+@_with_db_retry
 def _do_check_out(user):
     """퇴실 처리."""
     today = timezone.localdate()
@@ -77,6 +123,7 @@ def _do_check_out(user):
     return "check_out", None
 
 
+@_with_db_retry
 def _do_absent(user):
     """결석 처리."""
     today = timezone.localdate()
@@ -91,6 +138,23 @@ def _do_absent(user):
         return None, "이미 처리됐어요 그만해"
 
     return "absent", None
+
+
+def _chunk_lines(lines, sep="\n", limit=1900):
+    """Discord 2000자 한도 안에 들어가도록 묶기."""
+    chunks = []
+    cur = ""
+    for line in lines:
+        candidate = line if not cur else cur + sep + line
+        if len(candidate) > limit:
+            if cur:
+                chunks.append(cur)
+            cur = line
+        else:
+            cur = candidate
+    if cur:
+        chunks.append(cur)
+    return chunks
 
 
 class AttendanceBot(commands.Bot):
@@ -124,17 +188,81 @@ class AttendanceBot(commands.Bot):
             await self._handle_command(message, _do_check_out)
         elif content in ABSENT_CMDS:
             await self._handle_command(message, _do_absent)
+        elif content in LIST_MAPPED_CMDS:
+            await self._handle_list_mapped(message)
+        elif content in TAG_MAPPED_CMDS:
+            await self._handle_tag_mapped(message)
 
     async def _handle_command(self, message, handler):
         user = await sync_to_async(_get_user_by_discord_id)(str(message.author.id))
         if not user:
+            await message.channel.send(
+                f"{message.author.mention} 등록 안 된 계정이에요. "
+                f"(discord_id: `{message.author.id}` — 운영진에게 매핑 요청)"
+            )
             return
 
-        success, error_msg = await sync_to_async(handler)(user)
+        try:
+            success, error_msg = await sync_to_async(handler)(user)
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 처리 중 오류가 발생했어요: `{type(e).__name__}: {e}`"
+            )
+            return
+
         if error_msg:
             await message.channel.send(f"{message.author.mention} {error_msg}")
         else:
             await message.add_reaction("✅")
+
+    async def _handle_list_mapped(self, message):
+        @_with_db_retry
+        def _fetch():
+            return list(
+                User.objects.filter(discord_id__gt="")
+                    .order_by("name")
+                    .values_list("name", "discord_id")
+            )
+        try:
+            rows = await sync_to_async(_fetch)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 조회 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        if not rows:
+            await message.channel.send("매핑된 사람이 없어요.")
+            return
+
+        header = f"**현재 매핑된 사람 ({len(rows)}명):**"
+        lines = [f"- {name} (`{did}`)" for name, did in rows]
+        for chunk in _chunk_lines([header] + lines):
+            await message.channel.send(chunk)
+
+    async def _handle_tag_mapped(self, message):
+        @_with_db_retry
+        def _fetch():
+            return list(
+                User.objects.filter(discord_id__gt="")
+                    .values_list("discord_id", flat=True)
+            )
+        try:
+            ids = await sync_to_async(_fetch)()
+        except Exception as e:
+            await message.channel.send(
+                f"{message.author.mention} 조회 실패: `{type(e).__name__}: {e}`"
+            )
+            return
+
+        if not ids:
+            await message.channel.send("매핑된 사람이 없어요.")
+            return
+
+        tokens = [f"<@{did}>" for did in ids]
+        allow = discord.AllowedMentions(users=True)
+        for chunk in _chunk_lines(tokens, sep=" "):
+            await message.channel.send(chunk, allowed_mentions=allow)
 
     # ── 스케줄러: A반 기본 ──
 
@@ -162,96 +290,113 @@ class AttendanceBot(commands.Bot):
     @tasks.loop(time=dtime(hour=0, minute=1, second=0, tzinfo=KST))
     async def b_class_thursday_reminder(self):
         """목요일 B반 첫 수업 시간 기준 출결 알림"""
-        today = timezone.localdate()
-        if today.weekday() != 3:
-            return
+        try:
+            today = timezone.localdate()
+            if today.weekday() != 3:
+                return
 
-        first_class = await sync_to_async(
-            Timetable.objects.filter(
-                class_group="B", weekday=3
-            ).order_by("start_time").first
-        )()
+            @_with_db_retry
+            def _first_b_class():
+                return (
+                    Timetable.objects.filter(class_group="B", weekday=3)
+                    .order_by("start_time")
+                    .first()
+                )
+            first_class = await sync_to_async(_first_b_class)()
 
-        if not first_class:
-            return
+            if not first_class:
+                return
 
-        now = timezone.localtime()
-        target = timezone.make_aware(
-            timezone.datetime.combine(today, first_class.start_time),
-            timezone.get_current_timezone(),
-        )
-        wait_seconds = (target - now).total_seconds()
-        if wait_seconds <= 0:
-            return
-        await asyncio.sleep(wait_seconds)
+            now = timezone.localtime()
+            target = timezone.make_aware(
+                timezone.datetime.combine(today, first_class.start_time),
+                timezone.get_current_timezone(),
+            )
+            wait_seconds = (target - now).total_seconds()
+            if wait_seconds <= 0:
+                return
+            await asyncio.sleep(wait_seconds)
 
-        channel = self.get_channel(self.attendance_channel_id)
-        if channel:
-            b_users = await sync_to_async(
-                lambda: list(User.objects.filter(class_group="B", discord_id__gt=""))
-            )()
-            mentions = " ".join(f"<@{u.discord_id}>" for u in b_users)
-            if mentions:
-                await channel.send(f"{mentions} B반 출결해주세요!")
+            channel = self.get_channel(self.attendance_channel_id)
+            if channel:
+                @_with_db_retry
+                def _list_b_users():
+                    return list(User.objects.filter(class_group="B", discord_id__gt=""))
+                b_users = await sync_to_async(_list_b_users)()
+                mentions = " ".join(f"<@{u.discord_id}>" for u in b_users)
+                if mentions:
+                    await channel.send(f"{mentions} B반 출결해주세요!")
+        except Exception:
+            logger.exception("b_class_thursday_reminder failed")
 
     @tasks.loop(time=dtime(hour=0, minute=2, second=0, tzinfo=KST))
     async def b_class_thursday_nag(self):
         """목요일 B반 첫 수업 30분 후 미출결자 리마인드"""
-        today = timezone.localdate()
-        if today.weekday() != 3:
-            return
+        try:
+            today = timezone.localdate()
+            if today.weekday() != 3:
+                return
 
-        first_class = await sync_to_async(
-            Timetable.objects.filter(
-                class_group="B", weekday=3
-            ).order_by("start_time").first
-        )()
+            @_with_db_retry
+            def _first_b_class():
+                return (
+                    Timetable.objects.filter(class_group="B", weekday=3)
+                    .order_by("start_time")
+                    .first()
+                )
+            first_class = await sync_to_async(_first_b_class)()
 
-        if not first_class:
-            return
+            if not first_class:
+                return
 
-        now = timezone.localtime()
-        nag_time = timezone.make_aware(
-            timezone.datetime.combine(today, first_class.start_time),
-            timezone.get_current_timezone(),
-        ) + timedelta(minutes=30)
+            now = timezone.localtime()
+            nag_time = timezone.make_aware(
+                timezone.datetime.combine(today, first_class.start_time),
+                timezone.get_current_timezone(),
+            ) + timedelta(minutes=30)
 
-        wait_seconds = (nag_time - now).total_seconds()
-        if wait_seconds <= 0:
-            return
-        await asyncio.sleep(wait_seconds)
+            wait_seconds = (nag_time - now).total_seconds()
+            if wait_seconds <= 0:
+                return
+            await asyncio.sleep(wait_seconds)
 
-        await self._send_nag_reminder(class_group="B")
+            await self._send_nag_reminder(class_group="B")
+        except Exception:
+            logger.exception("b_class_thursday_nag failed")
 
     # ── 공통 리마인드 ──
 
     async def _send_nag_reminder(self, class_group=None):
         """미출결자(웹/앱/디스코드 모두 포함)에게 리마인드 멘션."""
-        today = timezone.localdate()
-        channel = self.get_channel(self.attendance_channel_id)
-        if not channel:
-            return
+        try:
+            today = timezone.localdate()
+            channel = self.get_channel(self.attendance_channel_id)
+            if not channel:
+                return
 
-        def _get_missing_users():
-            qs = User.objects.filter(discord_id__gt="")
-            if class_group:
-                qs = qs.filter(class_group=class_group)
+            @_with_db_retry
+            def _get_missing_users():
+                qs = User.objects.filter(discord_id__gt="")
+                if class_group:
+                    qs = qs.filter(class_group=class_group)
 
-            checked_user_ids = set(
-                AttendanceRecord.objects.filter(
-                    attendance_date=today
-                ).values_list("user_id", flat=True)
-            )
+                checked_user_ids = set(
+                    AttendanceRecord.objects.filter(
+                        attendance_date=today
+                    ).values_list("user_id", flat=True)
+                )
 
-            return list(qs.exclude(id__in=checked_user_ids))
+                return list(qs.exclude(id__in=checked_user_ids))
 
-        missing = await sync_to_async(_get_missing_users)()
+            missing = await sync_to_async(_get_missing_users)()
 
-        if not missing:
-            return
+            if not missing:
+                return
 
-        mentions = " ".join(f"<@{u.discord_id}>" for u in missing)
-        await channel.send(f"{mentions} 아직 출결 안 했어요!")
+            mentions = " ".join(f"<@{u.discord_id}>" for u in missing)
+            await channel.send(f"{mentions} 아직 출결 안 했어요!")
+        except Exception:
+            logger.exception("_send_nag_reminder failed (class_group=%s)", class_group)
 
     # ── loop before_loop: 봇 준비 대기 ──
 

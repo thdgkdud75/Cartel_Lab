@@ -105,6 +105,7 @@ else
   echo "DISCORD_BOT_TOKEN 미설정, 디스코드 봇 건너뜀"
 fi
 
+
 if [ "$#" -eq 0 ]; then
   set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 3 --timeout 120
 fi

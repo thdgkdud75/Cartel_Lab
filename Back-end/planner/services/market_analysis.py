@@ -9,7 +9,7 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
-from planner.models import JobMarketSnapshot, JobPosting
+from jobs.models import JobMarketSnapshot, JobPosting
 from users.ai_services import call_openai_json_schema, is_openai_configured
 
 

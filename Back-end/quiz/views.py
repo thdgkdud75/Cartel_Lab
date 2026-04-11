@@ -747,6 +747,28 @@ class GithubRegisterQuizView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class GithubEditQuizView(APIView):
+    """GitHub Actions에서 문제 수정"""
+    permission_classes = [AllowAny]
+
+    def post(self, request, quiz_id):
+        if not _verify_github_token(request):
+            return Response({"error": "인증 실패"}, status=status.HTTP_403_FORBIDDEN)
+
+        quiz = get_object_or_404(Quiz, pk=quiz_id)
+        data, error_message = _parse_quiz_payload(request.data, include_date=False)
+        if error_message:
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+
+        for field_name, value in data.items():
+            setattr(quiz, field_name, value)
+        quiz.save()
+        return Response({
+            "message": "문제가 수정되었습니다.",
+            "quiz": _serialize_quiz(quiz, include_answer=True, include_trap=True),
+        })
+
+
 class GithubMarkCorrectView(APIView):
     """GitHub Actions에서 학생 PR 머지 시 정답 처리"""
     permission_classes = [AllowAny]

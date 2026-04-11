@@ -4,6 +4,7 @@ from calendar import month_abbr
 from datetime import timedelta, datetime as dt
 from django.http import JsonResponse
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
