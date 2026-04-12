@@ -260,7 +260,7 @@ def _do_check_in(user):
 
     if not created:
         count = _bump_spam_count(user.pk, today)
-        if count >= 10:
+        if count >= 5:
             return 'mute', "조용히하세요!", None
         return None, _spam_message(count), None
 
@@ -315,7 +315,7 @@ def _do_check_out(user):
 
     if record.check_out_at:
         count = _bump_spam_count(user.pk, today)
-        if count >= 10:
+        if count >= 5:
             return 'mute', "조용히하세요!", None
         return None, "이미 퇴실했어요 그만해", None
 
@@ -353,7 +353,7 @@ def _do_absent(user):
 
     if not created:
         count = _bump_spam_count(user.pk, today)
-        if count >= 10:
+        if count >= 5:
             return 'mute', "조용히하세요!", None
         return None, "이미 처리됐어요 그만해", None
 
