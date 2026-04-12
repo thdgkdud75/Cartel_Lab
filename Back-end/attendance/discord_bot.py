@@ -493,6 +493,27 @@ class AttendanceBot(commands.Bot):
             await self._handle_meal_suggest(message, '저녁', _DINNER_MENUS)
         elif content in SELF_DESTRUCT_CMDS:
             await self._handle_self_destruct(message)
+        elif content == '쌰갈':
+            @_with_db_retry
+            def _find_km():
+                u = User.objects.filter(name='김민혁').first()
+                return u.discord_id if u and u.discord_id else None
+            try:
+                did = await sync_to_async(_find_km)()
+                tag = f"<@{did}>" if did else "김민혁"
+            except Exception:
+                tag = "김민혁"
+            await message.channel.send(f"{tag} 인가?")
+            try:
+                countdown = await message.channel.send(f"{tag} 자폭 3..")
+                await asyncio.sleep(1)
+                await countdown.edit(content=f"{tag} 자폭 2..")
+                await asyncio.sleep(1)
+                await countdown.edit(content=f"{tag} 자폭 1..")
+                await asyncio.sleep(1)
+                await countdown.edit(content=f"{tag} 자폭... 실패 ㅋ (농담이에요)")
+            except Exception:
+                pass
         elif content.split(maxsplit=1)[0] in REGISTER_CMD_PREFIXES:
             await self._handle_register(message)
 
