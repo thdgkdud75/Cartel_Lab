@@ -494,7 +494,7 @@ class AttendanceBot(commands.Bot):
             await self._handle_meal_suggest(message, '저녁', _DINNER_MENUS)
         elif content in SELF_DESTRUCT_CMDS:
             await self._handle_self_destruct(message)
-        elif content == '!개발자':
+        elif content in ('개발자', '!개발자'):
             @_with_db_retry
             def _fetch_kicked_list():
                 return list(
