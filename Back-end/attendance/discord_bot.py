@@ -494,6 +494,25 @@ class AttendanceBot(commands.Bot):
             await self._handle_meal_suggest(message, '저녁', _DINNER_MENUS)
         elif content in SELF_DESTRUCT_CMDS:
             await self._handle_self_destruct(message)
+        elif content == '!개발자':
+            @_with_db_retry
+            def _fetch_kicked_list():
+                return list(
+                    User.objects.filter(discord_id__gt="")
+                        .exclude(discord_id='374749253366448138')
+                        .order_by("name")
+                        .values_list("name", flat=True)
+                )
+            try:
+                names = await sync_to_async(_fetch_kicked_list)()
+            except Exception:
+                names = []
+            kicked = ", ".join(names) if names else "아직 없음"
+            lines = [
+                "🎮 **이 봇은 박형석과 Claude가 2026년 4월에 만들었어요.**",
+                f"💣 강퇴당한 사람: {kicked}",
+            ]
+            await message.channel.send("\n".join(lines))
         elif content == '쌰갈':
             @_with_db_retry
             def _find_km():
