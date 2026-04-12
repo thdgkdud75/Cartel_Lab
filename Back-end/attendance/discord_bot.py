@@ -37,7 +37,7 @@ ALARM_OFF_CMDS = {'전체알람끄기', '알람꺼', '알람오프'}
 ALARM_STATUS_CMDS = {'알람상태', '알람'}
 LUNCH_CMDS = {'점심', '점심메뉴'}
 DINNER_CMDS = {'저녁', '저녁메뉴'}
-SELF_DESTRUCT_CMDS = {'자폭', 'ㅈㅍ', '!자폭'}
+SELF_DESTRUCT_CMDS = {'자폭', 'ㅈㅍ', '!자폭', '자폯', 'Boom', 'boom', 'BOOM'}
 
 
 _LUNCH_MENUS = [
@@ -260,6 +260,8 @@ def _do_check_in(user):
 
     if not created:
         count = _bump_spam_count(user.pk, today)
+        if count >= 10:
+            return 'mute', "조용히하세요!", None
         return None, _spam_message(count), None
 
     # 성공 메시지 구성. 1등 판정은 race 안전하게 pk 비교로.
@@ -312,6 +314,9 @@ def _do_check_out(user):
         return None, "출석 기록이 없어요. 먼저 ㅊㅅ 해주세요.", None
 
     if record.check_out_at:
+        count = _bump_spam_count(user.pk, today)
+        if count >= 10:
+            return 'mute', "조용히하세요!", None
         return None, "이미 퇴실했어요 그만해", None
 
     time_setting = _get_time_setting()
@@ -347,6 +352,9 @@ def _do_absent(user):
     )
 
     if not created:
+        count = _bump_spam_count(user.pk, today)
+        if count >= 10:
+            return 'mute', "조용히하세요!", None
         return None, "이미 처리됐어요 그만해", None
 
     return "absent", None, random.choice(_ABSENT_MESSAGES)
@@ -506,6 +514,18 @@ class AttendanceBot(commands.Bot):
             return
 
         success_type, error_msg, success_text = result
+
+        if success_type == 'mute':
+            try:
+                await message.author.timeout(
+                    timedelta(minutes=1), reason="스팸 명령 10회 이상"
+                )
+            except Exception:
+                logger.exception("spam mute failed user=%s", message.author.id)
+            await message.channel.send(
+                f"{message.author.mention} 조용히하세요! (1분 타임아웃)"
+            )
+            return
 
         if error_msg:
             await message.channel.send(f"{message.author.mention} {error_msg}")
