@@ -37,7 +37,7 @@ ALARM_OFF_CMDS = {'전체알람끄기', '알람꺼', '알람오프'}
 ALARM_STATUS_CMDS = {'알람상태', '알람'}
 LUNCH_CMDS = {'점심', '점심메뉴'}
 DINNER_CMDS = {'저녁', '저녁메뉴'}
-SELF_DESTRUCT_CMDS = {'자폭', 'ㅈㅍ', '!자폭', '자폯', 'Boom', 'boom', 'BOOM'}
+SELF_DESTRUCT_CMDS = {'자폭', 'ㅈㅍ', '!자폭', '자폯', 'Boom', 'boom', 'BOOM', 'RIP', 'rip'}
 
 
 _LUNCH_MENUS = [
