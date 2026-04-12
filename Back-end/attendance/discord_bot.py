@@ -507,10 +507,10 @@ class AttendanceBot(commands.Bot):
                 names = await sync_to_async(_fetch_kicked_list)()
             except Exception:
                 names = []
-            kicked = ", ".join(names) if names else "아직 없음"
+            victims = ", ".join(names) if names else "아직 없음"
             lines = [
                 "🎮 **이 봇은 박형석과 Claude가 2026년 4월에 만들었어요.**",
-                f"💣 강퇴당한 사람: {kicked}",
+                f"💣 자폭당한 사람: {victims}",
             ]
             await message.channel.send("\n".join(lines))
         elif content == '쌰갈':
