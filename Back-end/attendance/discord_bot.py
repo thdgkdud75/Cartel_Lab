@@ -104,6 +104,7 @@ _KR_HOLIDAYS = holidays.country_holidays('KR')
 
 # ── 이스터에그 상태 ──
 _spam_counters = defaultdict(int)  # (user_pk, date_iso) -> 중복 ㅊㅅ 카운트
+_mute_history = {}                  # discord_user_id -> 마지막 아봉 monotonic 시각
 _laugh_streak = 0                   # ㅋ/ㅎ 전용 메시지 연속 카운트
 
 
@@ -537,15 +538,41 @@ class AttendanceBot(commands.Bot):
         success_type, error_msg, success_text = result
 
         if success_type == 'mute':
+            now_mono = _time.monotonic()
+            last_mute = _mute_history.get(message.author.id, 0.0)
+            is_repeat = (now_mono - last_mute) < 300  # 5분 이내 2연속
+            _mute_history[message.author.id] = now_mono
+
             try:
                 await message.author.timeout(
-                    timedelta(minutes=1), reason="스팸 명령 10회 이상"
+                    timedelta(minutes=1), reason="스팸 명령 반복"
                 )
             except Exception:
                 logger.exception("spam mute failed user=%s", message.author.id)
-            await message.channel.send(
-                f"{message.author.mention} 조용히하세요! (1분 타임아웃)"
-            )
+
+            if is_repeat:
+                await message.channel.send(
+                    f"{message.author.mention} 출석 연속으로 들어와서 자폭합니다."
+                )
+                try:
+                    cd = await message.channel.send("5..")
+                    await asyncio.sleep(1)
+                    await cd.edit(content="4..")
+                    await asyncio.sleep(1)
+                    await cd.edit(content="3..")
+                    await asyncio.sleep(1)
+                    await cd.edit(content="2..")
+                    await asyncio.sleep(1)
+                    await cd.edit(content="1..")
+                    await asyncio.sleep(1)
+                    await cd.edit(content="Boom!")
+                except Exception:
+                    pass
+                await message.channel.send(f"(겠냐 ㅋ)")
+            else:
+                await message.channel.send(
+                    f"{message.author.mention} 조용히하세요! (1분 타임아웃)"
+                )
             return
 
         if error_msg:
