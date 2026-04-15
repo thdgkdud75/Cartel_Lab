@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Routes } from "@/constants/enums";
-import { farmApi } from "./api";
+import { useAuthFetch } from "@/lib/use-auth-fetch";
+import { makeFarmApi } from "./api";
 import type { Animal, FarmMe } from "./types";
 import { FarmCanvas } from "./_farm-canvas";
 import { TodayCard } from "./_today-card";
@@ -12,9 +13,10 @@ import { SideSheet } from "./_side-sheet";
 import { EggDialog } from "./_egg-dialog";
 
 export default function FarmPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
-  const token = session?.user?.access_token;
+  const authFetch = useAuthFetch();
+  const farmApi = useMemo(() => makeFarmApi(authFetch), [authFetch]);
 
   const [data, setData] = useState<FarmMe | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,25 +25,25 @@ export default function FarmPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
     try {
-      const res = await farmApi.me(token);
+      const res = await farmApi.me();
       setData(res);
+      setError(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "FAILED");
     }
-  }, [token]);
+  }, [farmApi]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push(Routes.AUTH);
       return;
     }
-    if (token) {
+    if (status === "authenticated") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void refresh();
     }
-  }, [status, token, refresh, router]);
+  }, [status, refresh, router]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -51,71 +53,61 @@ export default function FarmPage() {
   if (status === "loading" || !data) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#FAFAF7]">
-        <p className="text-[#868b94]">불러오는 중…</p>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-[#FAFAF7]">
-        <p className="text-red-600">{error}</p>
+        <p className="text-[#868b94]">{error ? `에러: ${error}` : "불러오는 중…"}</p>
       </main>
     );
   }
 
   const onPet = async () => {
-    if (!selected || !token) return;
+    if (!selected) return;
     try {
-      await farmApi.pet(token, selected.id);
+      await farmApi.pet(selected.id);
       showToast("🤚 쓰다듬기 +1");
-      const fresh = await farmApi.me(token);
+      const fresh = await farmApi.me();
       setData(fresh);
       const updated = fresh.displayed_animals.find((a) => a.id === selected.id);
       if (updated) setSelected(updated);
     } catch (e) {
-      const code = e instanceof Error ? e.message : "ERROR";
-      if (code === "DAILY_LIMIT_PET") showToast("오늘은 충분히 쓰다듬어줬어요");
+      const msg = e instanceof Error ? e.message : "ERROR";
+      if (msg.includes("DAILY_LIMIT_PET")) showToast("오늘은 충분히 쓰다듬어줬어요");
       else showToast("쓰다듬기 실패");
     }
   };
 
   const onFeed = async () => {
-    if (!selected || !token) return;
+    if (!selected) return;
     try {
-      const res = await farmApi.feed(token, selected.id);
-      const evolved = res.events.find((e) => e.type === "evolved");
+      const res = await farmApi.feed(selected.id);
+      const evolved = res.events.find((ev) => ev.type === "evolved");
       showToast(evolved ? "✨ 진화했어요!" : "🍪 +5 EXP");
-      const fresh = await farmApi.me(token);
+      const fresh = await farmApi.me();
       setData(fresh);
       const updated = fresh.displayed_animals.find((a) => a.id === selected.id);
       if (updated) setSelected(updated);
     } catch (e) {
-      const code = e instanceof Error ? e.message : "ERROR";
-      if (code === "INSUFFICIENT_COINS") showToast("코인이 부족해요");
-      else if (code === "DAILY_LIMIT_FEED") showToast("오늘 간식은 다 줬어요");
+      const msg = e instanceof Error ? e.message : "ERROR";
+      if (msg.includes("INSUFFICIENT_COINS")) showToast("코인이 부족해요");
+      else if (msg.includes("DAILY_LIMIT_FEED")) showToast("오늘 간식은 다 줬어요");
       else showToast("간식 실패");
     }
   };
 
   const onRenameSelected = async (nickname: string) => {
-    if (!selected || !token) return;
-    await farmApi.rename(token, selected.id, nickname);
-    const fresh = await farmApi.me(token);
+    if (!selected) return;
+    await farmApi.rename(selected.id, nickname);
+    const fresh = await farmApi.me();
     setData(fresh);
     const updated = fresh.displayed_animals.find((a) => a.id === selected.id);
     if (updated) setSelected(updated);
   };
 
   const onRenameById = async (id: number, nickname: string) => {
-    if (!token) return;
-    await farmApi.rename(token, id, nickname);
+    await farmApi.rename(id, nickname);
     refresh();
   };
 
   const onDraw = async () => {
-    if (!token) throw new Error("NO_TOKEN");
-    const res = await farmApi.drawEgg(token);
+    const res = await farmApi.drawEgg();
     refresh();
     return res;
   };
@@ -126,7 +118,10 @@ export default function FarmPage() {
         <header className="flex items-baseline justify-between mb-6">
           <div>
             <p className="text-xs text-[#868b94] tracking-wider uppercase">My Stickerbook</p>
-            <h1 className="text-2xl md:text-3xl font-semibold text-[#212124]" style={{ fontFamily: "'Source Serif 4', 'Pretendard', serif" }}>
+            <h1
+              className="text-2xl md:text-3xl font-semibold text-[#212124]"
+              style={{ fontFamily: "'Source Serif 4', 'Pretendard', serif" }}
+            >
               내 도감 No. {data.dex_no}
             </h1>
           </div>
@@ -141,8 +136,8 @@ export default function FarmPage() {
         </div>
 
         <div className="mt-8 text-xs text-[#a7adb7]">
-          농장 슬롯 {data.displayed_animals.length} / {data.display_slots} ·
-          오늘 쓰다듬기 {data.daily_remaining.pet}회 · 간식 {data.daily_remaining.feed}회 남음
+          농장 슬롯 {data.displayed_animals.length} / {data.display_slots} · 오늘 쓰다듬기{" "}
+          {data.daily_remaining.pet}회 · 간식 {data.daily_remaining.feed}회 남음
         </div>
       </div>
 
