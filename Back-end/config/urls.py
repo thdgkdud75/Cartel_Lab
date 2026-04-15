@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/blog/', include('blog.urls')),
     path('api/contests/', include('contests.urls')),
     path('api/dashboard/', include('dashboard.urls')),
+    path('api/farm/', include('farm.urls')),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 
