@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DASHBOARD_PALETTE,
   DASHBOARD_STATUS_COLOR,
 } from "@/constants/colors";
+import { Routes } from "@/constants/enums";
 import type { DetailAttendanceRow } from "@/types/attendance";
 import type {
   PlannerDailyGoalItem,
@@ -347,16 +348,324 @@ function RecentAttendanceHeatmap({
   );
 }
 
+/* ─── Monthly Calendar Section ─── */
+
+type MonthlyRecord = {
+  date: string;
+  status: string;
+  color: string;
+  label: string;
+};
+
+type MonthlySummary = {
+  present: number;
+  late: number;
+  absent: number;
+  leave: number;
+};
+
+type MonthlyData = {
+  records: MonthlyRecord[];
+  summary: MonthlySummary;
+};
+
+function MonthlyCalendarSection({
+  attendanceRows,
+  studentId,
+  today,
+  authFetch,
+}: {
+  attendanceRows: DetailAttendanceRow[];
+  studentId: string;
+  today: string;
+  authFetch: (url: string, options?: RequestInit) => Promise<any>;
+}) {
+  const [open, setOpen] = useState(false);
+  const todayDate = new Date(`${today}T00:00:00`);
+  const [year, setYear] = useState(todayDate.getFullYear());
+  const [month, setMonth] = useState(todayDate.getMonth() + 1);
+  const [dataCache, setDataCache] = useState<Map<string, MonthlyData>>(new Map());
+  const [loading, setLoading] = useState(false);
+
+  const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+
+  function extractFromRows(key: string): MonthlyData | null {
+    const [y, m] = key.split("-").map(Number);
+    const matching = attendanceRows.filter((row) => {
+      const d = new Date(`${row.date}T00:00:00`);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+    if (matching.length === 0) return null;
+
+    const statusFromColor: Record<string, keyof MonthlySummary> = {
+      green: "present",
+      yellow: "late",
+      red: "absent",
+      orange: "leave",
+    };
+    const summary: MonthlySummary = { present: 0, late: 0, absent: 0, leave: 0 };
+    const records = matching.map((row) => {
+      const status = statusFromColor[row.color] ?? "present";
+      summary[status] += 1;
+      return { date: row.date, status, color: row.color, label: row.label };
+    });
+    return { records, summary };
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    if (dataCache.has(monthKey)) return;
+
+    const fromRows = extractFromRows(monthKey);
+    if (fromRows) {
+      setDataCache((prev) => new Map(prev).set(monthKey, fromRows));
+      return;
+    }
+
+    setLoading(true);
+    authFetch(`${Routes.ADMIN}/api/student/${studentId}/monthly-attendance/?month=${monthKey}`)
+      .then((resp: { records: MonthlyRecord[]; summary: MonthlySummary }) => {
+        setDataCache((prev) => new Map(prev).set(monthKey, { records: resp.records, summary: resp.summary }));
+      })
+      .catch(() => null)
+      .finally(() => setLoading(false));
+  }, [open, monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const data = dataCache.get(monthKey);
+  const recordMap = new Map((data?.records ?? []).map((r) => [r.date, r]));
+
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const startDow = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+
+  const cells: Array<{ day: number | null; dateStr: string | null }> = [];
+  for (let i = 0; i < startDow; i++) cells.push({ day: null, dateStr: null });
+  for (let d = 1; d <= totalDays; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({ day: d, dateStr });
+  }
+
+  function goMonth(delta: number) {
+    let m = month + delta;
+    let y = year;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    setMonth(m);
+    setYear(y);
+  }
+
+  const monthOptions: { label: string; year: number; month: number }[] = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(todayDate.getFullYear(), todayDate.getMonth() - i, 1);
+    monthOptions.push({
+      label: `${d.getFullYear()}년 ${d.getMonth() + 1}월`,
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+    });
+  }
+
+  const summary = data?.summary;
+  const todayStr = today;
+  const DOW_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+  return (
+    <section style={sectionCardStyle}>
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "18px 18px",
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 800, color: PALETTE.ink }}>월간 출결 캘린더</span>
+        <span
+          style={{
+            fontSize: 18,
+            color: PALETTE.muted,
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 18px 18px" }}>
+          {/* Navigation */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+            <button
+              onClick={() => goMonth(-1)}
+              style={{
+                border: `1px solid ${PALETTE.line}`,
+                borderRadius: 10,
+                background: PALETTE.surface,
+                padding: "6px 10px",
+                fontSize: 14,
+                cursor: "pointer",
+                color: PALETTE.body,
+              }}
+            >
+              ‹
+            </button>
+            <select
+              value={`${year}-${month}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split("-").map(Number);
+                setYear(y);
+                setMonth(m);
+              }}
+              style={{ ...fieldStyle, padding: "6px 10px", fontSize: 13, fontWeight: 700, textAlign: "center", minWidth: 130 }}
+            >
+              {monthOptions.map((opt) => (
+                <option key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => goMonth(1)}
+              style={{
+                border: `1px solid ${PALETTE.line}`,
+                borderRadius: 10,
+                background: PALETTE.surface,
+                padding: "6px 10px",
+                fontSize: 14,
+                cursor: "pointer",
+                color: PALETTE.body,
+              }}
+            >
+              ›
+            </button>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 24, textAlign: "center", color: PALETTE.muted, fontSize: 13 }}>불러오는 중...</div>
+          ) : (
+            <>
+              {/* Weekday header */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+                {DOW_LABELS.map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      textAlign: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: d === "일" ? PALETTE.danger : d === "토" ? PALETTE.brandText : PALETTE.muted,
+                      padding: "6px 0",
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                {cells.map((cell, idx) => {
+                  if (!cell.day) {
+                    return <div key={`empty-${idx}`} style={{ aspectRatio: "1 / 0.88" }} />;
+                  }
+                  const record = cell.dateStr ? recordMap.get(cell.dateStr) : null;
+                  const c = record ? (COLOR[record.color as keyof typeof COLOR] ?? COLOR.gray) : null;
+                  const isToday = cell.dateStr === todayStr;
+
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      title={record ? record.label : "기록 없음"}
+                      style={{
+                        aspectRatio: "1 / 0.88",
+                        borderRadius: 10,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: isToday ? 800 : 600,
+                        color: record ? c!.text : PALETTE.faint,
+                        background: record ? c!.bg : "transparent",
+                        border: isToday
+                          ? `2px solid ${PALETTE.ink}`
+                          : record
+                            ? `1px solid ${c!.dot}3d`
+                            : "1px solid transparent",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {cell.day}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+                {[
+                  { label: "출석", color: COLOR.green },
+                  { label: "지각", color: COLOR.yellow },
+                  { label: "조퇴", color: COLOR.orange },
+                  { label: "결석", color: COLOR.red },
+                ].map((item) => (
+                  <span
+                    key={item.label}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}
+                  >
+                    <span style={{ width: 9, height: 9, borderRadius: 3, background: item.color.dot }} />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+
+              {/* Monthly summary */}
+              {summary && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    borderRadius: 14,
+                    background: PALETTE.surfaceSubtle,
+                    border: `1px solid ${PALETTE.lineSoft}`,
+                    padding: "10px 14px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <span style={{ color: COLOR.green.text }}>출석 {summary.present}일</span>
+                  <span style={{ color: COLOR.yellow.text }}>지각 {summary.late}일</span>
+                  <span style={{ color: COLOR.red.text }}>결석 {summary.absent}일</span>
+                  <span style={{ color: COLOR.orange.text }}>조퇴 {summary.leave}일</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function StudentDetailSheet({
   detail,
   loading,
   onClose,
   onPasswordChange,
+  authFetch,
 }: {
   detail: StudentDetail | null;
   loading: boolean;
   onClose: () => void;
   onPasswordChange: (studentId: string, newPassword: string, newPasswordConfirm: string) => Promise<string>;
+  authFetch: (url: string, options?: RequestInit) => Promise<any>;
 }) {
   const [selectedAchievementDay, setSelectedAchievementDay] = useState<PlannerDailyGoalItem | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -763,6 +1072,13 @@ export function StudentDetailSheet({
                 )}
               </div>
             </section>
+
+            <MonthlyCalendarSection
+              attendanceRows={detail.attendance_rows}
+              studentId={detail.student.student_id}
+              today={detail.planner.today.date}
+              authFetch={authFetch}
+            />
 
             <section style={sectionCardStyle}>
               <div style={{ padding: "18px 18px 14px", borderBottom: `1px solid ${PALETTE.lineSoft}` }}>

@@ -709,6 +709,7 @@ export function WeeklyAttendanceSection({
           loading={studentDetailLoading}
           onClose={handleCloseStudentDetail}
           onPasswordChange={handlePasswordChange}
+          authFetch={authFetch}
         />
       )}
 
