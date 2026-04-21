@@ -355,6 +355,7 @@ type MonthlyRecord = {
   status: string;
   color: string;
   label: string;
+  check_out: string | null;
 };
 
 type MonthlySummary = {
@@ -364,9 +365,29 @@ type MonthlySummary = {
   leave: number;
 };
 
+type DailyGoalEntry = {
+  content: string;
+  is_achieved: boolean;
+};
+
+type WeeklyGoalEntry = {
+  weekday: number;
+  weekday_label: string;
+  content: string;
+  is_completed: boolean;
+  planned_time: string | null;
+};
+
+type WeeklyGoalGroup = {
+  week_start: string;
+  goals: WeeklyGoalEntry[];
+};
+
 type MonthlyData = {
   records: MonthlyRecord[];
   summary: MonthlySummary;
+  daily_goals: Record<string, DailyGoalEntry>;
+  weekly_goals: WeeklyGoalGroup[];
 };
 
 function MonthlyCalendarSection({
@@ -407,9 +428,9 @@ function MonthlyCalendarSection({
     const records = matching.map((row) => {
       const status = statusFromColor[row.color] ?? "present";
       summary[status] += 1;
-      return { date: row.date, status, color: row.color, label: row.label };
+      return { date: row.date, status, color: row.color, label: row.label, check_out: row.check_out };
     });
-    return { records, summary };
+    return { records, summary, daily_goals: {}, weekly_goals: [] };
   }
 
   useEffect(() => {
@@ -424,8 +445,13 @@ function MonthlyCalendarSection({
 
     setLoading(true);
     authFetch(`${Routes.ADMIN}/api/student/${studentId}/monthly-attendance/?month=${monthKey}`)
-      .then((resp: { records: MonthlyRecord[]; summary: MonthlySummary }) => {
-        setDataCache((prev) => new Map(prev).set(monthKey, { records: resp.records, summary: resp.summary }));
+      .then((resp: { records: MonthlyRecord[]; summary: MonthlySummary; daily_goals?: Record<string, DailyGoalEntry>; weekly_goals?: WeeklyGoalGroup[] }) => {
+        setDataCache((prev) => new Map(prev).set(monthKey, {
+          records: resp.records,
+          summary: resp.summary,
+          daily_goals: resp.daily_goals ?? {},
+          weekly_goals: resp.weekly_goals ?? [],
+        }));
       })
       .catch(() => null)
       .finally(() => setLoading(false));
@@ -433,6 +459,9 @@ function MonthlyCalendarSection({
 
   const data = dataCache.get(monthKey);
   const recordMap = new Map((data?.records ?? []).map((r) => [r.date, r]));
+  const dailyGoals = data?.daily_goals ?? {};
+  const weeklyGoals = data?.weekly_goals ?? [];
+  const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
 
   const firstDay = new Date(year, month - 1, 1);
   const lastDay = new Date(year, month, 0);
@@ -572,22 +601,31 @@ function MonthlyCalendarSection({
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
                 {cells.map((cell, idx) => {
                   if (!cell.day) {
-                    return <div key={`empty-${idx}`} style={{ aspectRatio: "1 / 0.88" }} />;
+                    return <div key={`empty-${idx}`} style={{ aspectRatio: "1 / 1" }} />;
                   }
                   const record = cell.dateStr ? recordMap.get(cell.dateStr) : null;
+                  const goal = cell.dateStr ? dailyGoals[cell.dateStr] : null;
                   const c = record ? (COLOR[record.color as keyof typeof COLOR] ?? COLOR.gray) : null;
                   const isToday = cell.dateStr === todayStr;
 
                   return (
                     <div
                       key={cell.dateStr}
-                      title={record ? record.label : "기록 없음"}
+                      title={
+                        [
+                          record ? record.label : "기록 없음",
+                          record?.check_out ? `퇴실 ${record.check_out}` : "",
+                          goal ? `목표: ${goal.content}${goal.is_achieved ? " (달성)": ""}` : "",
+                        ].filter(Boolean).join(" · ")
+                      }
                       style={{
-                        aspectRatio: "1 / 0.88",
+                        aspectRatio: "1 / 1",
                         borderRadius: 10,
                         display: "flex",
+                        flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
+                        gap: 1,
                         fontSize: 12,
                         fontWeight: isToday ? 800 : 600,
                         color: record ? c!.text : PALETTE.faint,
@@ -600,7 +638,21 @@ function MonthlyCalendarSection({
                         boxSizing: "border-box",
                       }}
                     >
-                      {cell.day}
+                      <span>{cell.day}</span>
+                      {record?.check_out && (
+                        <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.75, lineHeight: 1 }}>
+                          {record.check_out}
+                        </span>
+                      )}
+                      {goal && (
+                        <span style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: goal.is_achieved ? PALETTE.success : PALETTE.warning,
+                          marginTop: 1,
+                        }} />
+                      )}
                     </div>
                   );
                 })}
@@ -622,6 +674,14 @@ function MonthlyCalendarSection({
                     {item.label}
                   </span>
                 ))}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: PALETTE.success }} />
+                  목표달성
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: PALETTE.warning }} />
+                  목표진행
+                </span>
               </div>
 
               {/* Monthly summary */}
@@ -644,6 +704,91 @@ function MonthlyCalendarSection({
                   <span style={{ color: COLOR.yellow.text }}>지각 {summary.late}일</span>
                   <span style={{ color: COLOR.red.text }}>결석 {summary.absent}일</span>
                   <span style={{ color: COLOR.orange.text }}>조퇴 {summary.leave}일</span>
+                </div>
+              )}
+
+              {/* Weekly goals history */}
+              {weeklyGoals.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: PALETTE.ink, marginBottom: 10 }}>
+                    주간 목표 히스토리
+                  </div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {weeklyGoals.map((wg) => {
+                      const wsDate = new Date(`${wg.week_start}T00:00:00`);
+                      const weDate = new Date(wsDate);
+                      weDate.setDate(weDate.getDate() + 6);
+                      const label = `${wsDate.getMonth() + 1}/${wsDate.getDate()} ~ ${weDate.getMonth() + 1}/${weDate.getDate()}`;
+                      const isExpanded = expandedWeek === wg.week_start;
+                      const completed = wg.goals.filter((g) => g.is_completed).length;
+                      const total = wg.goals.length;
+
+                      return (
+                        <div key={wg.week_start}>
+                          <button
+                            onClick={() => setExpandedWeek(isExpanded ? null : wg.week_start)}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: `1px solid ${PALETTE.lineSoft}`,
+                              background: isExpanded ? PALETTE.brandSoft : PALETTE.surfaceSubtle,
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: PALETTE.body,
+                            }}
+                          >
+                            <span>{label}</span>
+                            <span style={{ color: completed === total ? PALETTE.success : PALETTE.muted }}>
+                              {completed}/{total} 완료
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div style={{ padding: "8px 0 4px", display: "grid", gap: 4 }}>
+                              {wg.goals.map((g, gi) => (
+                                <div
+                                  key={gi}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    padding: "8px 12px",
+                                    borderRadius: 10,
+                                    background: PALETTE.surface,
+                                    border: `1px solid ${PALETTE.lineSoft}`,
+                                  }}
+                                >
+                                  <span style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "50%",
+                                    background: g.is_completed ? PALETTE.success : PALETTE.line,
+                                    flexShrink: 0,
+                                  }} />
+                                  <span style={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: g.is_completed ? PALETTE.muted : PALETTE.ink,
+                                    textDecoration: g.is_completed ? "line-through" : "none",
+                                    flex: 1,
+                                  }}>
+                                    {g.content}
+                                  </span>
+                                  <span style={{ fontSize: 10, color: PALETTE.faint, whiteSpace: "nowrap" }}>
+                                    {g.weekday_label}{g.planned_time ? ` ${g.planned_time}` : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </>

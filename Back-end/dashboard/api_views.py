@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from attendance.models import AttendanceRecord, AttendanceTimeSetting, LocationSetting
-from planner.models import DailyGoal, DailyTodo
+from planner.models import DailyGoal, DailyTodo, WeeklyGoal
 from users.models import User
 
 from .view_helpers import (
@@ -773,13 +773,52 @@ def api_student_monthly_attendance(request, student_id):
             "status": record.status,
             "color": status_color.get(record.status, "gray"),
             "label": status_label.get(record.status, record.status),
+            "check_out": timezone.localtime(record.check_out_at).strftime("%H:%M") if record.check_out_at else None,
         })
+
+    # DailyGoal: 날짜별 하루 목표
+    daily_goals = DailyGoal.objects.filter(
+        user=student,
+        date__range=(month_start, month_end),
+    ).order_by("date")
+    daily_goal_map = {}
+    for goal in daily_goals:
+        daily_goal_map[goal.date.strftime("%Y-%m-%d")] = {
+            "content": goal.content,
+            "is_achieved": goal.is_achieved,
+        }
+
+    # WeeklyGoal: 해당 월에 걸치는 주간목표
+    # week_start가 월 범위 내이거나, week_start + 6일이 월 범위에 걸치는 경우
+    weekly_goals = WeeklyGoal.objects.filter(
+        user=student,
+        week_start__range=(month_start - timedelta(days=6), month_end),
+    ).order_by("week_start", "weekday")
+
+    weekday_kr = ["일", "월", "화", "수", "목", "금", "토"]
+    weeks_map: dict[str, list] = {}
+    for goal in weekly_goals:
+        ws = goal.week_start.strftime("%Y-%m-%d")
+        weeks_map.setdefault(ws, []).append({
+            "weekday": goal.weekday,
+            "weekday_label": weekday_kr[goal.weekday],
+            "content": goal.content,
+            "is_completed": goal.is_completed,
+            "planned_time": goal.planned_time.strftime("%H:%M") if goal.planned_time else None,
+        })
+
+    weekly_goal_list = [
+        {"week_start": ws, "goals": goals}
+        for ws, goals in weeks_map.items()
+    ]
 
     return JsonResponse({
         "month": month_start.strftime("%Y-%m"),
         "student_name": student.name,
         "records": record_list,
         "summary": summary,
+        "daily_goals": daily_goal_map,
+        "weekly_goals": weekly_goal_list,
     })
 
 
