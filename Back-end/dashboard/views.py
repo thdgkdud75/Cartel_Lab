@@ -13,6 +13,7 @@ from .api_views import (
     api_set_location,
     api_set_time,
     api_student_detail,
+    api_student_monthly_attendance,
     api_weekly_attendance,
 )
 from .page_views import (
@@ -38,6 +39,7 @@ __all__ = [
     "api_set_location",
     "api_set_time",
     "api_student_detail",
+    "api_student_monthly_attendance",
     "api_weekly_attendance",
     "dashboard_change_password",
     "dashboard_cancel_delete",

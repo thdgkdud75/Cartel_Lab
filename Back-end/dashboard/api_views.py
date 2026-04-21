@@ -736,6 +736,54 @@ def api_set_location(request):
 
 
 @csrf_exempt
+@require_GET
+def api_student_monthly_attendance(request, student_id):
+    user = _get_token_user(request)
+    if not user and request.user.is_authenticated:
+        user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    student = get_object_or_404(User, student_id=student_id, is_staff=False)
+
+    month_raw = request.GET.get("month", "")
+    today = date.today()
+    try:
+        month_start = datetime.strptime(month_raw + "-01", "%Y-%m-%d").date() if month_raw else today.replace(day=1)
+    except ValueError:
+        month_start = today.replace(day=1)
+
+    _, last_day = cal_module.monthrange(month_start.year, month_start.month)
+    month_end = month_start.replace(day=last_day)
+
+    records = AttendanceRecord.objects.filter(
+        user=student,
+        attendance_date__range=(month_start, month_end),
+    ).order_by("attendance_date")
+
+    status_label = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
+    status_color = {"present": "green", "late": "yellow", "absent": "red", "leave": "orange"}
+
+    summary = {"present": 0, "late": 0, "absent": 0, "leave": 0}
+    record_list = []
+    for record in records:
+        summary[record.status] = summary.get(record.status, 0) + 1
+        record_list.append({
+            "date": record.attendance_date.strftime("%Y-%m-%d"),
+            "status": record.status,
+            "color": status_color.get(record.status, "gray"),
+            "label": status_label.get(record.status, record.status),
+        })
+
+    return JsonResponse({
+        "month": month_start.strftime("%Y-%m"),
+        "student_name": student.name,
+        "records": record_list,
+        "summary": summary,
+    })
+
+
+@csrf_exempt
 @require_POST
 def api_set_time(request):
     user = _get_token_user(request)

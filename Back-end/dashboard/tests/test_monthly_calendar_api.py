@@ -61,7 +61,7 @@ class MonthlyCalendarAPITest(TestCase):
 
     def test_returns_monthly_records(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
             **self._auth_headers(),
         )
         self.assertEqual(resp.status_code, 200)
@@ -73,7 +73,7 @@ class MonthlyCalendarAPITest(TestCase):
 
     def test_summary_counts_correct(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
             **self._auth_headers(),
         )
         data = resp.json()
@@ -86,14 +86,14 @@ class MonthlyCalendarAPITest(TestCase):
 
     def test_requires_staff(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
             **self._auth_headers(user=self.student),
         )
         self.assertEqual(resp.status_code, 403)
 
     def test_defaults_to_current_month(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/",
             **self._auth_headers(),
         )
         self.assertEqual(resp.status_code, 200)
@@ -102,7 +102,7 @@ class MonthlyCalendarAPITest(TestCase):
 
     def test_empty_month_returns_empty(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month=2020-01",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month=2020-01",
             **self._auth_headers(),
         )
         self.assertEqual(resp.status_code, 200)
@@ -112,7 +112,7 @@ class MonthlyCalendarAPITest(TestCase):
 
     def test_record_shape(self):
         resp = self.client.get(
-            f"/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
+            f"/api/dashboard/api/student/{self.student.student_id}/monthly-attendance/?month={self.month_str}",
             **self._auth_headers(),
         )
         data = resp.json()
