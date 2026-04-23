@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuthFetch } from "@/lib/use-auth-fetch";
 import { Routes, ApiPaths } from "@/constants/enums";
 import { DEFAULT_PROFILE_IMAGES } from "@/constants/images";
@@ -16,6 +16,28 @@ export default function MyPage() {
   const [me, setMe] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const refreshProfile = useCallback(async () => {
+    if (!session) return;
+
+    setProfileLoading(true);
+    setProfileError(null);
+
+    try {
+      const [meData, profileData] = await Promise.all([
+        authFetch(`${Routes.AUTH}${ApiPaths.ME}`),
+        authFetch(`${Routes.AUTH}${ApiPaths.PROFILE}`),
+      ]);
+
+      setMe(meData as User);
+      setProfile(profileData as Profile);
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "프로필 정보를 불러오지 못했습니다.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [session, authFetch]);
 
   useEffect(() => {
     if (!session) return;
@@ -25,11 +47,8 @@ export default function MyPage() {
       window.history.replaceState({}, "", Routes.USERS);
     }
 
-    Promise.all([
-      authFetch(`${Routes.AUTH}${ApiPaths.ME}`).then(setMe).catch(() => null),
-      authFetch(`${Routes.AUTH}${ApiPaths.PROFILE}`).then(setProfile).catch(() => null),
-    ]).finally(() => setProfileLoading(false));
-  }, [session]);
+    refreshProfile();
+  }, [session, refreshProfile]);
 
   const name = me?.name ?? session?.user?.name ?? "";
   const profileImage = me?.profile_image || (session?.user
@@ -102,16 +121,26 @@ export default function MyPage() {
                     : "Unknown"}
                 </span>
               </div>
+              {profileError && (
+                <p style={{ margin: "14px 0 0", color: "#dc2626", fontSize: 13, lineHeight: 1.6 }}>
+                  프로필 정보를 다시 불러오지 못했습니다. {profileError}
+                </p>
+              )}
             </div>
 
             {/* GitHub + 이력서 패널 */}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.05fr) minmax(0,0.95fr)", gap: 18, alignItems: "start" }}>
-              <GithubSection profile={profile} profileLoading={profileLoading} setProfile={setProfile} />
-              <ResumeSection profile={profile} setProfile={setProfile} />
+              <GithubSection
+                profile={profile}
+                profileLoading={profileLoading}
+                setProfile={setProfile}
+                onRefresh={refreshProfile}
+              />
+              <ResumeSection profile={profile} setProfile={setProfile} onRefresh={refreshProfile} />
             </div>
 
             {/* AI 분석 결과 */}
-            <AnalysisSection profile={profile} setProfile={setProfile} />
+            <AnalysisSection profile={profile} setProfile={setProfile} onRefresh={refreshProfile} />
 
           </div>
         </div>

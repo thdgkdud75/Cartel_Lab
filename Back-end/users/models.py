@@ -69,6 +69,7 @@ class User(AbstractUser):
     daily_analysis_date = models.DateField("분석 횟수 기준일", null=True, blank=True)
     deletion_scheduled_at = models.DateTimeField("삭제 예정 일시", null=True, blank=True)
     expo_push_token = models.CharField("Expo 푸시 토큰", max_length=200, blank=True, default="")
+    discord_id = models.CharField("디스코드 ID", max_length=20, blank=True, default="")
     profile_image = models.ImageField("프로필 사진", upload_to="profiles/", blank=True, null=True)
 
     objects = UserManager()

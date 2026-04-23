@@ -1,39 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   getAllTimetables,
   getClassTimetable,
   type ClassTimetable,
 } from "@/constants/timetable";
-import { Pages } from "@/constants/enums";
 import { pageContainerStyle, pageShellStyle } from "./_styles";
 import { TimetableHeroSection } from "./_hero-section";
 import { WeeklyTimetableSection } from "./_weekly-section";
 import { DailyTimetableSection } from "./_daily-section";
 
 export default function TimetablePage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session } = useSession();
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace(`/${Pages.LOGIN}`);
-    }
-  }, [router, status]);
-
-  if (status === "loading") {
-    return null;
-  }
-
-  const classGroup = session?.user?.class_group;
+  const classGroup = session?.user?.class_group ?? null;
   const selectedSchedule = getClassTimetable(classGroup) ?? getAllTimetables()[0];
   const schedules = getSchedulesForView(classGroup, selectedSchedule);
   const todayWeekday = normalizeWeekday(new Date().getDay());
   const classGroupLabel =
-    classGroup === "A" || classGroup === "B" ? `${classGroup}반` : "반 정보 없음";
+    classGroup === "A" || classGroup === "B" ? `${classGroup}반` : "전체 시간표";
 
   return (
     <div style={pageShellStyle}>
@@ -41,7 +27,7 @@ export default function TimetablePage() {
         <TimetableHeroSection
           primarySchedule={selectedSchedule}
           todayWeekday={todayWeekday}
-          userName={session?.user?.name ?? "사용자"}
+          userName={session?.user?.name ?? "방문자"}
           classGroupLabel={classGroupLabel}
         />
         <WeeklyTimetableSection schedules={schedules} todayWeekday={todayWeekday} />

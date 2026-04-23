@@ -4,7 +4,7 @@ import threading
 from django.contrib import messages
 from django.core.cache import cache
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.utils import timezone
 
 from jobs.models import JobPosting
@@ -69,6 +69,12 @@ def split_detail_lines(value):
     return lines
 
 
+def build_ai_recommendation_cache_key(user, job_id):
+    analyzed_at = getattr(user, "profile_analyzed_at", None)
+    analyzed_token = analyzed_at.isoformat() if analyzed_at else "none"
+    return f"ai_job_rec_{user.id}_{job_id}_{analyzed_token}"
+
+
 def build_main_task_preview(job):
     tasks = split_detail_lines(job.detail_main_tasks)
     if tasks:
@@ -78,14 +84,34 @@ def build_main_task_preview(job):
     return []
 
 
-def jobs_index(request):
-    _ONE_DAY = 60 * 60 * 24
-    user_id = request.user.id if request.user.is_authenticated else "anonymous"
-    cache_key = f"jobs_index_{user_id}"
-    cached = cache.get(cache_key)
-    if cached:
-        return render(request, "jobs/index.html", cached)
+def serialize_job_index_item(job):
+    return {
+        "id": job.id,
+        "title": job.title,
+        "company_name": job.company_name,
+        "location": job.location,
+        "job_role": job.job_role,
+        "employment_type": job.employment_type,
+        "experience_label": job.experience_label,
+        "education_level": job.education_level,
+        "is_junior_friendly": job.is_junior_friendly,
+        "required_skills": job.required_skills,
+        "summary_text": job.summary_text,
+        "posted_at": timezone.localtime(job.posted_at).isoformat() if job.posted_at else None,
+        "deadline_at": timezone.localtime(job.deadline_at).isoformat() if job.deadline_at else None,
+        "external_url": job.external_url,
+        "source": job.source,
+        "ui_company_mark": job.ui_company_mark,
+        "ui_deadline_label": job.ui_deadline_label,
+        "ui_tags": job.ui_tags,
+        "ui_main_tasks": job.ui_main_tasks,
+        "ui_categories": job.ui_categories,
+        "ui_recommendation_score": job.ui_recommendation_score,
+        "ui_recommendation_reasons": job.ui_recommendation_reasons,
+    }
 
+
+def jobs_index(request):
     jobs = list(
         JobPosting.objects.filter(is_active=True).order_by("-posted_at", "-updated_at", "-id")[:100]
     )
@@ -122,15 +148,18 @@ def jobs_index(request):
     )
 
     used_keys = {key for job in jobs for key in job.ui_categories}
-    active_categories = [c for c in JOB_CATEGORIES if c["key"] in used_keys]
+    active_categories = [
+        {"key": category["key"], "label": category["label"]}
+        for category in JOB_CATEGORIES
+        if category["key"] in used_keys
+    ]
 
-    ctx = {
-        "jobs": jobs,
+    payload = {
+        "jobs": [serialize_job_index_item(job) for job in jobs],
         "scoring_enabled": scoring_enabled,
         "categories": active_categories,
     }
-    cache.set(cache_key, ctx, _ONE_DAY)
-    return render(request, "jobs/index.html", ctx)
+    return JsonResponse(payload)
 
 
 def jobs_sync(request):
@@ -167,8 +196,8 @@ def job_detail_api(request, job_id):
         and getattr(request.user, "is_authenticated", False)
         and getattr(request.user, "ai_profile_payload", None)
     ):
-        # 캐시 키: 유저 ID + 공고 ID 조합 → 같은 유저가 같은 공고를 다시 열면 Redis에서 즉시 반환
-        cache_key = f"ai_job_rec_{request.user.id}_{job_id}"
+        # 분석 시점까지 키에 포함해, 프로필을 다시 분석하면 이전 Redis 결과를 재사용하지 않는다.
+        cache_key = build_ai_recommendation_cache_key(request.user, job_id)
         ai_result = cache.get(cache_key)
 
         if ai_result is None:

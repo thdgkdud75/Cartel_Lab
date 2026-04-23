@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { dbFetch } from "@/lib/api-client";
 import { useAuthFetch } from "@/lib/use-auth-fetch";
-import { Pages } from "@/constants/enums";
 import {
   buildCertificationLiveAlerts,
   displayCertificationName,
@@ -19,7 +17,6 @@ import {
   type CertificationItem,
   type CertificationsPayload,
 } from "@/constants/certifications";
-import { CertificationsHeroSection } from "./_hero-section";
 import { CertificationsControlsSection } from "./_controls-section";
 import { CertificationsSelectorSection } from "./_selector-section";
 import { CertificationDetailModalSection } from "./_detail-modal-section";
@@ -32,11 +29,9 @@ const KNOWN_SCHEDULE_STORAGE_KEY = "certifications-known-schedules-v1";
 
 export default function CertificationsPage() {
   const { status } = useSession();
-  const router = useRouter();
   const authFetch = useAuthFetch();
 
   const [items, setItems] = useState<CertificationItem[]>([]);
-  const [alerts, setAlerts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -63,10 +58,8 @@ export default function CertificationsPage() {
 
       writeRecordStorage(KNOWN_SCHEDULE_STORAGE_KEY, liveAlertResult.knownScheduleMap);
       setItems(normalizedItems);
-      setAlerts(liveAlertResult.alerts);
     } catch {
       setItems([]);
-      setAlerts([]);
       setError("자격증 목록을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
@@ -162,7 +155,7 @@ export default function CertificationsPage() {
     }
 
     if (status !== "authenticated") {
-      router.replace(`/${Pages.LOGIN}`);
+      setCalendarFeedback("로그인 후 이용할 수 있습니다.");
       return;
     }
 
@@ -198,7 +191,6 @@ export default function CertificationsPage() {
   return (
     <div style={pageShellStyle}>
       <div style={pageContainerStyle} className="space-y-6 sm:space-y-7">
-        <CertificationsHeroSection alerts={alerts} items={items} />
         <CertificationsControlsSection
           searchTerm={searchTerm}
           filter={filter}

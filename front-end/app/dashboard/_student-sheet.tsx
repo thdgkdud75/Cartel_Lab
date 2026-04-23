@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DASHBOARD_PALETTE,
   DASHBOARD_STATUS_COLOR,
 } from "@/constants/colors";
+import { Routes } from "@/constants/enums";
 import type { DetailAttendanceRow } from "@/types/attendance";
 import type {
   PlannerDailyGoalItem,
@@ -16,7 +17,7 @@ import type {
   PlannerWeeklyGoalSummary,
 } from "@/types/planner";
 import type { UserProfileSummary } from "@/types/user";
-import { sectionCardStyle } from "./_styles";
+import { fieldStyle, primaryButtonStyle, sectionCardStyle } from "./_styles";
 
 const PALETTE = DASHBOARD_PALETTE;
 const COLOR = DASHBOARD_STATUS_COLOR;
@@ -347,16 +348,497 @@ function RecentAttendanceHeatmap({
   );
 }
 
+/* ─── Monthly Calendar Section ─── */
+
+type MonthlyRecord = {
+  date: string;
+  status: string;
+  color: string;
+  label: string;
+  check_out: string | null;
+};
+
+type MonthlySummary = {
+  present: number;
+  late: number;
+  absent: number;
+  leave: number;
+};
+
+type DailyGoalEntry = {
+  content: string;
+  is_achieved: boolean;
+};
+
+type WeeklyGoalEntry = {
+  weekday: number;
+  weekday_label: string;
+  content: string;
+  is_completed: boolean;
+  planned_time: string | null;
+};
+
+type WeeklyGoalGroup = {
+  week_start: string;
+  goals: WeeklyGoalEntry[];
+};
+
+type MonthlyData = {
+  records: MonthlyRecord[];
+  summary: MonthlySummary;
+  daily_goals: Record<string, DailyGoalEntry>;
+  weekly_goals: WeeklyGoalGroup[];
+};
+
+function MonthlyCalendarSection({
+  attendanceRows,
+  studentId,
+  today,
+  authFetch,
+}: {
+  attendanceRows: DetailAttendanceRow[];
+  studentId: string;
+  today: string;
+  authFetch: (url: string, options?: RequestInit) => Promise<any>;
+}) {
+  const [open, setOpen] = useState(false);
+  const todayDate = new Date(`${today}T00:00:00`);
+  const [year, setYear] = useState(todayDate.getFullYear());
+  const [month, setMonth] = useState(todayDate.getMonth() + 1);
+  const [dataCache, setDataCache] = useState<Map<string, MonthlyData>>(new Map());
+  const [loading, setLoading] = useState(false);
+
+  const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+
+  function extractFromRows(key: string): MonthlyData | null {
+    const [y, m] = key.split("-").map(Number);
+    const matching = attendanceRows.filter((row) => {
+      const d = new Date(`${row.date}T00:00:00`);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+    if (matching.length === 0) return null;
+
+    const statusFromColor: Record<string, keyof MonthlySummary> = {
+      green: "present",
+      yellow: "late",
+      red: "absent",
+      orange: "leave",
+    };
+    const summary: MonthlySummary = { present: 0, late: 0, absent: 0, leave: 0 };
+    const records = matching.map((row) => {
+      const status = statusFromColor[row.color] ?? "present";
+      summary[status] += 1;
+      return { date: row.date, status, color: row.color, label: row.label, check_out: row.check_out };
+    });
+    return { records, summary, daily_goals: {}, weekly_goals: [] };
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    if (dataCache.has(monthKey)) return;
+
+    setLoading(true);
+    authFetch(`${Routes.ADMIN}/api/student/${studentId}/monthly-attendance/?month=${monthKey}`)
+      .then((resp: { records: MonthlyRecord[]; summary: MonthlySummary; daily_goals?: Record<string, DailyGoalEntry>; weekly_goals?: WeeklyGoalGroup[] }) => {
+        setDataCache((prev) => new Map(prev).set(monthKey, {
+          records: resp.records,
+          summary: resp.summary,
+          daily_goals: resp.daily_goals ?? {},
+          weekly_goals: resp.weekly_goals ?? [],
+        }));
+      })
+      .catch(() => null)
+      .finally(() => setLoading(false));
+  }, [open, monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const data = dataCache.get(monthKey);
+  const recordMap = new Map((data?.records ?? []).map((r) => [r.date, r]));
+  const dailyGoals = data?.daily_goals ?? {};
+  const weeklyGoals = data?.weekly_goals ?? [];
+  const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
+
+  // 데이터 로드 시 첫 번째 주간목표 자동 펼침
+  useEffect(() => {
+    if (weeklyGoals.length > 0 && expandedWeek === null) {
+      setExpandedWeek(weeklyGoals[0].week_start);
+    }
+  }, [weeklyGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const startDow = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+
+  const cells: Array<{ day: number | null; dateStr: string | null }> = [];
+  for (let i = 0; i < startDow; i++) cells.push({ day: null, dateStr: null });
+  for (let d = 1; d <= totalDays; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({ day: d, dateStr });
+  }
+
+  function goMonth(delta: number) {
+    let m = month + delta;
+    let y = year;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    setMonth(m);
+    setYear(y);
+    setExpandedWeek(null);
+  }
+
+  const monthOptions: { label: string; year: number; month: number }[] = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(todayDate.getFullYear(), todayDate.getMonth() - i, 1);
+    monthOptions.push({
+      label: `${d.getFullYear()}년 ${d.getMonth() + 1}월`,
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+    });
+  }
+
+  const summary = data?.summary;
+  const todayStr = today;
+  const DOW_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+  return (
+    <section style={sectionCardStyle}>
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "18px 18px",
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 800, color: PALETTE.ink }}>월간 출결 캘린더</span>
+        <span
+          style={{
+            fontSize: 18,
+            color: PALETTE.muted,
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 18px 18px" }}>
+          {/* Navigation */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+            <button
+              onClick={() => goMonth(-1)}
+              style={{
+                border: `1px solid ${PALETTE.line}`,
+                borderRadius: 10,
+                background: PALETTE.surface,
+                padding: "6px 10px",
+                fontSize: 14,
+                cursor: "pointer",
+                color: PALETTE.body,
+              }}
+            >
+              ‹
+            </button>
+            <select
+              value={`${year}-${month}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split("-").map(Number);
+                setYear(y);
+                setMonth(m);
+                setExpandedWeek(null);
+              }}
+              style={{ ...fieldStyle, padding: "6px 10px", fontSize: 13, fontWeight: 700, textAlign: "center", minWidth: 130 }}
+            >
+              {monthOptions.map((opt) => (
+                <option key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => goMonth(1)}
+              style={{
+                border: `1px solid ${PALETTE.line}`,
+                borderRadius: 10,
+                background: PALETTE.surface,
+                padding: "6px 10px",
+                fontSize: 14,
+                cursor: "pointer",
+                color: PALETTE.body,
+              }}
+            >
+              ›
+            </button>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: 24, textAlign: "center", color: PALETTE.muted, fontSize: 13 }}>불러오는 중...</div>
+          ) : (
+            <>
+              {/* Weekday header */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+                {DOW_LABELS.map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      textAlign: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: d === "일" ? PALETTE.danger : d === "토" ? PALETTE.brandText : PALETTE.muted,
+                      padding: "6px 0",
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                {cells.map((cell, idx) => {
+                  if (!cell.day) {
+                    return <div key={`empty-${idx}`} style={{ aspectRatio: "1 / 1" }} />;
+                  }
+                  const record = cell.dateStr ? recordMap.get(cell.dateStr) : null;
+                  const goal = cell.dateStr ? dailyGoals[cell.dateStr] : null;
+                  const c = record ? (COLOR[record.color as keyof typeof COLOR] ?? COLOR.gray) : null;
+                  const isToday = cell.dateStr === todayStr;
+
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      title={
+                        [
+                          record ? record.label : "기록 없음",
+                          record?.check_out ? `퇴실 ${record.check_out}` : "",
+                          goal ? `목표: ${goal.content}${goal.is_achieved ? " (달성)": ""}` : "",
+                        ].filter(Boolean).join(" · ")
+                      }
+                      style={{
+                        aspectRatio: "1 / 1",
+                        borderRadius: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                        fontSize: 12,
+                        fontWeight: isToday ? 800 : 600,
+                        color: record ? c!.text : PALETTE.faint,
+                        background: record ? c!.bg : "transparent",
+                        border: isToday
+                          ? `2px solid ${PALETTE.ink}`
+                          : record
+                            ? `1px solid ${c!.dot}3d`
+                            : "1px solid transparent",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <span>{cell.day}</span>
+                      {record?.check_out && (
+                        <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.75, lineHeight: 1 }}>
+                          {record.check_out}
+                        </span>
+                      )}
+                      {goal && (
+                        <span style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: goal.is_achieved ? PALETTE.success : PALETTE.warning,
+                          marginTop: 1,
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+                {[
+                  { label: "출석", color: COLOR.green },
+                  { label: "지각", color: COLOR.yellow },
+                  { label: "조퇴", color: COLOR.orange },
+                  { label: "결석", color: COLOR.red },
+                ].map((item) => (
+                  <span
+                    key={item.label}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}
+                  >
+                    <span style={{ width: 9, height: 9, borderRadius: 3, background: item.color.dot }} />
+                    {item.label}
+                  </span>
+                ))}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: PALETTE.success }} />
+                  목표달성
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: PALETTE.muted }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: PALETTE.warning }} />
+                  목표진행
+                </span>
+              </div>
+
+              {/* Monthly summary */}
+              {summary && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    borderRadius: 14,
+                    background: PALETTE.surfaceSubtle,
+                    border: `1px solid ${PALETTE.lineSoft}`,
+                    padding: "10px 14px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <span style={{ color: COLOR.green.text }}>출석 {summary.present}일</span>
+                  <span style={{ color: COLOR.yellow.text }}>지각 {summary.late}일</span>
+                  <span style={{ color: COLOR.red.text }}>결석 {summary.absent}일</span>
+                  <span style={{ color: COLOR.orange.text }}>조퇴 {summary.leave}일</span>
+                </div>
+              )}
+
+              {/* Weekly goals history */}
+              {weeklyGoals.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: PALETTE.ink, marginBottom: 10 }}>
+                    주간 목표 히스토리
+                  </div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {weeklyGoals.map((wg) => {
+                      const wsDate = new Date(`${wg.week_start}T00:00:00`);
+                      const weDate = new Date(wsDate);
+                      weDate.setDate(weDate.getDate() + 6);
+                      const label = `${wsDate.getMonth() + 1}/${wsDate.getDate()} ~ ${weDate.getMonth() + 1}/${weDate.getDate()}`;
+                      const isExpanded = expandedWeek === wg.week_start;
+                      const completed = wg.goals.filter((g) => g.is_completed).length;
+                      const total = wg.goals.length;
+
+                      return (
+                        <div key={wg.week_start}>
+                          <button
+                            onClick={() => setExpandedWeek(isExpanded ? null : wg.week_start)}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: `1px solid ${PALETTE.lineSoft}`,
+                              background: isExpanded ? PALETTE.brandSoft : PALETTE.surfaceSubtle,
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: PALETTE.body,
+                            }}
+                          >
+                            <span>{label}</span>
+                            <span style={{ color: completed === total ? PALETTE.success : PALETTE.muted }}>
+                              {completed}/{total} 완료
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div style={{ padding: "8px 0 4px", display: "grid", gap: 4 }}>
+                              {wg.goals.map((g, gi) => (
+                                <div
+                                  key={gi}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    padding: "8px 12px",
+                                    borderRadius: 10,
+                                    background: PALETTE.surface,
+                                    border: `1px solid ${PALETTE.lineSoft}`,
+                                  }}
+                                >
+                                  <span style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "50%",
+                                    background: g.is_completed ? PALETTE.success : PALETTE.line,
+                                    flexShrink: 0,
+                                  }} />
+                                  <span style={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: g.is_completed ? PALETTE.muted : PALETTE.ink,
+                                    textDecoration: g.is_completed ? "line-through" : "none",
+                                    flex: 1,
+                                  }}>
+                                    {g.content}
+                                  </span>
+                                  <span style={{ fontSize: 10, color: PALETTE.faint, whiteSpace: "nowrap" }}>
+                                    {g.weekday_label}{g.planned_time ? ` ${g.planned_time}` : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function StudentDetailSheet({
   detail,
   loading,
   onClose,
+  onPasswordChange,
+  authFetch,
 }: {
   detail: StudentDetail | null;
   loading: boolean;
   onClose: () => void;
+  onPasswordChange: (studentId: string, newPassword: string, newPasswordConfirm: string) => Promise<string>;
+  authFetch: (url: string, options?: RequestInit) => Promise<any>;
 }) {
   const [selectedAchievementDay, setSelectedAchievementDay] = useState<PlannerDailyGoalItem | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  async function handlePasswordSubmit() {
+    if (!detail || passwordSaving) return;
+    setPasswordMessage(null);
+    setPasswordError(null);
+    setPasswordSaving(true);
+
+    try {
+      const message = await onPasswordChange(detail.student.student_id, newPassword, newPasswordConfirm);
+      setPasswordMessage(message);
+      setNewPassword("");
+      setNewPasswordConfirm("");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "비밀번호 변경 중 오류가 발생했습니다.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
 
   return (
     <div
@@ -491,6 +973,85 @@ export function StudentDetailSheet({
                   value={`${detail.planner.today.todo_summary.rate}%`}
                   caption={`${detail.planner.today.todo_summary.completed}/${detail.planner.today.todo_summary.total || 0} 완료`}
                 />
+              </div>
+            </section>
+
+            <section style={sectionCardStyle}>
+              <div style={{ padding: "18px 18px 14px", borderBottom: `1px solid ${PALETTE.lineSoft}` }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: PALETTE.ink }}>비밀번호 변경</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: PALETTE.muted }}>
+                  관리자 권한으로 학생 비밀번호를 바로 재설정합니다.
+                </div>
+              </div>
+              <div style={{ padding: 18, display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: PALETTE.body }}>새 비밀번호</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="새 비밀번호 입력"
+                    autoComplete="new-password"
+                    style={fieldStyle}
+                  />
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: PALETTE.body }}>새 비밀번호 확인</label>
+                  <input
+                    type="password"
+                    value={newPasswordConfirm}
+                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                    placeholder="한 번 더 입력"
+                    autoComplete="new-password"
+                    style={fieldStyle}
+                  />
+                </div>
+                {passwordMessage && (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: `1px solid ${PALETTE.brandSoftStrong}`,
+                      background: PALETTE.brandSoft,
+                      color: PALETTE.brandText,
+                      padding: "11px 12px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {passwordMessage}
+                  </div>
+                )}
+                {passwordError && (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: "1px solid #fecaca",
+                      background: "#fef2f2",
+                      color: "#b91c1c",
+                      padding: "11px 12px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {passwordError}
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <div style={{ fontSize: 12, color: PALETTE.muted }}>
+                    변경 후 학생에게 새 비밀번호를 따로 전달해야 합니다.
+                  </div>
+                  <button
+                    onClick={handlePasswordSubmit}
+                    disabled={passwordSaving}
+                    style={{
+                      ...primaryButtonStyle,
+                      minWidth: 112,
+                      opacity: passwordSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {passwordSaving ? "저장 중..." : "비밀번호 저장"}
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -659,6 +1220,13 @@ export function StudentDetailSheet({
                 )}
               </div>
             </section>
+
+            <MonthlyCalendarSection
+              attendanceRows={detail.attendance_rows}
+              studentId={detail.student.student_id}
+              today={detail.planner.today.date}
+              authFetch={authFetch}
+            />
 
             <section style={sectionCardStyle}>
               <div style={{ padding: "18px 18px 14px", borderBottom: `1px solid ${PALETTE.lineSoft}` }}>

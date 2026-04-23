@@ -150,7 +150,7 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
 
   return (
     <section className={`${attendanceCardClassName} p-3 sm:p-5`}>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-start gap-3 sm:items-center">
         {user.profile_image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={user.profile_image} alt={user.name} className="h-11 w-11 rounded-full border-2 border-[#e2e5e9] object-cover sm:h-12 sm:w-12" />
@@ -160,14 +160,14 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-bold text-[#202124] sm:text-[22px]">
+          <h2 className="break-keep text-[15px] font-bold leading-snug text-[#202124] sm:text-[22px]">
             {user.name}님의 오늘의 출결 현황
           </h2>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#5f6368] sm:text-sm">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#5f6368] sm:text-sm">
             <span>{user.student_id}</span>
             <span>{user.grade}학년 {user.class_group}반</span>
             {todayStatus.checkout_request && (
-              <span className="rounded-full bg-[#ede9fe] px-3 py-1.5 font-semibold text-[#6d28d9]">
+              <span className="rounded-full bg-[#ede9fe] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9] sm:px-3 sm:py-1.5 sm:text-sm">
                 퇴실 요청 {todayStatus.checkout_request}
               </span>
             )}
@@ -175,12 +175,12 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
         </div>
       </div>
 
-      <div className="mt-2 flex flex-col items-center sm:mt-5">
-        <div className={`inline-flex rounded-[12px] px-4 py-1 text-[18px] font-extrabold sm:px-7 sm:py-[8px] sm:text-[28px] ${statusMeta.badgeClassName}`}>
+      <div className="mt-3 flex flex-col items-center sm:mt-5">
+        <div className={`inline-flex max-w-full break-keep rounded-[12px] px-3 py-1 text-[16px] font-extrabold sm:px-7 sm:py-[8px] sm:text-[28px] ${statusMeta.badgeClassName}`}>
             {todayRecord?.status_label ?? "출석 전"}
         </div>
 
-        <div className="mt-4 grid w-full max-w-[210px] grid-cols-2 gap-5 text-center sm:mt-5 sm:max-w-[240px] sm:gap-8">
+        <div className="mt-4 grid w-full max-w-[260px] grid-cols-2 gap-3 text-center sm:mt-5 sm:max-w-[240px] sm:gap-8">
           <div>
             <p className="mb-[2px] text-[11px] text-[#868b94] sm:mb-2 sm:text-[14px]">체크인</p>
             <p className="text-[14px] font-bold text-[#202124] sm:text-[18px]">{formatTime(todayRecord?.check_in_at ?? null)}</p>
@@ -191,7 +191,7 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-[#868b94] sm:mt-5 sm:text-[13px]">
+        <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-center text-[11px] text-[#868b94] sm:mt-5 sm:text-[13px]">
           <span>지각 기준 {timeSetting.check_in_deadline ?? "-"}</span>
           <span>조퇴 기준 {timeSetting.check_out_minimum ?? "-"}</span>
         </div>
@@ -201,7 +201,7 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
             <button
               onClick={handleCheckIn}
               disabled={loadingAction !== null}
-              className="rounded-[10px] bg-[#ff6f0f] px-[14px] py-[6px] text-[13px] font-bold text-white disabled:opacity-60 sm:px-5 sm:py-[10px] sm:text-[14px]"
+              className="w-full max-w-[280px] rounded-[10px] bg-[#ff6f0f] px-[14px] py-[9px] text-[13px] font-bold text-white disabled:opacity-60 sm:w-auto sm:max-w-none sm:px-5 sm:py-[10px] sm:text-[14px]"
             >
               {loadingAction === "check-in" ? "출석 처리 중..." : "출석체크 하기"}
             </button>
@@ -210,20 +210,20 @@ export function StatusSection({ user, todayRecord, todayStatus, timeSetting, aut
             <button
               onClick={handleCheckOut}
               disabled={loadingAction !== null}
-              className="rounded-[10px] bg-[#fa5252] px-[14px] py-[6px] text-[13px] font-bold text-white disabled:opacity-60 sm:px-5 sm:py-[10px] sm:text-[14px]"
+              className="w-full max-w-[280px] rounded-[10px] bg-[#fa5252] px-[14px] py-[9px] text-[13px] font-bold text-white disabled:opacity-60 sm:w-auto sm:max-w-none sm:px-5 sm:py-[10px] sm:text-[14px]"
             >
               {loadingAction === "check-out" ? "퇴실 처리 중..." : "퇴실하기"}
             </button>
           )}
           {todayStatus.attendance === "checked_out" && (
-            <div className="rounded-[10px] bg-[#f1f2f4] px-[14px] py-[6px] text-[13px] font-bold text-[#202124] sm:px-5 sm:py-[10px] sm:text-[14px]">
+            <div className="w-full max-w-[280px] rounded-[10px] bg-[#f1f2f4] px-[14px] py-[9px] text-center text-[13px] font-bold text-[#202124] sm:w-auto sm:max-w-none sm:px-5 sm:py-[10px] sm:text-[14px]">
               퇴실 완료
             </div>
           )}
         </div>
 
         {message && (
-          <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm text-[#4b5563]">
+          <p className="mt-4 w-full rounded-2xl bg-[#f7f8fa] px-4 py-3 text-sm leading-6 text-[#4b5563]">
             {message}
           </p>
         )}

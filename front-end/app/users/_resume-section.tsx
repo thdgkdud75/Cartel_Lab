@@ -9,9 +9,10 @@ import type { Profile } from "@/types/user";
 type Props = {
   profile: Profile | null;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
+  onRefresh: () => Promise<void>;
 };
 
-export function ResumeSection({ profile, setProfile }: Props) {
+export function ResumeSection({ profile, setProfile, onRefresh }: Props) {
   const authFetch = useAuthFetch();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -55,6 +56,7 @@ export function ResumeSection({ profile, setProfile }: Props) {
         body: formData,
       });
       setProfile((prev) => prev ? { ...prev, resume_file: updated.resume_file ?? prev.resume_file } : prev);
+      await onRefresh().catch(() => null);
       setSelectedFile(null);
     } catch (error) {
       setResponseType(Responses.ERROR);
@@ -72,6 +74,7 @@ export function ResumeSection({ profile, setProfile }: Props) {
     setSelectedFile(null);
     setResponseType(null);
     setResponseMessage("");
+    await onRefresh().catch(() => null);
   }
 
   return (

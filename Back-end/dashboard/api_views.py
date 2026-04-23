@@ -2,6 +2,8 @@ import calendar as cal_module
 import json as _json
 from datetime import date, datetime, timedelta, time as dtime
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -10,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from attendance.models import AttendanceRecord, AttendanceTimeSetting, LocationSetting
-from planner.models import DailyGoal, DailyTodo
+from planner.models import DailyGoal, DailyTodo, WeeklyGoal
 from users.models import User
 
 from .view_helpers import (
@@ -102,6 +104,116 @@ def api_weekly_attendance(request):
 
 @csrf_exempt
 @require_POST
+def api_bulk_checkin(request):
+    user = _get_token_user(request)
+    if not user and request.user.is_authenticated:
+        user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    try:
+        data = _json.loads(request.body) if request.body else {}
+        date_str = data.get("date", "")
+    except Exception:
+        data, date_str = {}, ""
+
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except Exception:
+            return JsonResponse({"error": "날짜 형식 오류 (YYYY-MM-DD)"}, status=400)
+    else:
+        target_date = timezone.localdate()
+
+    check_in_str = data.get("check_in", "09:00")
+    try:
+        ci_time = datetime.strptime(check_in_str, "%H:%M").time()
+    except Exception:
+        ci_time = dtime(9, 0, 0)
+
+    existing_user_ids = AttendanceRecord.objects.filter(
+        attendance_date=target_date,
+    ).values_list("user_id", flat=True)
+    students = User.objects.filter(is_staff=False).exclude(id__in=existing_user_ids)
+    count = students.count()
+    if count == 0:
+        return JsonResponse({"status": "ok", "message": f"{target_date.strftime('%m/%d')} 모든 학생이 이미 출결 처리되어 있습니다."})
+
+    tz = timezone.get_current_timezone()
+    ci_dt = timezone.make_aware(datetime.combine(target_date, ci_time), tz)
+    now = timezone.now()
+    student_ids = list(students.values_list("id", flat=True))
+
+    # auto_now_add를 임시 해제하여 지정 날짜로 생성
+    auto_fields = []
+    for fname in ("attendance_date", "check_in_at", "created_at"):
+        f = AttendanceRecord._meta.get_field(fname)
+        if f.auto_now_add:
+            f.auto_now_add = False
+            auto_fields.append(f)
+    try:
+        records = [
+            AttendanceRecord(
+                user_id=sid, status="present",
+                attendance_date=target_date, check_in_at=ci_dt, created_at=now,
+            )
+            for sid in student_ids
+        ]
+        AttendanceRecord.objects.bulk_create(records)
+    finally:
+        for f in auto_fields:
+            f.auto_now_add = True
+
+    return JsonResponse({
+        "status": "ok",
+        "message": f"{target_date.strftime('%m/%d')} 미출결 {count}명을 출석 처리했습니다.",
+        "count": count,
+    })
+
+
+@csrf_exempt
+@require_POST
+def api_cancel_attendance(request):
+    user = _get_token_user(request)
+    if not user and request.user.is_authenticated:
+        user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    try:
+        data = _json.loads(request.body)
+        student_name = data.get("name", "").strip()
+        date_str = data.get("date", "")
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
+
+    try:
+        att_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        return JsonResponse({"error": "날짜 형식 오류"}, status=400)
+
+    try:
+        student = User.objects.get(name=student_name, is_staff=False)
+    except User.DoesNotExist:
+        return JsonResponse({"error": f"{student_name} 학생을 찾을 수 없습니다."}, status=404)
+    except User.MultipleObjectsReturned:
+        return JsonResponse({"error": "동명이인이 있습니다."}, status=400)
+
+    deleted, _ = AttendanceRecord.objects.filter(
+        user=student, attendance_date=att_date,
+    ).delete()
+
+    if deleted == 0:
+        return JsonResponse({"error": "해당 날짜 출결 기록이 없습니다."}, status=404)
+
+    return JsonResponse({
+        "status": "ok",
+        "message": f"{student_name} {att_date.strftime('%m/%d')} 출결이 취소되었습니다.",
+    })
+
+
+@csrf_exempt
+@require_POST
 def api_auto_checkout(request):
     user = _get_token_user(request)
     if not user and request.user.is_authenticated:
@@ -109,21 +221,43 @@ def api_auto_checkout(request):
     if not user or not user.is_staff:
         return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
 
-    target_date = timezone.localdate() - timedelta(days=1)
+    try:
+        data = _json.loads(request.body) if request.body else {}
+        date_str = data.get("date", "")
+        co_str = data.get("check_out", "17:00")
+    except Exception:
+        data, date_str, co_str = {}, "", "17:00"
+
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except Exception:
+            return JsonResponse({"error": "날짜 형식 오류 (YYYY-MM-DD)"}, status=400)
+    else:
+        target_date = timezone.localdate() - timedelta(days=1)
+
+    try:
+        co_time = datetime.strptime(co_str, "%H:%M").time()
+    except Exception:
+        co_time = dtime(17, 0, 0)
+
     records = AttendanceRecord.objects.filter(
         attendance_date=target_date,
         check_out_at__isnull=True,
     )
     count = records.count()
     if count == 0:
-        return JsonResponse({"status": "ok", "message": "처리할 미퇴실 기록이 없습니다."})
+        return JsonResponse({"status": "ok", "message": f"{target_date.strftime('%m/%d')} 처리할 미퇴실 기록이 없습니다."})
 
-    checkout_time = timezone.make_aware(datetime.combine(target_date, dtime(17, 0, 0)))
-    records.update(check_out_at=checkout_time)
+    tz = timezone.get_current_timezone()
+    checkout_time = timezone.make_aware(datetime.combine(target_date, co_time), tz)
+    from attendance.services import finalize_checkout
+    for r in records:
+        finalize_checkout(r, checkout_time)
 
     return JsonResponse({
         "status": "ok",
-        "message": f"{target_date.strftime('%m/%d')} 미퇴실 {count}명을 오후 5시로 처리했습니다.",
+        "message": f"{target_date.strftime('%m/%d')} 미퇴실 {count}명을 {co_str}로 처리했습니다.",
         "count": count,
     })
 
@@ -172,8 +306,9 @@ def api_edit_attendance(request):
         data = _json.loads(request.body)
         student_name = data.get("name", "").strip()
         att_date_str = data.get("date", "")
-        check_in_str = data.get("check_in")
-        check_out_str = data.get("check_out")
+        check_in_str = data.get("check_in", "").strip() if data.get("check_in") else ""
+        check_out_str = data.get("check_out", "").strip() if data.get("check_out") else ""
+        status = data.get("status", "").strip() if data.get("status") else ""
     except Exception:
         return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
 
@@ -189,26 +324,46 @@ def api_edit_attendance(request):
     except User.MultipleObjectsReturned:
         return JsonResponse({"error": "동명이인이 있습니다."}, status=400)
 
-    record = AttendanceRecord.objects.filter(user=student, attendance_date=att_date).first()
-    if not record:
-        return JsonResponse({"error": "해당 날짜 출결 기록이 없습니다."}, status=404)
+    record, _ = AttendanceRecord.objects.get_or_create(
+        user=student,
+        attendance_date=att_date,
+        defaults={"status": status or "present"},
+    )
 
+    status_label = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
     tz = timezone.get_current_timezone()
+
+    if status:
+        record.status = status
     if check_in_str:
         try:
             check_in = datetime.strptime(check_in_str, "%H:%M").time()
             record.check_in_at = timezone.make_aware(datetime.combine(att_date, check_in), tz)
         except Exception:
             return JsonResponse({"error": "체크인 시간 형식 오류 (HH:MM)"}, status=400)
+    new_check_out = None
     if check_out_str:
         try:
             check_out = datetime.strptime(check_out_str, "%H:%M").time()
-            record.check_out_at = timezone.make_aware(datetime.combine(att_date, check_out), tz)
+            new_check_out = timezone.make_aware(datetime.combine(att_date, check_out), tz)
         except Exception:
             return JsonResponse({"error": "체크아웃 시간 형식 오류 (HH:MM)"}, status=400)
     record.save()
+    if new_check_out is not None:
+        from attendance.services import finalize_checkout
+        from farm.services import revoke_attendance_reward
+        if record.reward_granted:
+            revoke_attendance_reward(record)
+            record.refresh_from_db()
+        finalize_checkout(record, new_check_out)
+        record.refresh_from_db()
 
-    return JsonResponse({"status": "ok", "message": f"{student_name} {att_date} 출결 수정 완료"})
+    return JsonResponse({
+        "status": "ok",
+        "label": status_label.get(record.status, record.status),
+        "check_in": record.check_in_at.astimezone(tz).strftime("%H:%M") if record.check_in_at else "",
+        "check_out": record.check_out_at.astimezone(tz).strftime("%H:%M") if record.check_out_at else "",
+    })
 
 
 @csrf_exempt
@@ -524,6 +679,41 @@ def api_confirm_delete(request, student_id):
 
 @csrf_exempt
 @require_POST
+def api_change_student_password(request, student_id):
+    user = _get_token_user(request)
+    if not user and request.user.is_authenticated:
+        user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    student = get_object_or_404(User, student_id=student_id, is_staff=False)
+
+    try:
+        data = _json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"error": "잘못된 요청입니다."}, status=400)
+
+    new_password = str(data.get("new_password", "") or "")
+    new_password_confirm = str(data.get("new_password_confirm", "") or "")
+
+    if not new_password:
+        return JsonResponse({"error": "새 비밀번호를 입력해주세요."}, status=400)
+
+    if new_password != new_password_confirm:
+        return JsonResponse({"error": "비밀번호가 일치하지 않습니다."}, status=400)
+
+    try:
+        validate_password(new_password, student)
+    except ValidationError as exc:
+        return JsonResponse({"error": " ".join(exc.messages)}, status=400)
+
+    student.set_password(new_password)
+    student.save(update_fields=["password"])
+    return JsonResponse({"status": "success", "message": f"{student.name} 비밀번호를 변경했습니다."})
+
+
+@csrf_exempt
+@require_POST
 def api_set_location(request):
     user = _get_token_user(request)
     if not user or not user.is_staff:
@@ -543,6 +733,93 @@ def api_set_location(request):
     )
     cache.delete("attendance_location_setting")
     return JsonResponse({"status": "success", "message": f"위치가 '{name}'으로 설정되었습니다."})
+
+
+@csrf_exempt
+@require_GET
+def api_student_monthly_attendance(request, student_id):
+    user = _get_token_user(request)
+    if not user and request.user.is_authenticated:
+        user = request.user
+    if not user or not user.is_staff:
+        return JsonResponse({"error": "관리자 권한이 필요합니다."}, status=403)
+
+    student = get_object_or_404(User, student_id=student_id, is_staff=False)
+
+    month_raw = request.GET.get("month", "")
+    today = date.today()
+    try:
+        month_start = datetime.strptime(month_raw + "-01", "%Y-%m-%d").date() if month_raw else today.replace(day=1)
+    except ValueError:
+        month_start = today.replace(day=1)
+
+    _, last_day = cal_module.monthrange(month_start.year, month_start.month)
+    month_end = month_start.replace(day=last_day)
+
+    records = AttendanceRecord.objects.filter(
+        user=student,
+        attendance_date__range=(month_start, month_end),
+    ).order_by("attendance_date")
+
+    status_label = {"present": "출석", "late": "지각", "absent": "결석", "leave": "조퇴"}
+    status_color = {"present": "green", "late": "yellow", "absent": "red", "leave": "orange"}
+
+    summary = {"present": 0, "late": 0, "absent": 0, "leave": 0}
+    record_list = []
+    for record in records:
+        summary[record.status] = summary.get(record.status, 0) + 1
+        record_list.append({
+            "date": record.attendance_date.strftime("%Y-%m-%d"),
+            "status": record.status,
+            "color": status_color.get(record.status, "gray"),
+            "label": status_label.get(record.status, record.status),
+            "check_out": timezone.localtime(record.check_out_at).strftime("%H:%M") if record.check_out_at else None,
+        })
+
+    # DailyGoal: 날짜별 하루 목표
+    daily_goals = DailyGoal.objects.filter(
+        user=student,
+        date__range=(month_start, month_end),
+    ).order_by("date")
+    daily_goal_map = {}
+    for goal in daily_goals:
+        daily_goal_map[goal.date.strftime("%Y-%m-%d")] = {
+            "content": goal.content,
+            "is_achieved": goal.is_achieved,
+        }
+
+    # WeeklyGoal: 해당 월에 걸치는 주간목표
+    # week_start가 월 범위 내이거나, week_start + 6일이 월 범위에 걸치는 경우
+    weekly_goals = WeeklyGoal.objects.filter(
+        user=student,
+        week_start__range=(month_start - timedelta(days=6), month_end),
+    ).order_by("week_start", "weekday")
+
+    weekday_kr = ["일", "월", "화", "수", "목", "금", "토"]
+    weeks_map: dict[str, list] = {}
+    for goal in weekly_goals:
+        ws = goal.week_start.strftime("%Y-%m-%d")
+        weeks_map.setdefault(ws, []).append({
+            "weekday": goal.weekday,
+            "weekday_label": weekday_kr[goal.weekday],
+            "content": goal.content,
+            "is_completed": goal.is_completed,
+            "planned_time": goal.planned_time.strftime("%H:%M") if goal.planned_time else None,
+        })
+
+    weekly_goal_list = [
+        {"week_start": ws, "goals": goals}
+        for ws, goals in weeks_map.items()
+    ]
+
+    return JsonResponse({
+        "month": month_start.strftime("%Y-%m"),
+        "student_name": student.name,
+        "records": record_list,
+        "summary": summary,
+        "daily_goals": daily_goal_map,
+        "weekly_goals": weekly_goal_list,
+    })
 
 
 @csrf_exempt

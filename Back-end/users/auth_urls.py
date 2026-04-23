@@ -1,5 +1,5 @@
 from django.urls import path
-from .auth_views import LoginView, LogoutView, RefreshView, MeView, ProfileView, ProfileGithubView, ProfileResumeView, ProfileAnalyzeView, GitHubConnectView, GitHubCallbackView, SignUpView
+from .auth_views import LoginView, LogoutView, RefreshView, MeView, ProfileView, ProfileGithubView, ProfileResumeView, ProfileAnalyzeView, GitHubConnectView, GitHubCallbackView, SignUpView, UpdateBasicInfoView
 
 urlpatterns = [
     path('signup/', SignUpView.as_view(), name='auth-signup'),
@@ -11,6 +11,7 @@ urlpatterns = [
     path('profile/github/', ProfileGithubView.as_view(), name='auth-profile-github'),
     path('profile/resume/', ProfileResumeView.as_view(), name='auth-profile-resume'),
     path('profile/analyze/', ProfileAnalyzeView.as_view(), name='auth-profile-analyze'),
+    path('me/update/', UpdateBasicInfoView.as_view(), name='auth-me-update'),
     path('profile/github/connect/', GitHubConnectView.as_view(), name='auth-github-connect'),
     path('profile/github/callback/', GitHubCallbackView.as_view(), name='auth-github-callback'),
 ]

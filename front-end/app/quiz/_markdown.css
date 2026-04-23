@@ -1,0 +1,96 @@
+.quiz-markdown {
+  color: #2d3748;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.quiz-markdown h1,
+.quiz-markdown h2,
+.quiz-markdown h3 {
+  color: #1a202c;
+  font-weight: 700;
+  margin: 20px 0 8px;
+  line-height: 1.4;
+}
+
+.quiz-markdown h1 { font-size: 22px; }
+.quiz-markdown h2 { font-size: 17px; border-bottom: 1px solid #e5ddd1; padding-bottom: 6px; }
+.quiz-markdown h3 { font-size: 15px; color: #4a5568; }
+
+.quiz-markdown p {
+  margin: 6px 0;
+}
+
+.quiz-markdown ul,
+.quiz-markdown ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.quiz-markdown li {
+  margin: 2px 0;
+}
+
+.quiz-markdown code {
+  background: #f0ece4;
+  color: #c7402d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+}
+
+.quiz-markdown pre {
+  margin: 10px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #1f2430;
+  overflow-x: auto;
+}
+
+.quiz-markdown pre code {
+  background: none;
+  color: #f4f0ea;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.quiz-markdown strong {
+  color: #1a202c;
+  font-weight: 700;
+}
+
+.quiz-markdown hr {
+  border: none;
+  border-top: 1px solid #e5ddd1;
+  margin: 16px 0;
+}
+
+.quiz-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.quiz-markdown th,
+.quiz-markdown td {
+  border: 1px solid #e5ddd1;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.quiz-markdown th {
+  background: #f3efe8;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.quiz-markdown blockquote {
+  margin: 10px 0;
+  padding: 8px 16px;
+  border-left: 3px solid #e5ddd1;
+  background: #faf8f4;
+  color: #5f6672;
+}

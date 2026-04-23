@@ -751,16 +751,6 @@ def delete_lab_goal(request, goal_id):
 
 
 @login_required
-def delete_lab_goal(request, goal_id):
-    if request.method != "POST":
-        return redirect("planner-index")
-
-    goal = get_object_or_404(LabWideGoal, id=goal_id, created_by=request.user)
-    goal.delete()
-    return redirect(f"{reverse('planner-index')}?view=goal")
-
-
-@login_required
 def add_daily_todo(request):
     if request.method != "POST":
         return redirect("planner-index")

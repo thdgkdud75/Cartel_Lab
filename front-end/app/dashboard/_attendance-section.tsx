@@ -230,10 +230,12 @@ export function EditAttendanceModal({
   cell,
   onClose,
   onSave,
+  onCancel,
 }: {
   cell: EditableAttendanceCell;
   onClose: () => void;
   onSave: (date: string, status: string, ci: string, co: string) => void;
+  onCancel?: (date: string) => void;
 }) {
   const [status, setStatus] = useState(
     cell.status === "future" || cell.status === "none" ? "present" : cell.status,
@@ -334,8 +336,26 @@ export function EditAttendanceModal({
               padding: "11px 14px",
             }}
           >
-            취소
+            닫기
           </button>
+          {onCancel && cell.rec_id != null && (
+            <button
+              onClick={() => onCancel(cell.date_str)}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                padding: "11px 14px",
+                border: "1px solid #fca5a5",
+                background: PALETTE.surface,
+                color: PALETTE.danger,
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              출결 취소
+            </button>
+          )}
           <button
             onClick={() => onSave(cell.date_str, status, ci, co)}
             style={{
@@ -392,7 +412,7 @@ export function WeeklyAttendanceSection({
     await authFetch(`${Routes.ADMIN}/api/edit-attendance/`, {
       method: "POST",
       body: JSON.stringify({
-        student_pk: editTarget.rec_id ?? null,
+        name: editTarget.studentName,
         date: dateStr,
         status: nextStatus,
         check_in: ci,
@@ -401,6 +421,33 @@ export function WeeklyAttendanceSection({
     }).catch(() => null);
     setEditTarget(null);
     onRefresh();
+  }
+
+  async function handleCancelAttendance(dateStr: string) {
+    if (!editTarget) return;
+    if (!confirm(`${editTarget.studentName}의 ${dateStr} 출결을 취소하시겠습니까?`)) return;
+    await authFetch(`${Routes.ADMIN}/api/cancel-attendance/`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: editTarget.studentName,
+        date: dateStr,
+      }),
+    }).catch(() => null);
+    setEditTarget(null);
+    onRefresh();
+  }
+
+  async function handlePasswordChange(studentId: string, newPassword: string, newPasswordConfirm: string) {
+    const result = await authFetch(`${Routes.ADMIN}/api/student/${studentId}/change-password/`, {
+      method: "POST",
+      body: JSON.stringify({
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      }),
+    });
+    return typeof result?.message === "string" && result.message.trim()
+      ? result.message
+      : "비밀번호를 변경했습니다.";
   }
 
   const weekCells = students[0]?.week ?? [];
@@ -661,6 +708,8 @@ export function WeeklyAttendanceSection({
           detail={studentDetail}
           loading={studentDetailLoading}
           onClose={handleCloseStudentDetail}
+          onPasswordChange={handlePasswordChange}
+          authFetch={authFetch}
         />
       )}
 
@@ -669,6 +718,7 @@ export function WeeklyAttendanceSection({
           cell={editTarget}
           onClose={() => setEditTarget(null)}
           onSave={handleEditSave}
+          onCancel={handleCancelAttendance}
         />
       )}
     </section>

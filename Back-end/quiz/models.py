@@ -19,6 +19,15 @@ class Quiz(models.Model):
         "AI 함정 정답", max_length=500, blank=True, default="",
         help_text="AI가 숨긴 코드까지 읽었을 때 나오는 답. 제출 시 이 값과 일치하면 AI 사용 의심.",
     )
+    SOURCE_MANUAL = "manual"
+    SOURCE_GITHUB = "github"
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, "기존 방식"),
+        (SOURCE_GITHUB, "MD 파일"),
+    ]
+    source = models.CharField(
+        "출제 방식", max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL,
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

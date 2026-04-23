@@ -21,6 +21,7 @@ class AttendanceRecord(models.Model):
     check_in_at = models.DateTimeField(auto_now_add=True)
     check_out_at = models.DateTimeField(null=True, blank=True)
     note = models.CharField(max_length=255, null=True, blank=True)
+    reward_granted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,6 +49,7 @@ class LocationSetting(models.Model):
 class AttendanceTimeSetting(models.Model):
     check_in_deadline = models.TimeField("지각 기준 시간", default=time(10, 0))
     check_out_minimum = models.TimeField("조퇴 기준 시간", default=time(18, 0))
+    alarms_enabled = models.BooleanField("디스코드 봇 자동 알림 활성", default=True)
 
     def __str__(self):
         return f"출결 시간 설정 (지각: {self.check_in_deadline} 이후 / 조퇴: {self.check_out_minimum} 이전)"

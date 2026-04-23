@@ -20,11 +20,11 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("자동 퇴실 처리할 기록이 없습니다."))
             return
 
+        from attendance.services import finalize_checkout
         for record in records:
             # 전날 오후 5시(17:00)로 퇴실 처리
             naive_end_time = datetime.combine(yesterday, time(17, 0, 0))
             aware_end_time = timezone.make_aware(naive_end_time)
-            record.check_out_at = aware_end_time
-            record.save()
+            finalize_checkout(record, aware_end_time)
 
         self.stdout.write(self.style.SUCCESS(f"총 {count}개의 기록을 전날 오후 5시로 자동 퇴실 처리하였습니다."))

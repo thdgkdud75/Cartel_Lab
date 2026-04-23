@@ -90,14 +90,14 @@ export default function AttendancePage() {
   return (
     <div className={attendanceShellClassName}>
       <div className={`${attendanceContainerClassName} py-8 pb-16`}>
-        <div className="rounded-[28px] border border-[#e9ebef] bg-white p-4 shadow-[0_10px_30px_rgba(17,24,39,0.06)] sm:p-6">
+        <div className="overflow-hidden rounded-[28px] border border-[#e9ebef] bg-white p-4 shadow-[0_10px_30px_rgba(17,24,39,0.06)] sm:p-6">
           <div className="grid gap-6">
             <div className="order-2 xl:order-none">
               <RequestsSection requests={data.checkout_requests.requests} authFetch={authFetch} onRefresh={fetchDashboard} />
             </div>
 
             <div className="order-1 grid gap-6 xl:order-none xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)] xl:items-start">
-              <div className="order-1">
+              <div className="order-1 min-w-0">
                 <StatusSection
                   user={data.user}
                   todayRecord={data.today_record}
@@ -107,11 +107,11 @@ export default function AttendancePage() {
                   onRefresh={fetchDashboard}
                 />
               </div>
-              <div className="order-2">
+              <div className="order-2 min-w-0">
                 <MembersSection members={data.current_members.members} count={data.current_members.count} />
               </div>
 
-              <div className="order-3 xl:col-span-1">
+              <div className="order-3 min-w-0 xl:col-span-1">
                 <OverviewSection today={data.today} stats={data.stats} heatmap={data.heatmap} />
               </div>
             </div>

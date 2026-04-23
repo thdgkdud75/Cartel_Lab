@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+  <!-- Body -->
+  <path d="M16 18 C16 9, 38 9, 38 18 L38 36 C38 40, 36 42, 32 42 L30 42 L30 47 L34 47 L34 52 L30 52 L30 47 L26 47 L26 52 L22 52 L22 47 L26 47 L26 42 L24 42 C20 42, 16 40, 16 36 Z" fill="#8B5CF6"/>
+  <!-- Backpack -->
+  <path d="M11 20 C9 20, 9 22, 9 24 L9 32 C9 34, 11 36, 13 36 L16 36 L16 20 Z" fill="#7340DC"/>
+  <!-- Visor -->
+  <ellipse cx="32" cy="23" rx="8" ry="7" fill="#C4E4FF"/>
+  <ellipse cx="32" cy="23" rx="8" ry="7" fill="none" stroke="#8BB8E0" stroke-width="0.5"/>
+  <ellipse cx="34" cy="21" rx="2.5" ry="1.8" fill="white" opacity="0.6"/>
+  <!-- Wizard hat -->
+  <polygon points="27,1 20,15 34,15" fill="#7340DC"/>
+  <rect x="19" y="13" width="16" height="3" rx="1.5" fill="#8B5CF6"/>
+  <circle cx="27" cy="3" r="2" fill="#C4B5FD"/>
+  <!-- Star on hat -->
+  <polygon points="27,7 28,9 30,9 28.5,10.5 29,12.5 27,11 25,12.5 25.5,10.5 24,9 26,9" fill="#C4B5FD" opacity="0.8"/>
+  <!-- Body outline -->
+  <path d="M16 18 C16 9, 38 9, 38 18 L38 36 C38 40, 36 42, 32 42 L30 42 L30 47 L34 47 L34 52 L30 52 L30 47 L26 47 L26 52 L22 52 L22 47 L26 47 L26 42 L24 42 C20 42, 16 40, 16 36 Z" fill="none" stroke="#6B3FC4" stroke-width="1"/>
+</svg>

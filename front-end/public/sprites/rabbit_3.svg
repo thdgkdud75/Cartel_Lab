@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Body -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="#FF69B4"/>
+  <!-- Backpack -->
+  <path d="M13 22 C11 22, 11 24, 11 26 L11 36 C11 38, 13 40, 15 40 L18 40 L18 22 Z" fill="#E5559E"/>
+  <!-- Visor -->
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="#C4E4FF"/>
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="none" stroke="#8BB8E0" stroke-width="0.5"/>
+  <ellipse cx="38" cy="24" rx="3" ry="2" fill="white" opacity="0.6"/>
+  <!-- Bow hat -->
+  <circle cx="30" cy="12" r="4" fill="#FF85C8"/>
+  <circle cx="30" cy="12" r="2" fill="#FF69B4"/>
+  <ellipse cx="25" cy="12" rx="3.5" ry="2.5" fill="#FF85C8"/>
+  <ellipse cx="35" cy="12" rx="3.5" ry="2.5" fill="#FF85C8"/>
+  <!-- Mini pet companion (bunny) -->
+  <ellipse cx="54" cy="50" rx="4.5" ry="4" fill="#FFB6D9"/>
+  <ellipse cx="56" cy="48.5" rx="2" ry="1.5" fill="#C4E4FF"/>
+  <circle cx="56.5" cy="48" r="0.5" fill="white" opacity="0.6"/>
+  <!-- Bunny ears on pet -->
+  <ellipse cx="52" cy="44" rx="1.2" ry="3" fill="#FFB6D9"/>
+  <ellipse cx="55" cy="44" rx="1.2" ry="3" fill="#FFB6D9"/>
+  <ellipse cx="52" cy="44" rx="0.6" ry="2" fill="#FF85C8"/>
+  <ellipse cx="55" cy="44" rx="0.6" ry="2" fill="#FF85C8"/>
+  <!-- Pet legs -->
+  <ellipse cx="53" cy="54" rx="1.5" ry="1" fill="#E5559E"/>
+  <ellipse cx="56" cy="54" rx="1.5" ry="1" fill="#E5559E"/>
+  <!-- Body outline -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="none" stroke="#D44D8A" stroke-width="1"/>
+</svg>

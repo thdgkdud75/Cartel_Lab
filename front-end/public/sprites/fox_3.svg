@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Body -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="#FF8C00"/>
+  <!-- Backpack -->
+  <path d="M13 22 C11 22, 11 24, 11 26 L11 36 C11 38, 13 40, 15 40 L18 40 L18 22 Z" fill="#E07800"/>
+  <!-- Visor -->
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="#C4E4FF"/>
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="none" stroke="#8BB8E0" stroke-width="0.5"/>
+  <ellipse cx="38" cy="24" rx="3" ry="2" fill="white" opacity="0.6"/>
+  <!-- Cowboy hat -->
+  <ellipse cx="30" cy="14" rx="12" ry="3" fill="#C46A00"/>
+  <path d="M22 14 C22 7, 38 7, 38 14" fill="#E07800"/>
+  <rect x="25" y="9" width="12" height="6" rx="2" fill="#FF8C00"/>
+  <!-- Mini pet companion (fox cub) -->
+  <ellipse cx="54" cy="50" rx="5" ry="4" fill="#FFAA44"/>
+  <ellipse cx="56" cy="48.5" rx="2" ry="1.5" fill="#C4E4FF"/>
+  <circle cx="56.5" cy="48" r="0.5" fill="white" opacity="0.6"/>
+  <!-- Fox ears on pet -->
+  <polygon points="50,46 52,42 53,47" fill="#FFAA44"/>
+  <polygon points="55,46 56,42 57,47" fill="#FFAA44"/>
+  <!-- Fox tail on pet -->
+  <path d="M49 50 C46 48, 45 52, 47 54" stroke="#FFAA44" fill="#FFAA44" stroke-width="0.5"/>
+  <!-- Pet legs -->
+  <ellipse cx="53" cy="54" rx="1.5" ry="1" fill="#E07800"/>
+  <ellipse cx="56" cy="54" rx="1.5" ry="1" fill="#E07800"/>
+  <!-- Body outline -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="none" stroke="#C46A00" stroke-width="1"/>
+</svg>

@@ -10,9 +10,10 @@ type Props = {
   profile: Profile | null;
   profileLoading: boolean;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
+  onRefresh: () => Promise<void>;
 };
 
-export function GithubSection({ profile, profileLoading, setProfile }: Props) {
+export function GithubSection({ profile, profileLoading, setProfile, onRefresh }: Props) {
   const authFetch = useAuthFetch();
   const [loading, setLoading] = useState(false);
 
@@ -35,6 +36,7 @@ export function GithubSection({ profile, profileLoading, setProfile }: Props) {
       body: JSON.stringify({ github_url: "" }),
     }).catch(() => null);
     setProfile((prev) => prev ? { ...prev, github_url: "", github_username: "" } : prev);
+    await onRefresh().catch(() => null);
   }
 
   return (

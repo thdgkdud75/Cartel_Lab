@@ -35,6 +35,65 @@ def clean_list_item(value: str) -> str:
     return normalize_text(re.sub(r"^[•·\-\s]+", "", value or ""))
 
 
+def has_hangul(value: str) -> bool:
+    return bool(re.search(r"[가-힣]", value or ""))
+
+
+def is_separator_line(value: str) -> bool:
+    stripped = (value or "").strip()
+    return bool(stripped) and len(stripped) >= 8 and all(ch in "-_=~·." for ch in stripped)
+
+
+def sanitize_text_block(value: str) -> str:
+    if not value:
+        return ""
+
+    normalized = html.unescape(value).replace("\r", "\n").replace("\u200b", " ")
+    lines = [re.sub(r"\s+", " ", line).strip() for line in normalized.split("\n")]
+
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in lines:
+        if not line:
+            if current:
+                blocks.append(" ".join(current).strip())
+                current = []
+            continue
+        if is_separator_line(line):
+            if current:
+                blocks.append(" ".join(current).strip())
+            current = []
+            break
+        current.append(line)
+    if current:
+        blocks.append(" ".join(current).strip())
+
+    blocks = [block for block in blocks if block]
+    if any(re.search(r"[\uac00-\ud7a3]", block) for block in blocks):
+        blocks = [block for block in blocks if re.search(r"[\uac00-\ud7a3]", block)]
+
+    deduped: list[str] = []
+    seen = set()
+    for block in blocks:
+        key = re.sub(r"\s+", " ", block).strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(block)
+
+    return "\n\n".join(deduped)
+
+
+def sanitize_detail_items(items: list[str]) -> list[str]:
+    cleaned = [clean_list_item(item) for item in items]
+    cleaned = [item for item in cleaned if item and not is_separator_line(item)]
+
+    if any(re.search(r"[\uac00-\ud7a3]", item) for item in cleaned):
+        cleaned = [item for item in cleaned if re.search(r"[\uac00-\ud7a3]", item)]
+
+    return unique_items(cleaned)
+
+
 def unique_items(items: list[str]) -> list[str]:
     result = []
     seen = set()
@@ -140,11 +199,11 @@ def parse_wanted_detail_html(html_text: str) -> dict:
         "experience_label": "신입" if initial_data.get("career") == "newbie" else "",
         "education_level": "학력무관",
         "logo_url": company.get("logo_image", ""),
-        "overview": initial_data.get("intro") or company.get("company_description", ""),
-        "main_tasks": split_bullets(initial_data.get("main_tasks", "")),
-        "requirements": split_bullets(initial_data.get("requirements", "")),
-        "preferred_points": split_bullets(initial_data.get("preferred_points", "")),
-        "benefits": split_bullets(initial_data.get("benefits", "")),
+        "overview": sanitize_text_block(initial_data.get("intro") or company.get("company_description", "")),
+        "main_tasks": sanitize_detail_items(split_bullets(initial_data.get("main_tasks", ""))),
+        "requirements": sanitize_detail_items(split_bullets(initial_data.get("requirements", ""))),
+        "preferred_points": sanitize_detail_items(split_bullets(initial_data.get("preferred_points", ""))),
+        "benefits": sanitize_detail_items(split_bullets(initial_data.get("benefits", ""))),
         "detail_images": company.get("title_images", [])[:3],
         "detail_links": [],
     }
@@ -270,12 +329,12 @@ def parse_saramin_detail_payload(summary_html: str, detail_html: str) -> dict:
         "experience_label": summary_pairs.get("경력", ""),
         "education_level": summary_pairs.get("학력", ""),
         "logo_url": image_urls[0] if image_urls else "",
-        "overview": overview,
-        "main_tasks": unique_items(main_tasks),
-        "requirements": unique_items(requirements),
-        "preferred_points": unique_items(preferred_points),
-        "benefits": unique_items(benefits),
-        "required_skills": unique_items(required_skills),
+        "overview": sanitize_text_block(overview),
+        "main_tasks": sanitize_detail_items(main_tasks),
+        "requirements": sanitize_detail_items(requirements),
+        "preferred_points": sanitize_detail_items(preferred_points),
+        "benefits": sanitize_detail_items(benefits),
+        "required_skills": sanitize_detail_items(required_skills),
         "detail_images": image_urls[:3],
         "detail_links": area_links[:8],
     }
@@ -329,12 +388,12 @@ def fetch_job_detail(job: JobPosting) -> dict:
         "experience_label": detail.get("experience_label") or job.experience_label,
         "education_level": detail.get("education_level") or job.education_level,
         "job_role": job.job_role,
-        "required_skills": detail.get("required_skills") or split_bullets(job.required_skills),
-        "overview": detail.get("overview") or job.summary_text,
-        "main_tasks": detail.get("main_tasks", []),
-        "requirements": detail.get("requirements", []),
-        "preferred_points": detail.get("preferred_points", []),
-        "benefits": detail.get("benefits", []),
+        "required_skills": detail.get("required_skills") or sanitize_detail_items(split_bullets(job.required_skills)),
+        "overview": detail.get("overview") or sanitize_text_block(job.summary_text),
+        "main_tasks": sanitize_detail_items(detail.get("main_tasks", [])),
+        "requirements": sanitize_detail_items(detail.get("requirements", [])),
+        "preferred_points": sanitize_detail_items(detail.get("preferred_points", [])),
+        "benefits": sanitize_detail_items(detail.get("benefits", [])),
         "logo_url": detail.get("logo_url", ""),
         "detail_images": detail.get("detail_images", []),
         "detail_links": detail.get("detail_links", []),

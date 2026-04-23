@@ -19,10 +19,11 @@ function LangChip({ name }: { name: string }) {
 type Props = {
   profile: Profile | null;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
+  onRefresh: () => Promise<void>;
 };
 
-export function AnalysisSection({ profile, setProfile }: Props) {
-  const { analyzing, analyzingTip, responseType, responseMessage, handleAnalyze } = useProfileAnalyze(setProfile);
+export function AnalysisSection({ profile, setProfile, onRefresh }: Props) {
+  const { analyzing, analyzingTip, responseType, responseMessage, handleAnalyze } = useProfileAnalyze(setProfile, onRefresh);
   const canAnalyze = !!(profile?.github_username && profile?.resume_file) && !analyzing;
 
   const cardStyle = { padding: 20, borderRadius: 18, background: "#fbfbfc", border: "1px solid #eef0f3" };

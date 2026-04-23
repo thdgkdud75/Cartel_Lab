@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Body -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="#4169E1"/>
+  <!-- Backpack -->
+  <path d="M13 22 C11 22, 11 24, 11 26 L11 36 C11 38, 13 40, 15 40 L18 40 L18 22 Z" fill="#3356B8"/>
+  <!-- Visor -->
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="#C4E4FF"/>
+  <ellipse cx="36" cy="26" rx="9" ry="8" fill="none" stroke="#8BB8E0" stroke-width="0.5"/>
+  <ellipse cx="38" cy="24" rx="3" ry="2" fill="white" opacity="0.6"/>
+  <!-- Top hat -->
+  <rect x="24" y="2" width="14" height="12" rx="2" fill="#2D4FA0"/>
+  <rect x="21" y="12" width="20" height="3" rx="1.5" fill="#3356B8"/>
+  <rect x="26" y="5" width="10" height="1" rx="0.5" fill="#5A82E8" opacity="0.5"/>
+  <!-- Mini pet companion (kitten) -->
+  <ellipse cx="54" cy="50" rx="5" ry="4" fill="#6B8EF0"/>
+  <ellipse cx="56" cy="48.5" rx="2" ry="1.5" fill="#C4E4FF"/>
+  <circle cx="56.5" cy="48" r="0.5" fill="white" opacity="0.6"/>
+  <!-- Cat ears on pet -->
+  <polygon points="50,47 51.5,43 53,47" fill="#6B8EF0"/>
+  <polygon points="55,47 56.5,43 58,47" fill="#6B8EF0"/>
+  <polygon points="50.5,47 51.5,44 52.5,47" fill="#4169E1"/>
+  <polygon points="55.5,47 56.5,44 57.5,47" fill="#4169E1"/>
+  <!-- Cat tail -->
+  <path d="M49 52 C46 50, 45 54, 46 56 C47 57, 48 56, 47 55" stroke="#6B8EF0" fill="none" stroke-width="2" stroke-linecap="round"/>
+  <!-- Pet legs -->
+  <ellipse cx="53" cy="54" rx="1.5" ry="1" fill="#3356B8"/>
+  <ellipse cx="56" cy="54" rx="1.5" ry="1" fill="#3356B8"/>
+  <!-- Body outline -->
+  <path d="M18 20 C18 10, 42 10, 42 20 L42 40 C42 44, 40 46, 36 46 L34 46 L34 52 L38 52 L38 58 L34 58 L34 52 L30 52 L30 58 L26 58 L26 52 L30 52 L30 46 L28 46 C24 46, 18 44, 18 40 Z" fill="none" stroke="#2D4FA0" stroke-width="1"/>
+</svg>

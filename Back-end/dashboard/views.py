@@ -1,6 +1,9 @@
 from .api_views import (
     api_auto_checkout,
+    api_bulk_checkin,
+    api_cancel_attendance,
     api_cancel_delete,
+    api_change_student_password,
     api_confirm_delete,
     api_edit_attendance,
     api_main,
@@ -10,20 +13,23 @@ from .api_views import (
     api_set_location,
     api_set_time,
     api_student_detail,
+    api_student_monthly_attendance,
     api_weekly_attendance,
 )
 from .page_views import (
+    dashboard_change_password,
     dashboard_cancel_delete,
     dashboard_confirm_delete,
     dashboard_edit_attendance,
-    dashboard_index,
     dashboard_schedule_delete,
-    dashboard_student,
 )
 
 __all__ = [
     "api_auto_checkout",
+    "api_bulk_checkin",
+    "api_cancel_attendance",
     "api_cancel_delete",
+    "api_change_student_password",
     "api_confirm_delete",
     "api_edit_attendance",
     "api_main",
@@ -33,11 +39,11 @@ __all__ = [
     "api_set_location",
     "api_set_time",
     "api_student_detail",
+    "api_student_monthly_attendance",
     "api_weekly_attendance",
+    "dashboard_change_password",
     "dashboard_cancel_delete",
     "dashboard_confirm_delete",
     "dashboard_edit_attendance",
-    "dashboard_index",
     "dashboard_schedule_delete",
-    "dashboard_student",
 ]

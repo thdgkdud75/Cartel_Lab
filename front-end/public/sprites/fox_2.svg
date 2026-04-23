@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+  <!-- Body -->
+  <path d="M16 18 C16 9, 38 9, 38 18 L38 36 C38 40, 36 42, 32 42 L30 42 L30 47 L34 47 L34 52 L30 52 L30 47 L26 47 L26 52 L22 52 L22 47 L26 47 L26 42 L24 42 C20 42, 16 40, 16 36 Z" fill="#FF8C00"/>
+  <!-- Backpack -->
+  <path d="M11 20 C9 20, 9 22, 9 24 L9 32 C9 34, 11 36, 13 36 L16 36 L16 20 Z" fill="#E07800"/>
+  <!-- Visor -->
+  <ellipse cx="32" cy="23" rx="8" ry="7" fill="#C4E4FF"/>
+  <ellipse cx="32" cy="23" rx="8" ry="7" fill="none" stroke="#8BB8E0" stroke-width="0.5"/>
+  <ellipse cx="34" cy="21" rx="2.5" ry="1.8" fill="white" opacity="0.6"/>
+  <!-- Cowboy hat -->
+  <ellipse cx="27" cy="13" rx="12" ry="3" fill="#C46A00"/>
+  <path d="M20 13 C20 6, 34 6, 34 13" fill="#E07800"/>
+  <rect x="22" y="8" width="12" height="6" rx="2" fill="#FF8C00"/>
+  <!-- Body outline -->
+  <path d="M16 18 C16 9, 38 9, 38 18 L38 36 C38 40, 36 42, 32 42 L30 42 L30 47 L34 47 L34 52 L30 52 L30 47 L26 47 L26 52 L22 52 L22 47 L26 47 L26 42 L24 42 C20 42, 16 40, 16 36 Z" fill="none" stroke="#C46A00" stroke-width="1"/>
+</svg>

@@ -72,6 +72,21 @@ echo "cron 시작 완료"
 python manage.py sync_contests &
 echo "공모전 초기 동기화 백그라운드 시작"
 
+python manage.py sync_job_sources &
+echo "job sync started in background"
+
+# discord_id 매핑은 봇의 'ㄷㄹ <학번>' self-service 명령으로 처리.
+# 강제 매핑이 필요하면 Django shell 또는 admin 에서 직접 박으세요.
+echo "디스코드 ID 매핑: self-service 모드 (봇의 ㄷㄹ 명령 사용)"
+
+if [ -n "$DISCORD_BOT_TOKEN" ] && [ -n "$DISCORD_CHANNEL_ID" ]; then
+  python manage.py run_discord_bot &
+  echo "디스코드 봇 백그라운드 시작"
+else
+  echo "DISCORD_BOT_TOKEN 미설정, 디스코드 봇 건너뜀"
+fi
+
+
 if [ "$#" -eq 0 ]; then
   set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 3 --timeout 120
 fi

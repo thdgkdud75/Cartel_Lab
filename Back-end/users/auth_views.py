@@ -175,8 +175,20 @@ class ProfileGithubView(APIView):
         github_url = (request.data.get('github_url') or '').strip()
         user = request.user
         user.github_url = github_url
-        user.save(update_fields=['github_url'])
-        return Response({'github_url': user.github_url})
+        if not github_url:
+            user.github_username = ""
+            user.github_profile_summary = ""
+            user.github_top_languages = ""
+            user.github_connected_at = None
+            user.save(update_fields=['github_url', 'github_username', 'github_profile_summary', 'github_top_languages', 'github_connected_at'])
+        else:
+            user.save(update_fields=['github_url'])
+        return Response({
+            'github_url': user.github_url,
+            'github_username': user.github_username,
+            'github_profile_summary': user.github_profile_summary,
+            'github_top_languages': user.github_top_languages,
+        })
 
 
 class ProfileResumeView(APIView):
@@ -267,6 +279,47 @@ class GitHubCallbackView(APIView):
         user.mark_github_connected()
         user.save()
         return Response({'github_username': username, 'github_url': user.github_url})
+
+
+class UpdateBasicInfoView(APIView):
+    """기본 정보 수정 (이름, 학번, 반, 학년, 비밀번호)"""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        from .models import User
+        user = request.user
+        data = request.data
+
+        name = str(data.get('name', '') or '').strip()
+        student_id = str(data.get('student_id', '') or '').strip()
+        class_group = str(data.get('class_group', '') or '').strip()
+        grade = str(data.get('grade', '') or '').strip()
+        new_password = str(data.get('new_password', '') or '')
+        new_password_confirm = str(data.get('new_password_confirm', '') or '')
+
+        if name:
+            user.name = name
+        if student_id and student_id != user.student_id:
+            if User.objects.filter(student_id=student_id).exclude(pk=user.pk).exists():
+                return Response({'error': '이미 사용 중인 학번입니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.student_id = student_id
+        if class_group in ('A', 'B'):
+            user.class_group = class_group
+        if grade in ('1', '2', '3'):
+            user.grade = grade
+        if new_password:
+            if new_password != new_password_confirm:
+                return Response({'error': '비밀번호가 일치하지 않습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(new_password)
+
+        user.save()
+        return Response({
+            'id': user.id,
+            'name': user.name,
+            'student_id': user.student_id,
+            'class_group': user.class_group,
+            'grade': user.grade,
+        })
 
 
 class ProfileAnalyzeView(APIView):

@@ -114,8 +114,8 @@ export function OverviewSection({ today, heatmap }: Props) {
       <h2 className="text-[18px] font-bold text-[#202124] sm:text-[22px]">올해의 출결 현황</h2>
 
       <div className="mt-4 bg-white">
-        <div className="overflow-hidden">
-          <div className="ml-3 flex w-fit max-w-full flex-col sm:ml-4">
+        <div className="overflow-x-auto pb-2">
+          <div className="ml-1 flex w-max min-w-full flex-col pr-1 sm:ml-4 sm:pr-0">
             <div className="relative mb-[5px] ml-7 h-[15px] text-[10px] text-[#868b94]">
               {weeks.map((week, index) => {
                 if (week.monthIndex === null) return null;
@@ -132,7 +132,7 @@ export function OverviewSection({ today, heatmap }: Props) {
               })}
             </div>
 
-            <div className="flex w-fit gap-2">
+            <div className="flex w-max gap-2">
               <div className="w-5 shrink-0 text-left text-[10px] text-[#868b94]">
                 <span className="block h-[11px]" />
                 <span className="mt-[2px] block h-[11px] leading-[11px]">월</span>
@@ -140,7 +140,7 @@ export function OverviewSection({ today, heatmap }: Props) {
                 <span className="mt-[15px] block h-[11px] leading-[11px]">금</span>
               </div>
 
-              <div className="overflow-hidden pb-3">
+              <div className="pb-3">
                 <div className="flex gap-[2px]">
                   {weeks.map((week, index) => (
                     <div key={`${week.label}-${index}`} className="flex flex-col gap-[2px]">
@@ -157,7 +157,7 @@ export function OverviewSection({ today, heatmap }: Props) {
               </div>
             </div>
 
-            <div className="mt-2 flex w-full flex-wrap items-center justify-end gap-[6px] text-[11px] font-medium text-[#868b94] sm:text-[11px]">
+            <div className="mt-2 flex w-full min-w-[320px] flex-wrap items-center justify-start gap-[6px] text-[11px] font-medium text-[#868b94] sm:justify-end sm:text-[11px]">
               <span>결석/미출석</span>
               <span className="h-[11px] w-[11px] rounded-[2px] bg-[#ebedf0]" />
               <span className="h-[11px] w-[11px] rounded-[2px] bg-[#f6c453]" />

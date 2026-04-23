@@ -19,10 +19,11 @@ urlpatterns = [
     path('api/timetable/', include('timetable.urls')),
     path('api/planner/', include('planner.urls')),
     path('api/seats/', include('seats.api_urls')),
-    path('api/quiz/', include('quiz.urls')),
+    path('api/quiz/', include('quiz.api_urls')),
     path('api/blog/', include('blog.urls')),
     path('api/contests/', include('contests.urls')),
     path('api/dashboard/', include('dashboard.urls')),
+    path('api/farm/', include('farm.urls')),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 

@@ -22,3 +22,7 @@ boto3==1.35.99
 beautifulsoup4==4.12.3
 djangorestframework-simplejwt==5.3.1
 django-cors-headers==4.3.1
+discord.py==2.5.2
+pytest==9.0.3
+pytest-django==4.12.0
+holidays>=0.40,<1.0
