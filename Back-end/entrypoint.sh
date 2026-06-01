@@ -2,13 +2,40 @@
 set -e
 
 echo "DB 연결 대기 중..."
-until python -c "
+
+if echo "${DATABASE_URL:-}" | grep -qE "^postgres"; then
+    # PostgreSQL (Neon)
+    until python -c "
+import os, sys
+try:
+    import psycopg2
+    from urllib.parse import urlparse
+    u = urlparse(os.environ['DATABASE_URL'])
+    conn = psycopg2.connect(
+        host=u.hostname, port=u.port or 5432,
+        user=u.username, password=u.password,
+        dbname=u.path.lstrip('/'),
+        sslmode='require', connect_timeout=5
+    )
+    conn.close()
+    print('PostgreSQL 연결 성공')
+    sys.exit(0)
+except Exception as e:
+    print('PostgreSQL 연결 실패:', repr(e))
+    sys.exit(1)
+"; do
+      echo "DB 준비 안됨, 2초 후 재시도..."
+      sleep 2
+    done
+else
+    # MySQL (기존 Railway)
+    until python -c "
 import pymysql, os, sys, traceback
 
-host = os.getenv('DB_HOST') or 'db'
-user = os.getenv('DB_USER') or 'root'
+host     = os.getenv('DB_HOST') or 'db'
+user     = os.getenv('DB_USER') or 'root'
 password = os.getenv('DB_PASSWORD') or ''
-db = os.getenv('DB_NAME') or 'cartel_lab'
+db       = os.getenv('DB_NAME') or 'cartel_lab'
 raw_port = os.getenv('DB_PORT') or '3306'
 
 print('--- DB ENV CHECK ---')
@@ -20,13 +47,7 @@ print('--------------------')
 
 try:
     port = int(raw_port)
-    conn = pymysql.connect(
-        host=host,
-        user=user,
-        password=password,
-        port=port,
-        connect_timeout=5,
-    )
+    conn = pymysql.connect(host=host, user=user, password=password, port=port, connect_timeout=5)
     cursor = conn.cursor()
     cursor.execute(f'CREATE DATABASE IF NOT EXISTS \`{db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
     conn.close()
@@ -37,17 +58,18 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 "; do
-  echo "DB 준비 안됨, 2초 후 재시도..."
-  sleep 2
-done
+      echo "DB 준비 안됨, 2초 후 재시도..."
+      sleep 2
+    done
+fi
 
 echo "DB 연결 성공!"
 
 python manage.py migrate --noinput
 echo "migrate 완료"
 
-python manage.py loaddata timetable/fixtures/initial_timetable.json
-echo "시간표 fixture 로드 완료"
+python manage.py loaddata timetable/fixtures/initial_timetable.json || echo "시간표 fixture 이미 존재, 건너뜀"
+echo "시간표 fixture 처리 완료"
 
 python manage.py shell -c "
 import os
@@ -66,7 +88,7 @@ else:
     print('ADMIN_ID / ADMIN_PASSWORD 미설정, 건너뜀')
 "
 
-service cron start
+service cron start || true
 echo "cron 시작 완료"
 
 python manage.py sync_contests &
@@ -75,8 +97,6 @@ echo "공모전 초기 동기화 백그라운드 시작"
 python manage.py sync_job_sources &
 echo "job sync started in background"
 
-# discord_id 매핑은 봇의 'ㄷㄹ <학번>' self-service 명령으로 처리.
-# 강제 매핑이 필요하면 Django shell 또는 admin 에서 직접 박으세요.
 echo "디스코드 ID 매핑: self-service 모드 (봇의 ㄷㄹ 명령 사용)"
 
 if [ -n "$DISCORD_BOT_TOKEN" ] && [ -n "$DISCORD_CHANNEL_ID" ]; then
@@ -85,7 +105,6 @@ if [ -n "$DISCORD_BOT_TOKEN" ] && [ -n "$DISCORD_CHANNEL_ID" ]; then
 else
   echo "DISCORD_BOT_TOKEN 미설정, 디스코드 봇 건너뜀"
 fi
-
 
 if [ "$#" -eq 0 ]; then
   set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT:-8000}" --workers 3 --timeout 120
