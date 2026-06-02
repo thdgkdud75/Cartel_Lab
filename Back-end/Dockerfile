@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 소스 복사
 COPY . .
 
+# CRLF → LF 변환 (Windows에서 작성된 sh 파일 대비)
+RUN sed -i 's/\r//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
 # static 파일 수집
 RUN python manage.py collectstatic --noinput
 
